@@ -9,7 +9,7 @@ from trading_learning.models import Candle
 
 def load_candles_csv(path: Path, symbol: str) -> list[Candle]:
     candles: list[Candle] = []
-    with path.open("r", encoding="utf-8", newline="") as handle:
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
         for row in reader:
             candles.append(
