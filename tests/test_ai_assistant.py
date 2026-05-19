@@ -1,4 +1,5 @@
 import json
+import pytest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Thread
 
@@ -62,6 +63,17 @@ def test_local_codex_client_returns_text():
             },
         }
     ]
+
+
+def test_local_codex_client_rejects_non_loopback_url_before_request():
+    client = LocalCodexClient(
+        base_url="https://example.com/v1",
+        api_key="secret-key",
+        model="test-model",
+    )
+
+    with pytest.raises(ValueError, match="loopback"):
+        client.chat("system", "user")
 
 
 class FakeClient:

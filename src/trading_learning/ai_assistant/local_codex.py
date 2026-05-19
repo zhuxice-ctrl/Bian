@@ -3,6 +3,10 @@ from __future__ import annotations
 import json
 import urllib.request
 from dataclasses import dataclass
+from urllib.parse import urlparse
+
+
+_LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 
 @dataclass(frozen=True)
@@ -12,6 +16,7 @@ class LocalCodexClient:
     model: str
 
     def chat(self, system_prompt: str, user_prompt: str) -> str:
+        self._validate_loopback_base_url()
         payload = {
             "model": self.model,
             "messages": [
@@ -32,3 +37,8 @@ class LocalCodexClient:
         with urllib.request.urlopen(request, timeout=60) as response:
             data = json.loads(response.read().decode("utf-8"))
         return data["choices"][0]["message"]["content"]
+
+    def _validate_loopback_base_url(self) -> None:
+        hostname = urlparse(self.base_url).hostname
+        if hostname not in _LOOPBACK_HOSTS:
+            raise ValueError("Local Codex base_url must use a loopback host")

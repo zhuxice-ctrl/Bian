@@ -6,6 +6,7 @@ from pathlib import Path
 from trading_learning.backtest.engine import run_spot_backtest
 from trading_learning.config import load_config
 from trading_learning.export_import.exporter import export_zip
+from trading_learning.journal.repository import save_trades
 from trading_learning.market_data.csv_loader import load_candles_csv
 from trading_learning.storage.db import connect, initialize_schema
 from trading_learning.strategy.moving_average import moving_average_crossover_signals
@@ -62,6 +63,7 @@ def main(argv: list[str] | None = None) -> int:
                 fee_rate=args.fee_rate,
                 daily_trade_limit=args.daily_trade_limit,
             )
+            save_trades(conn, result.trades, source="backtest")
             print(f"symbol={result.symbol} trades={result.trade_count} ending_cash={result.ending_cash:.2f}")
             return 0
 

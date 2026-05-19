@@ -5,7 +5,8 @@ from datetime import datetime
 import pytest
 
 from trading_learning.export_import.exporter import _rows_as_dicts, export_zip
-from trading_learning.journal.repository import save_daily_review
+from trading_learning.journal.repository import save_daily_review, save_trades
+from trading_learning.models import Side, Trade
 from trading_learning.storage.db import connect, initialize_schema
 
 
@@ -26,6 +27,21 @@ def test_export_zip_contains_manifest_and_jsonl(tmp_path):
             emotion_note="有点焦虑",
             lesson="follow the plan",
         )
+        save_trades(
+            conn,
+            [
+                Trade(
+                    external_id="bt-BTCUSDT-1-buy",
+                    symbol="BTCUSDT",
+                    side=Side.BUY,
+                    quantity=0.01,
+                    price=100000.0,
+                    fee=1.0,
+                    timestamp=datetime.fromisoformat("2026-05-01T09:00:00+00:00"),
+                    reason="short MA crossed above long MA",
+                )
+            ],
+        )
         export_zip(conn, export_path)
 
     with zipfile.ZipFile(export_path) as archive:
@@ -37,11 +53,18 @@ def test_export_zip_contains_manifest_and_jsonl(tmp_path):
             for line in daily_reviews_text.splitlines()
             if line.strip()
         ]
+        trades_text = archive.read("trades.jsonl").decode("utf-8")
+        trades = [
+            json.loads(line)
+            for line in trades_text.splitlines()
+            if line.strip()
+        ]
         markdown = archive.read("markdown/daily_reviews.md").decode("utf-8")
 
     assert names == {
         "manifest.json",
         "daily_reviews.jsonl",
+        "trades.jsonl",
         "knowledge_cards.jsonl",
         "strategy_hypotheses.jsonl",
         "ai_drafts.jsonl",
@@ -62,6 +85,11 @@ def test_export_zip_contains_manifest_and_jsonl(tmp_path):
     assert review["emotion_note"] == "有点焦虑"
     assert "追单" in daily_reviews_text
     assert "有点焦虑" in daily_reviews_text
+
+    assert len(trades) == 1
+    assert trades[0]["external_id"] == "bt-BTCUSDT-1-buy"
+    assert trades[0]["symbol"] == "BTCUSDT"
+    assert trades[0]["side"] == "BUY"
 
     assert "# Daily Reviews" in markdown
     assert "## 2026-05-01" in markdown

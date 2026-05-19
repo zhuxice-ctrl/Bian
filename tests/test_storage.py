@@ -2,12 +2,14 @@ import sqlite3
 
 import pytest
 
-from trading_learning.journal.repository import save_daily_review
+from trading_learning.journal.repository import save_daily_review, save_trades
 from trading_learning.learning.repository import (
     save_knowledge_card,
     save_strategy_hypothesis,
 )
+from trading_learning.models import Side, Trade
 from trading_learning.storage.db import connect, initialize_schema
+from datetime import datetime
 
 
 def _insert_trade(conn, external_id="trade-1", side="BUY"):
@@ -219,3 +221,68 @@ def test_repositories_store_review_and_learning_records(tmp_path):
         "statement": "If short MA crosses above long MA, momentum may continue.",
         "status": "draft",
     }
+
+
+def test_save_trades_persists_backtest_trade_fields(tmp_path):
+    db_path = tmp_path / "test.sqlite3"
+    first_timestamp = datetime.fromisoformat("2026-05-20T09:00:00+00:00")
+    second_timestamp = datetime.fromisoformat("2026-05-20T10:00:00+00:00")
+    trades = [
+        Trade(
+            external_id="bt-BTCUSDT-1-buy",
+            symbol="BTCUSDT",
+            side=Side.BUY,
+            quantity=0.01,
+            price=100000.0,
+            fee=1.0,
+            timestamp=first_timestamp,
+            reason="short MA crossed above long MA",
+        ),
+        Trade(
+            external_id="bt-BTCUSDT-2-sell",
+            symbol="BTCUSDT",
+            side=Side.SELL,
+            quantity=0.01,
+            price=101000.0,
+            fee=1.01,
+            timestamp=second_timestamp,
+            reason="short MA crossed below long MA",
+        ),
+    ]
+
+    with connect(db_path) as conn:
+        initialize_schema(conn)
+        save_trades(conn, trades, source="backtest")
+
+        rows = conn.execute(
+            """
+            select external_id, symbol, side, quantity, price, fee, timestamp, reason, source
+            from trades
+            order by id
+            """
+        ).fetchall()
+
+    assert [dict(row) for row in rows] == [
+        {
+            "external_id": "bt-BTCUSDT-1-buy",
+            "symbol": "BTCUSDT",
+            "side": "BUY",
+            "quantity": 0.01,
+            "price": 100000.0,
+            "fee": 1.0,
+            "timestamp": first_timestamp.isoformat(),
+            "reason": "short MA crossed above long MA",
+            "source": "backtest",
+        },
+        {
+            "external_id": "bt-BTCUSDT-2-sell",
+            "symbol": "BTCUSDT",
+            "side": "SELL",
+            "quantity": 0.01,
+            "price": 101000.0,
+            "fee": 1.01,
+            "timestamp": second_timestamp.isoformat(),
+            "reason": "short MA crossed below long MA",
+            "source": "backtest",
+        },
+    ]

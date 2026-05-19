@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterable
+
+from trading_learning.models import Trade
 
 
 def save_daily_review(
@@ -34,5 +37,34 @@ def save_daily_review(
             emotion_note,
             lesson,
         ),
+    )
+    conn.commit()
+
+
+def save_trades(
+    conn: sqlite3.Connection,
+    trades: Iterable[Trade],
+    source: str = "backtest",
+) -> None:
+    conn.executemany(
+        """
+        insert into trades (
+          external_id, symbol, side, quantity, price, fee, timestamp, reason, source
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                trade.external_id,
+                trade.symbol,
+                trade.side.value,
+                trade.quantity,
+                trade.price,
+                trade.fee,
+                trade.timestamp.isoformat(),
+                trade.reason,
+                source,
+            )
+            for trade in trades
+        ],
     )
     conn.commit()

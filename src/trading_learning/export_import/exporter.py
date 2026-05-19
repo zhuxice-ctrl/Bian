@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 _ALLOWED_EXPORT_TABLES = {
+    "trades",
     "daily_reviews",
     "knowledge_cards",
     "strategy_hypotheses",
@@ -30,6 +31,7 @@ def export_zip(conn: sqlite3.Connection, export_path: Path) -> None:
         "exported_at": datetime.now(timezone.utc).isoformat(),
     }
     daily_reviews = _rows_as_dicts(conn, "daily_reviews")
+    trades = _rows_as_dicts(conn, "trades")
     knowledge_cards = _rows_as_dicts(conn, "knowledge_cards")
     hypotheses = _rows_as_dicts(conn, "strategy_hypotheses")
     ai_drafts = _rows_as_dicts(conn, "ai_drafts")
@@ -50,6 +52,7 @@ def export_zip(conn: sqlite3.Connection, export_path: Path) -> None:
     with zipfile.ZipFile(export_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
         archive.writestr("daily_reviews.jsonl", to_jsonl(daily_reviews))
+        archive.writestr("trades.jsonl", to_jsonl(trades))
         archive.writestr("knowledge_cards.jsonl", to_jsonl(knowledge_cards))
         archive.writestr("strategy_hypotheses.jsonl", to_jsonl(hypotheses))
         archive.writestr("ai_drafts.jsonl", to_jsonl(ai_drafts))
