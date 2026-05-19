@@ -139,6 +139,18 @@ def test_repositories_store_review_and_learning_records(tmp_path):
             emotion_note="wanted to chase after a loss",
             lesson="wait for planned entries",
         )
+        save_daily_review(
+            conn,
+            external_id="review-2026-05-02",
+            review_date="2026-05-02",
+            symbols_watched=["ETHUSDT"],
+            trade_count=1,
+            plan_followed=False,
+            pnl=-3.0,
+            mistake_tags=["追单"],
+            emotion_note="有点焦虑",
+            lesson="reduce size after a loss",
+        )
         save_knowledge_card(
             conn,
             external_id="card-ma-lag",
@@ -153,12 +165,53 @@ def test_repositories_store_review_and_learning_records(tmp_path):
             statement="If short MA crosses above long MA, momentum may continue.",
         )
 
-        review_count = conn.execute("select count(*) from daily_reviews").fetchone()[0]
-        card_count = conn.execute("select count(*) from knowledge_cards").fetchone()[0]
-        hypothesis_count = conn.execute(
-            "select count(*) from strategy_hypotheses"
-        ).fetchone()[0]
+        review = conn.execute(
+            """
+            select symbols_watched, plan_followed, mistake_tags, emotion_note, lesson
+            from daily_reviews
+            where external_id = 'review-2026-05-01'
+            """
+        ).fetchone()
+        unicode_review = conn.execute(
+            """
+            select mistake_tags, emotion_note
+            from daily_reviews
+            where external_id = 'review-2026-05-02'
+            """
+        ).fetchone()
+        card = conn.execute(
+            """
+            select title, category, content
+            from knowledge_cards
+            where external_id = 'card-ma-lag'
+            """
+        ).fetchone()
+        hypothesis = conn.execute(
+            """
+            select title, statement, status
+            from strategy_hypotheses
+            where external_id = 'hypothesis-ma-cross'
+            """
+        ).fetchone()
 
-    assert review_count == 1
-    assert card_count == 1
-    assert hypothesis_count == 1
+    assert dict(review) == {
+        "symbols_watched": '["BTCUSDT"]',
+        "plan_followed": 1,
+        "mistake_tags": '["late_entry"]',
+        "emotion_note": "wanted to chase after a loss",
+        "lesson": "wait for planned entries",
+    }
+    assert dict(unicode_review) == {
+        "mistake_tags": '["追单"]',
+        "emotion_note": "有点焦虑",
+    }
+    assert dict(card) == {
+        "title": "Moving average lag",
+        "category": "technical_analysis",
+        "content": "Moving averages confirm trends after price has already moved.",
+    }
+    assert dict(hypothesis) == {
+        "title": "MA crossover continuation",
+        "statement": "If short MA crosses above long MA, momentum may continue.",
+        "status": "draft",
+    }
