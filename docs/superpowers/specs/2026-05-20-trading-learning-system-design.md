@@ -137,6 +137,10 @@ app/
     study plan
     strategy hypotheses
     review questions
+  ai_assistant/
+    local Codex-compatible adapter
+    AI task export
+    AI draft result import
   export_import/
     JSONL export
     ZIP package export
@@ -184,6 +188,17 @@ Manual note or imported material
 
 ## Large Model Boundaries
 
+The first implementation may use a local OpenAI-compatible Codex API endpoint on the user's machine as a learning and review assistant.
+
+Default local endpoint configuration:
+
+```text
+LOCAL_CODEX_BASE_URL=http://127.0.0.1:61771/v1
+LOCAL_CODEX_MODEL=gpt-5.4-mini
+```
+
+The API key must be read from local environment variables. It must not be committed, logged, exported, or stored in the SQLite database.
+
 Large models may do:
 
 - Explain trading concepts.
@@ -200,6 +215,8 @@ Large models must not do:
 - Change strategy parameters automatically.
 - Use emotional journal content as strategy input.
 - Override risk rules.
+
+AI outputs that are written back into the system must be stored as drafts until the user explicitly accepts them.
 
 If an AI suggestion affects a strategy, it must become a strategy hypothesis first. It must then pass the normal validation path:
 
@@ -390,6 +407,7 @@ Deliver:
 - Strategy hypothesis records.
 - Daily review template.
 - Mistake tags.
+- Local Codex-compatible assistant adapter for review and learning drafts.
 - Markdown export.
 - JSONL export package.
 
@@ -430,5 +448,6 @@ The first implementation should use conservative defaults so development can sta
 - Position sizing: fixed USDT amount.
 - Interface: CLI first, local web UI later.
 - Storage: SQLite first, with Markdown and JSONL ZIP exports.
+- AI assistant: local Codex-compatible endpoint through environment variables, draft-only writeback.
 
 These defaults can be changed during user review before implementation planning begins.
