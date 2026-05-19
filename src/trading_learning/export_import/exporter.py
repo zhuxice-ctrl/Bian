@@ -7,7 +7,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-def rows_as_dicts(conn: sqlite3.Connection, table: str) -> list[dict]:
+_ALLOWED_EXPORT_TABLES = {
+    "daily_reviews",
+    "knowledge_cards",
+    "strategy_hypotheses",
+    "ai_drafts",
+}
+
+
+def _rows_as_dicts(conn: sqlite3.Connection, table: str) -> list[dict]:
+    if table not in _ALLOWED_EXPORT_TABLES:
+        raise ValueError(f"Table is not allowed for export: {table}")
     rows = conn.execute(f"select * from {table} order by id").fetchall()
     return [dict(row) for row in rows]
 
@@ -19,10 +29,10 @@ def export_zip(conn: sqlite3.Connection, export_path: Path) -> None:
         "source_system": "trading_learning",
         "exported_at": datetime.now(timezone.utc).isoformat(),
     }
-    daily_reviews = rows_as_dicts(conn, "daily_reviews")
-    knowledge_cards = rows_as_dicts(conn, "knowledge_cards")
-    hypotheses = rows_as_dicts(conn, "strategy_hypotheses")
-    ai_drafts = rows_as_dicts(conn, "ai_drafts")
+    daily_reviews = _rows_as_dicts(conn, "daily_reviews")
+    knowledge_cards = _rows_as_dicts(conn, "knowledge_cards")
+    hypotheses = _rows_as_dicts(conn, "strategy_hypotheses")
+    ai_drafts = _rows_as_dicts(conn, "ai_drafts")
 
     markdown_reviews = ["# Daily Reviews", ""]
     for review in daily_reviews:
