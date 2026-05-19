@@ -2,6 +2,11 @@ import sqlite3
 
 import pytest
 
+from trading_learning.journal.repository import save_daily_review
+from trading_learning.learning.repository import (
+    save_knowledge_card,
+    save_strategy_hypothesis,
+)
 from trading_learning.storage.db import connect, initialize_schema
 
 
@@ -116,3 +121,44 @@ def test_daily_reviews_plan_followed_rejects_invalid_values(tmp_path):
 
         with pytest.raises(sqlite3.IntegrityError):
             _insert_daily_review(conn, plan_followed=2)
+
+
+def test_repositories_store_review_and_learning_records(tmp_path):
+    db_path = tmp_path / "test.sqlite3"
+    with connect(db_path) as conn:
+        initialize_schema(conn)
+        save_daily_review(
+            conn,
+            external_id="review-2026-05-01",
+            review_date="2026-05-01",
+            symbols_watched=["BTCUSDT"],
+            trade_count=2,
+            plan_followed=True,
+            pnl=12.5,
+            mistake_tags=["late_entry"],
+            emotion_note="wanted to chase after a loss",
+            lesson="wait for planned entries",
+        )
+        save_knowledge_card(
+            conn,
+            external_id="card-ma-lag",
+            title="Moving average lag",
+            category="technical_analysis",
+            content="Moving averages confirm trends after price has already moved.",
+        )
+        save_strategy_hypothesis(
+            conn,
+            external_id="hypothesis-ma-cross",
+            title="MA crossover continuation",
+            statement="If short MA crosses above long MA, momentum may continue.",
+        )
+
+        review_count = conn.execute("select count(*) from daily_reviews").fetchone()[0]
+        card_count = conn.execute("select count(*) from knowledge_cards").fetchone()[0]
+        hypothesis_count = conn.execute(
+            "select count(*) from strategy_hypotheses"
+        ).fetchone()[0]
+
+    assert review_count == 1
+    assert card_count == 1
+    assert hypothesis_count == 1
