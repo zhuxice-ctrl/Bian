@@ -5,12 +5,12 @@ from datetime import datetime
 from enum import Enum
 
 
-class Side(Enum):
+class Side(str, Enum):
     BUY = "BUY"
     SELL = "SELL"
 
 
-class SignalAction(Enum):
+class SignalAction(str, Enum):
     BUY = "BUY"
     SELL = "SELL"
     HOLD = "HOLD"
