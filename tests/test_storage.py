@@ -167,7 +167,8 @@ def test_repositories_store_review_and_learning_records(tmp_path):
 
         review = conn.execute(
             """
-            select symbols_watched, plan_followed, mistake_tags, emotion_note, lesson
+            select review_date, symbols_watched, trade_count, plan_followed, pnl,
+                   mistake_tags, emotion_note, lesson
             from daily_reviews
             where external_id = 'review-2026-05-01'
             """
@@ -195,8 +196,11 @@ def test_repositories_store_review_and_learning_records(tmp_path):
         ).fetchone()
 
     assert dict(review) == {
+        "review_date": "2026-05-01",
         "symbols_watched": '["BTCUSDT"]',
+        "trade_count": 2,
         "plan_followed": 1,
+        "pnl": 12.5,
         "mistake_tags": '["late_entry"]',
         "emotion_note": "wanted to chase after a loss",
         "lesson": "wait for planned entries",
