@@ -23,9 +23,9 @@ def run_spot_backtest(
         day_key = signal.timestamp.date().isoformat()
         if daily_counts[day_key] >= daily_trade_limit:
             continue
-        price = float(prices_by_timestamp[signal.timestamp])
 
         if signal.action == SignalAction.BUY and cash >= quote_amount_per_buy:
+            price = float(prices_by_timestamp[signal.timestamp])
             fee = quote_amount_per_buy * fee_rate
             quantity = (quote_amount_per_buy - fee) / price
             cash -= quote_amount_per_buy
@@ -44,6 +44,7 @@ def run_spot_backtest(
                 )
             )
         elif signal.action == SignalAction.SELL and position_quantity > 0:
+            price = float(prices_by_timestamp[signal.timestamp])
             gross = position_quantity * price
             fee = gross * fee_rate
             cash += gross - fee
