@@ -23,6 +23,7 @@ Build a local-first, low-frequency crypto trading learning system that can:
 - [x] Strategy knowledge-base workflow.
 - [x] Feishu production wiring support that can be completed locally.
 - [x] Real testnet order placement beyond `/order/test` for Spot Testnet only.
+- [x] Natural-language chat fallback through local Codex API.
 
 ## Phase 1: Brain Review And Learning Commands
 
@@ -83,3 +84,15 @@ The local codebase is complete through the planned local phases. Remaining work 
 
 - Feishu app credentials and public HTTPS callback URL.
 - Phone-to-local end-to-end validation after Feishu setup.
+- Local Codex API key must be configured in the Windows user environment before natural-language chat is active.
+
+## Phase 6: Natural-Language Chat Layer
+
+Status: completed
+
+Acceptance criteria:
+
+- [x] Non-command text can route to a local Codex-compatible model.
+- [x] Missing local model configuration returns a clear safe response instead of `unknown`.
+- [x] Natural-language responses cannot execute trades directly.
+- [x] Local setup script prompts for `LOCAL_CODEX_API_KEY` without storing it in the repository.

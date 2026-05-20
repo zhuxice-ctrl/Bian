@@ -22,6 +22,19 @@ class FailingExecutor:
         raise RuntimeError("testnet credentials are not configured")
 
 
+class FakeNaturalLanguageAssistant:
+    def __init__(self, response=None, error=None):
+        self.response = response or {"status": "chat", "message": "你好，我在。"}
+        self.error = error
+        self.calls = []
+
+    def reply(self, text, *, user_id, context):
+        self.calls.append((text, user_id, context))
+        if self.error:
+            raise self.error
+        return self.response
+
+
 def _approve_btc_plan(handler):
     today = date.today().isoformat()
     handler.handle(
@@ -40,6 +53,57 @@ def test_brain_status_command_returns_safe_summary(tmp_path):
 
         assert response["status"] == "ok"
         assert "testnet" in response["message"].lower()
+        assert response["requires_confirmation"] is False
+
+
+def test_natural_language_message_uses_assistant(tmp_path):
+    assistant = FakeNaturalLanguageAssistant()
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor(), natural_language=assistant)
+
+        response = handler.handle("你好", user_id="owner")
+
+        assert response["status"] == "chat"
+        assert response["message"] == "你好，我在。"
+        assert response["requires_confirmation"] is False
+        assert assistant.calls[0][0] == "你好"
+
+
+def test_unknown_slash_command_does_not_call_natural_language_assistant(tmp_path):
+    assistant = FakeNaturalLanguageAssistant()
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor(), natural_language=assistant)
+
+        response = handler.handle("/does-not-exist", user_id="owner")
+
+        assert response["status"] == "unknown"
+        assert assistant.calls == []
+
+
+def test_natural_language_assistant_failure_is_safe(tmp_path):
+    assistant = FakeNaturalLanguageAssistant(error=RuntimeError("local model offline"))
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor(), natural_language=assistant)
+
+        response = handler.handle("你好", user_id="owner")
+
+        assert response["status"] == "chat_unavailable"
+        assert "local model offline" in response["message"]
+        assert response["requires_confirmation"] is False
+
+
+def test_plain_message_without_assistant_explains_configuration(tmp_path):
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor())
+
+        response = handler.handle("你好", user_id="owner")
+
+        assert response["status"] == "chat_unavailable"
+        assert "LOCAL_CODEX_API_KEY" in response["message"]
         assert response["requires_confirmation"] is False
 
 

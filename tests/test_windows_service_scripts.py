@@ -88,6 +88,18 @@ def test_feishu_event_smoke_script_posts_verification_and_message_events():
     assert "FEISHU_VERIFICATION_TOKEN=" not in script
 
 
+def test_set_local_codex_env_script_prompts_for_secret():
+    script = _read_script("set-local-codex-env.ps1")
+
+    assert "Read-Host" in script
+    assert "-AsSecureString" in script
+    assert "LOCAL_CODEX_API_KEY" in script
+    assert "LOCAL_CODEX_BASE_URL" in script
+    assert "LOCAL_CODEX_MODEL" in script
+    assert "SetEnvironmentVariable" in script
+    assert "LOCAL_CODEX_API_KEY=" not in script
+
+
 def test_service_scripts_do_not_contain_known_secret_values():
     combined = "\n".join(
         path.read_text(encoding="utf-8")

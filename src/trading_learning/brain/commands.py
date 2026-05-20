@@ -27,11 +27,13 @@ class BrainCommandHandler:
         executor: Any,
         allowed_user_ids: tuple[str, ...] | None = None,
         confirmation_code: Callable[[], str] | None = None,
+        natural_language: Any | None = None,
     ) -> None:
         self.conn = conn
         self.executor = executor
         self.allowed_user_ids = set(allowed_user_ids or ())
         self.confirmation_code = confirmation_code or self._default_confirmation_code
+        self.natural_language = natural_language
 
     def handle(self, text: str, *, user_id: str) -> dict[str, Any]:
         command_text = text.strip()
@@ -125,6 +127,20 @@ class BrainCommandHandler:
 
         if command_text.startswith("/mistake-link "):
             response = self._mistake_link(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if self.natural_language is not None and not command_text.startswith("/"):
+            response = self._natural_language_reply(command_text, user_id)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if not command_text.startswith("/"):
+            response = {
+                "status": "chat_unavailable",
+                "message": "Natural language chat requires LOCAL_CODEX_API_KEY in the local environment.",
+                "requires_confirmation": False,
+            }
             self._audit(user_id, command_text, response)
             return response
 
@@ -614,6 +630,40 @@ class BrainCommandHandler:
             "status": "saved",
             "message": "linked mistake to knowledge card",
             "requires_confirmation": False,
+        }
+
+    def _natural_language_reply(self, command_text: str, user_id: str) -> dict[str, Any]:
+        try:
+            response = self.natural_language.reply(
+                command_text,
+                user_id=user_id,
+                context=self._brain_context(),
+            )
+        except Exception as exc:
+            return {
+                "status": "chat_unavailable",
+                "message": str(exc),
+                "requires_confirmation": False,
+            }
+        response.setdefault("requires_confirmation", False)
+        return response
+
+    def _brain_context(self) -> dict[str, Any]:
+        return {
+            "today": self._today(),
+            "plan": self._plan_for_date(self._today()),
+            "available_commands": [
+                "/status",
+                "/plan-set",
+                "/checklist",
+                "/plan-status",
+                "/test-buy",
+                "/testnet-create-buy",
+                "/review-add",
+                "/review-summary",
+                "/knowledge-add",
+                "/knowledge-search",
+            ],
         }
 
     def _execution_block(self, symbol: str) -> dict[str, Any] | None:

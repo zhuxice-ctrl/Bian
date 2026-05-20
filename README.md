@@ -109,6 +109,15 @@ powershell -ExecutionPolicy Bypass -File scripts/brain-chat.ps1 -Command "/statu
 powershell -ExecutionPolicy Bypass -File scripts/brain-chat.ps1
 ```
 
+Natural-language chat uses the local Codex-compatible API. Configure it once with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/set-local-codex-env.ps1
+powershell -ExecutionPolicy Bypass -File scripts/restart-brain.ps1
+```
+
+Without `LOCAL_CODEX_API_KEY`, non-command text returns a clear `chat_unavailable` response instead of executing anything.
+
 Supported commands:
 
 - `/status`: health check and mode summary.

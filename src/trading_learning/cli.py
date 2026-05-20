@@ -10,6 +10,7 @@ from trading_learning.ai_assistant.local_codex import LocalCodexClient
 from trading_learning.ai_assistant.tasks import create_daily_review_draft
 from trading_learning.brain.commands import BrainCommandHandler
 from trading_learning.brain.feishu import FeishuEventAdapter
+from trading_learning.brain.natural_language import LocalCodexBrainAssistant
 from trading_learning.brain.service import build_handler
 from trading_learning.config import load_config
 from trading_learning.config import AppConfig
@@ -37,6 +38,21 @@ def build_binance_testnet_executor(config: AppConfig):
         api_key=config.binance_testnet_api_key,
         api_secret=config.binance_testnet_api_secret,
     )
+
+
+def build_natural_language_assistant(config: AppConfig):
+    if not config.local_codex_api_key:
+        return None
+    client = LocalCodexClient(
+        base_url=config.local_codex_base_url,
+        api_key=config.local_codex_api_key,
+        model=config.local_codex_model,
+    )
+    try:
+        client._validate_loopback_base_url()
+    except ValueError:
+        return None
+    return LocalCodexBrainAssistant(client)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -239,6 +255,7 @@ def main(argv: list[str] | None = None) -> int:
                 conn,
                 executor=client,
                 allowed_user_ids=tuple(args.allowed_user_id),
+                natural_language=build_natural_language_assistant(config),
             )
             feishu_adapter = FeishuEventAdapter(
                 command_handler,

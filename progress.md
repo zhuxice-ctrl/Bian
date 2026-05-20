@@ -14,3 +14,6 @@
 - Added Phase 4 local Feishu event smoke script.
 - Added Phase 5 Spot Testnet create/cancel/get order Brain commands with confirmation.
 - Restarted local Brain and verified plan, checklist, guarded `/test-buy`, `/confirm`, knowledge search, and Feishu local event smoke end-to-end.
+- Added Phase 6 natural-language chat fallback through the local Codex-compatible API.
+- Added `scripts/set-local-codex-env.ps1` for local-only Codex API configuration.
+- Restarted local Brain and verified plain text now returns `chat_unavailable` with configuration guidance instead of `unknown` when `LOCAL_CODEX_API_KEY` is absent.
