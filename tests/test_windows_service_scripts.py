@@ -17,6 +17,9 @@ def test_start_brain_script_runs_local_brain_with_logs():
     assert "--host $HostAddress" in script
     assert "--port $Port" in script
     assert "logs" in script
+    assert "GetEnvironmentVariable" in script
+    assert "BINANCE_TESTNET_API_KEY" in script
+    assert "BINANCE_TESTNET_API_SECRET" in script
     assert "BINANCE_TESTNET_API_KEY=" not in script
     assert "BINANCE_TESTNET_API_SECRET=" not in script
 
@@ -48,6 +51,28 @@ def test_startup_shortcut_scripts_use_current_user_startup_folder():
     assert "start-brain.ps1" in install_script
     assert "TradingLearningBrain.lnk" in uninstall_script
     assert "Remove-Item" in uninstall_script
+
+
+def test_brain_chat_script_posts_commands_to_local_brain():
+    script = _read_script("brain-chat.ps1")
+
+    assert "Invoke-RestMethod" in script
+    assert "http://127.0.0.1:8765/brain/command" in script
+    assert "ConvertTo-Json" in script
+    assert "/quit" in script
+
+
+def test_restart_scripts_stop_listener_and_start_brain():
+    stop_script = _read_script("stop-brain.ps1")
+    restart_script = _read_script("restart-brain.ps1")
+
+    assert "Get-NetTCPConnection" in stop_script
+    assert "Stop-Process" in stop_script
+    assert "start-brain.ps1" in restart_script
+    assert "Start-Process" in restart_script
+    assert "-WindowStyle Hidden" in restart_script
+    assert "Invoke-RestMethod" in restart_script
+    assert "/status" in restart_script
 
 
 def test_service_scripts_do_not_contain_known_secret_values():

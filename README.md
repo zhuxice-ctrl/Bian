@@ -102,6 +102,13 @@ Send commands to `POST http://127.0.0.1:8765/brain/command`:
 {"text":"/status","user_id":"owner"}
 ```
 
+Or use the local chat helper:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/brain-chat.ps1 -Command "/status"
+powershell -ExecutionPolicy Bypass -File scripts/brain-chat.ps1
+```
+
 Supported commands:
 
 - `/status`: health check and mode summary.
@@ -110,6 +117,12 @@ Supported commands:
 - `/confirm CODE`: ASCII confirmation command for terminals or channels that do not handle Chinese input reliably.
 
 The service is local-first. It can start without Binance keys so you can test chat, audit logging, and confirmation flow locally. Actual Spot Testnet order validation still requires `BINANCE_TESTNET_API_KEY` and `BINANCE_TESTNET_API_SECRET` in the local environment. A Feishu bridge can call this endpoint later, but the Binance keys should remain only in the local environment.
+
+After setting Binance Testnet keys in the Windows user environment, restart the local service so it reads the new variables:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/restart-brain.ps1
+```
 
 ### Feishu Event Bridge
 
