@@ -120,3 +120,15 @@ create table if not exists mistake_knowledge_links (
   created_at text not null default CURRENT_TIMESTAMP,
   unique (review_external_id, card_external_id, tag)
 );
+
+create table if not exists brain_suggested_commands (
+  id integer primary key autoincrement,
+  external_id text not null unique,
+  user_id text not null,
+  command_text text not null,
+  source_text text not null,
+  status text not null default 'pending',
+  result text not null default '{}',
+  created_at text not null default CURRENT_TIMESTAMP,
+  updated_at text not null default CURRENT_TIMESTAMP
+);

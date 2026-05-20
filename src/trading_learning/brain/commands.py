@@ -130,6 +130,11 @@ class BrainCommandHandler:
             self._audit(user_id, command_text, response)
             return response
 
+        if command_text == "/run suggested":
+            response = self._run_suggested(user_id)
+            self._audit(user_id, command_text, response)
+            return response
+
         if self.natural_language is not None and not command_text.startswith("/"):
             response = self._natural_language_reply(command_text, user_id)
             self._audit(user_id, command_text, response)
@@ -646,7 +651,88 @@ class BrainCommandHandler:
                 "requires_confirmation": False,
             }
         response.setdefault("requires_confirmation", False)
+        suggested_command = response.get("suggested_command", "")
+        if isinstance(suggested_command, str) and suggested_command.strip():
+            self._store_suggested_command(
+                user_id=user_id,
+                source_text=command_text,
+                command_text=suggested_command.strip(),
+            )
         return response
+
+    def _store_suggested_command(self, *, user_id: str, source_text: str, command_text: str) -> str:
+        external_id = f"suggested-{uuid4()}"
+        self.conn.execute(
+            """
+            insert into brain_suggested_commands (external_id, user_id, command_text, source_text)
+            values (?, ?, ?, ?)
+            """,
+            (external_id, user_id, command_text, source_text),
+        )
+        self.conn.commit()
+        return external_id
+
+    def _run_suggested(self, user_id: str) -> dict[str, Any]:
+        row = self.conn.execute(
+            """
+            select id, command_text
+            from brain_suggested_commands
+            where user_id = ? and status = 'pending'
+            order by id desc
+            limit 1
+            """,
+            (user_id,),
+        ).fetchone()
+        if row is None:
+            return {
+                "status": "not_found",
+                "message": "no pending suggested command",
+                "requires_confirmation": False,
+            }
+
+        command_text = row["command_text"].strip()
+        if not self._is_safe_suggested_command(command_text):
+            response = {
+                "status": "blocked",
+                "message": "suggested command is not a safe command; type it manually if you want to proceed",
+                "requires_confirmation": False,
+            }
+            self._update_suggestion(row["id"], "blocked", response)
+            return response
+
+        result = self.handle(command_text, user_id=user_id)
+        response = {
+            "status": "executed",
+            "message": "suggested command executed",
+            "executed_command": command_text,
+            "result": result,
+            "requires_confirmation": False,
+        }
+        self._update_suggestion(row["id"], "executed", response)
+        return response
+
+    def _update_suggestion(self, row_id: int, status: str, result: dict[str, Any]) -> None:
+        self.conn.execute(
+            """
+            update brain_suggested_commands
+            set status = ?, result = ?, updated_at = CURRENT_TIMESTAMP
+            where id = ?
+            """,
+            (status, json.dumps(result, ensure_ascii=False, sort_keys=True), row_id),
+        )
+        self.conn.commit()
+
+    @staticmethod
+    def _is_safe_suggested_command(command_text: str) -> bool:
+        safe_prefixes = (
+            "/review-add ",
+            "/lesson ",
+            "/knowledge-add ",
+            "/mistake-link ",
+            "/plan-set ",
+            "/checklist ",
+        )
+        return command_text.startswith(safe_prefixes)
 
     def _brain_context(self) -> dict[str, Any]:
         return {

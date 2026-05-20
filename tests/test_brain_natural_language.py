@@ -65,7 +65,9 @@ def test_local_codex_brain_assistant_returns_chat_response():
         "suggested_command": "/status",
         "requires_confirmation": False,
     }
-    assert "never execute trades" in ChatHandler.captured["messages"][0]["content"].lower()
+    system_prompt = ChatHandler.captured["messages"][0]["content"].lower()
+    assert "never execute trades" in system_prompt
+    assert "complete command" in system_prompt
     assert ChatHandler.captured["messages"][1]["content"]
 
 

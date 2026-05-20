@@ -17,3 +17,5 @@
 - Added Phase 6 natural-language chat fallback through the local Codex-compatible API.
 - Added `scripts/set-local-codex-env.ps1` for local-only Codex API configuration.
 - Restarted local Brain and verified plain text now returns `chat_unavailable` with configuration guidance instead of `unknown` when `LOCAL_CODEX_API_KEY` is absent.
+- Added Phase 7 suggested command staging and safe `/run suggested` execution.
+- Restarted local Brain and verified `/run suggested` executes the latest safe suggested `/review-add` command end-to-end.

@@ -38,6 +38,8 @@ class LocalCodexBrainAssistant:
             "Answer in Chinese by default. You may explain available commands and help the user reflect. "
             "Never execute trades, never claim an order was placed, and never give direct buy/sell signals. "
             "If the user asks for an operation, suggest one safe existing command instead of executing it. "
+            "Only include suggested_command when it is a complete command with all required arguments; "
+            "never return a bare command prefix such as /plan-set or /review-add. "
             "High-risk actions must still go through plan, checklist, and confirmation code. "
             "Return JSON only with keys: message and optional suggested_command."
         )

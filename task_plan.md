@@ -24,6 +24,7 @@ Build a local-first, low-frequency crypto trading learning system that can:
 - [x] Feishu production wiring support that can be completed locally.
 - [x] Real testnet order placement beyond `/order/test` for Spot Testnet only.
 - [x] Natural-language chat fallback through local Codex API.
+- [x] Suggested command staging and safe `/run suggested`.
 
 ## Phase 1: Brain Review And Learning Commands
 
@@ -96,3 +97,14 @@ Acceptance criteria:
 - [x] Missing local model configuration returns a clear safe response instead of `unknown`.
 - [x] Natural-language responses cannot execute trades directly.
 - [x] Local setup script prompts for `LOCAL_CODEX_API_KEY` without storing it in the repository.
+
+## Phase 7: Suggested Command Safety Layer
+
+Status: completed
+
+Acceptance criteria:
+
+- [x] Natural-language responses can persist a `suggested_command`.
+- [x] `/run suggested` executes the latest safe low-risk suggestion once.
+- [x] High-risk suggestions such as trading or confirmation commands are blocked from automatic execution.
+- [x] Suggested command results are stored for auditability.

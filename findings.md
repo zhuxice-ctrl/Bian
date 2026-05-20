@@ -13,4 +13,5 @@
 - Expanded order placement remains Spot Testnet only and still requires confirmation.
 - Feishu production cannot be fully completed inside the repository because it needs an external public HTTPS callback and Feishu app configuration.
 - Natural-language chat is intentionally non-executing: it can answer and suggest commands, but existing command handlers still control state changes and execution.
-- Current machine does not have `LOCAL_CODEX_API_KEY` in the Windows user environment, so natural-language chat requires local configuration before it becomes active.
+- Current machine has local-only Codex-compatible API configuration in the Windows user environment; do not store or print the key in repository files or final reports.
+- `/run suggested` is intentionally limited to low-risk record/planning commands; trading and confirmation suggestions must be typed manually.
