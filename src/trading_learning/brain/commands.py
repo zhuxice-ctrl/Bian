@@ -165,6 +165,21 @@ class BrainCommandHandler:
             self._audit(user_id, command_text, response)
             return response
 
+        if command_text.startswith("/daily-report"):
+            response = self._daily_report(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/weekly-report"):
+            response = self._weekly_report(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/learning-next"):
+            response = self._learning_next(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
         if command_text == "/run suggested":
             response = self._run_suggested(user_id)
             self._audit(user_id, command_text, response)
@@ -734,55 +749,9 @@ class BrainCommandHandler:
                 "message": f"review not found: {review_id}",
                 "requires_confirmation": False,
             }
-        experiment_rows = self.conn.execute(
-            """
-            select e.external_id, e.strategy_name, e.symbol, e.interval, e.parameters, e.metrics,
-                   l.tag as link_tag, l.note as link_note
-            from review_experiment_links l
-            join strategy_experiments e on e.external_id = l.experiment_external_id
-            where l.review_external_id = ?
-            order by l.id
-            """,
-            (review_id,),
-        ).fetchall()
-        knowledge_rows = self.conn.execute(
-            """
-            select k.external_id, k.title, k.category, k.content, l.tag as link_tag
-            from mistake_knowledge_links l
-            join knowledge_cards k on k.external_id = l.card_external_id
-            where l.review_external_id = ?
-            order by l.id
-            """,
-            (review_id,),
-        ).fetchall()
-        return {
-            "status": "ok",
-            "review": self._review_payload(review_row),
-            "experiments": [
-                {
-                    "external_id": row["external_id"],
-                    "strategy_name": row["strategy_name"],
-                    "symbol": row["symbol"],
-                    "interval": row["interval"],
-                    "parameters": json.loads(row["parameters"]),
-                    "metrics": json.loads(row["metrics"]),
-                    "link_tag": row["link_tag"],
-                    "link_note": row["link_note"],
-                }
-                for row in experiment_rows
-            ],
-            "knowledge_cards": [
-                {
-                    "external_id": row["external_id"],
-                    "title": row["title"],
-                    "category": row["category"],
-                    "content": row["content"],
-                    "link_tag": row["link_tag"],
-                }
-                for row in knowledge_rows
-            ],
-            "requires_confirmation": False,
-        }
+        context = self._review_context_payload(review_id, review_row)
+        context.update({"status": "ok", "requires_confirmation": False})
+        return context
 
     def _history_download(self, command_text: str) -> dict[str, Any]:
         fields = self._parse_key_value_args(command_text.removeprefix("/history-download "))
@@ -983,6 +952,187 @@ class BrainCommandHandler:
             "requires_confirmation": False,
         }
 
+    def _daily_report(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/daily-report").strip())
+        report_date = fields.get("date", self._today())
+        review_row = self._review_row_for_date(report_date)
+        if review_row is None:
+            return {
+                "status": "not_found",
+                "message": f"review not found for date: {report_date}",
+                "requires_confirmation": False,
+            }
+        review_id = review_row["external_id"]
+        context = self._review_context_payload(review_id, review_row)
+        plan = self._plan_for_date(report_date)
+        checklists = self._checklists_for_date(report_date)
+        focus_tags = context["review"]["mistake_tags"]
+        report = {
+            "date": report_date,
+            "plan": plan,
+            "checklists": checklists,
+            "review": context["review"],
+            "experiments": context["experiments"],
+            "knowledge_cards": context["knowledge_cards"],
+            "summary": {
+                "trade_count": context["review"]["trade_count"],
+                "pnl": context["review"]["pnl"],
+                "plan_followed": context["review"]["plan_followed"],
+                "linked_experiment_count": len(context["experiments"]),
+                "linked_knowledge_count": len(context["knowledge_cards"]),
+                "focus_tags": focus_tags,
+            },
+            "next_actions": self._next_learning_actions(context),
+        }
+        external_id = self._save_learning_report("daily", report_date, report_date, report)
+        return {
+            "status": "saved",
+            "message": f"saved learning report {external_id}",
+            "external_id": external_id,
+            "report_type": "daily",
+            "period": {"start": report_date, "end": report_date},
+            "report": report,
+            "requires_confirmation": False,
+        }
+
+    def _weekly_report(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/weekly-report").strip())
+        if "start" not in fields or "end" not in fields:
+            return {
+                "status": "invalid",
+                "message": "missing fields: start, end",
+                "requires_confirmation": False,
+            }
+        period_start = fields["start"]
+        period_end = fields["end"]
+        review_rows = self.conn.execute(
+            """
+            select external_id, review_date, symbols_watched, trade_count, plan_followed,
+                   pnl, mistake_tags, emotion_note, lesson
+            from daily_reviews
+            where review_date >= ? and review_date <= ?
+            order by review_date
+            """,
+            (period_start, period_end),
+        ).fetchall()
+        review_payloads = [self._review_payload(row) for row in review_rows]
+        tag_counts: dict[str, int] = {}
+        linked_experiment_count = 0
+        for review in review_payloads:
+            for tag in review["mistake_tags"]:
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+            linked_experiment_count += self._linked_experiment_count(review["external_id"])
+        review_count = len(review_payloads)
+        trade_count = sum(review["trade_count"] for review in review_payloads)
+        pnl = sum(float(review["pnl"]) for review in review_payloads)
+        followed_count = sum(1 for review in review_payloads if review["plan_followed"])
+        focus_tags = [
+            {"tag": tag, "count": count}
+            for tag, count in sorted(tag_counts.items(), key=lambda item: (-item[1], item[0]))
+        ]
+        report = {
+            "period": {"start": period_start, "end": period_end},
+            "reviews": review_payloads,
+            "summary": {
+                "review_count": review_count,
+                "trade_count": trade_count,
+                "pnl": pnl,
+                "plan_follow_rate": followed_count / review_count if review_count else 0.0,
+                "linked_experiment_count": linked_experiment_count,
+            },
+            "focus_tags": focus_tags,
+            "next_actions": self._weekly_next_actions(review_payloads, focus_tags),
+        }
+        external_id = self._save_learning_report("weekly", period_start, period_end, report)
+        return {
+            "status": "saved",
+            "message": f"saved learning report {external_id}",
+            "external_id": external_id,
+            "report_type": "weekly",
+            "period": {"start": period_start, "end": period_end},
+            "report": report,
+            "requires_confirmation": False,
+        }
+
+    def _learning_next(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/learning-next").strip())
+        report_date = fields.get("date", self._today())
+        review_row = self._review_row_for_date(report_date)
+        if review_row is None:
+            return {
+                "status": "not_found",
+                "message": f"review not found for date: {report_date}",
+                "requires_confirmation": False,
+            }
+        context = self._review_context_payload(review_row["external_id"], review_row)
+        return {
+            "status": "ok",
+            "date": report_date,
+            "tasks": self._next_learning_actions(context),
+            "requires_confirmation": False,
+        }
+
+    def _save_learning_report(
+        self,
+        report_type: str,
+        period_start: str,
+        period_end: str,
+        content: dict[str, Any],
+    ) -> str:
+        external_id = f"learning-report-{report_type}-{period_start}"
+        if period_end != period_start:
+            external_id = f"{external_id}-{period_end}"
+        self.conn.execute(
+            """
+            insert into learning_reports (
+              external_id, report_type, period_start, period_end, content
+            ) values (?, ?, ?, ?, ?)
+            on conflict(report_type, period_start, period_end) do update set
+              content = excluded.content,
+              updated_at = CURRENT_TIMESTAMP
+            """,
+            (
+                external_id,
+                report_type,
+                period_start,
+                period_end,
+                json.dumps(content, ensure_ascii=False, sort_keys=True),
+            ),
+        )
+        self.conn.commit()
+        return external_id
+
+    def _next_learning_actions(self, context: dict[str, Any]) -> list[str]:
+        actions: list[str] = []
+        for card in context["knowledge_cards"]:
+            actions.append(f"Review knowledge card: {card['title']}")
+        for experiment in context["experiments"]:
+            actions.append(f"Replay linked experiment: {experiment['external_id']}")
+        for tag in context["review"]["mistake_tags"]:
+            actions.append(f"Prepare next plan with focus tag: {tag}")
+        if not actions:
+            actions.append("Write a short review before the next trading session")
+        return actions
+
+    @staticmethod
+    def _weekly_next_actions(reviews: list[dict[str, Any]], focus_tags: list[dict[str, Any]]) -> list[str]:
+        actions: list[str] = []
+        if any(not review["plan_followed"] for review in reviews):
+            actions.append("Prioritize plan adherence in the next trading day")
+        for item in focus_tags[:3]:
+            actions.append(f"Review weekly focus tag: {item['tag']}")
+        if not actions:
+            actions.append("Keep current process and collect more review samples")
+        return actions
+
+    def _linked_experiment_count(self, review_id: str) -> int:
+        return int(
+            self.conn.execute(
+                "select count(*) from review_experiment_links where review_external_id = ?",
+                (review_id,),
+            ).fetchone()[0]
+        )
+
     def _insert_trades(self, trades: list[Any], source: str) -> None:
         self.conn.executemany(
             """
@@ -1124,6 +1274,9 @@ class BrainCommandHandler:
                 "/history-download",
                 "/backtest-ma",
                 "/experiment-summary",
+                "/daily-report",
+                "/weekly-report",
+                "/learning-next",
             ],
         }
 
@@ -1209,6 +1362,40 @@ class BrainCommandHandler:
             (external_id,),
         ).fetchone()
 
+    def _review_row_for_date(self, review_date: str) -> sqlite3.Row | None:
+        return self.conn.execute(
+            """
+            select external_id, review_date, symbols_watched, trade_count, plan_followed,
+                   pnl, mistake_tags, emotion_note, lesson
+            from daily_reviews
+            where review_date = ?
+            """,
+            (review_date,),
+        ).fetchone()
+
+    def _checklists_for_date(self, checklist_date: str) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            """
+            select symbol, plan_ok, setup_ok, risk_ok, emotion, emotion_ok, created_at
+            from pre_trade_checklists
+            where checklist_date = ?
+            order by id
+            """,
+            (checklist_date,),
+        ).fetchall()
+        return [
+            {
+                "symbol": row["symbol"],
+                "plan_ok": bool(row["plan_ok"]),
+                "setup_ok": bool(row["setup_ok"]),
+                "risk_ok": bool(row["risk_ok"]),
+                "emotion": row["emotion"],
+                "emotion_ok": bool(row["emotion_ok"]),
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+
     def _experiment_row(self, external_id: str) -> sqlite3.Row | None:
         return self.conn.execute(
             """
@@ -1218,6 +1405,55 @@ class BrainCommandHandler:
             """,
             (external_id,),
         ).fetchone()
+
+    def _review_context_payload(self, review_id: str, review_row: sqlite3.Row) -> dict[str, Any]:
+        experiment_rows = self.conn.execute(
+            """
+            select e.external_id, e.strategy_name, e.symbol, e.interval, e.parameters, e.metrics,
+                   l.tag as link_tag, l.note as link_note
+            from review_experiment_links l
+            join strategy_experiments e on e.external_id = l.experiment_external_id
+            where l.review_external_id = ?
+            order by l.id
+            """,
+            (review_id,),
+        ).fetchall()
+        knowledge_rows = self.conn.execute(
+            """
+            select k.external_id, k.title, k.category, k.content, l.tag as link_tag
+            from mistake_knowledge_links l
+            join knowledge_cards k on k.external_id = l.card_external_id
+            where l.review_external_id = ?
+            order by l.id
+            """,
+            (review_id,),
+        ).fetchall()
+        return {
+            "review": self._review_payload(review_row),
+            "experiments": [
+                {
+                    "external_id": row["external_id"],
+                    "strategy_name": row["strategy_name"],
+                    "symbol": row["symbol"],
+                    "interval": row["interval"],
+                    "parameters": json.loads(row["parameters"]),
+                    "metrics": json.loads(row["metrics"]),
+                    "link_tag": row["link_tag"],
+                    "link_note": row["link_note"],
+                }
+                for row in experiment_rows
+            ],
+            "knowledge_cards": [
+                {
+                    "external_id": row["external_id"],
+                    "title": row["title"],
+                    "category": row["category"],
+                    "content": row["content"],
+                    "link_tag": row["link_tag"],
+                }
+                for row in knowledge_rows
+            ],
+        }
 
     @staticmethod
     def _review_payload(row: sqlite3.Row) -> dict[str, Any]:

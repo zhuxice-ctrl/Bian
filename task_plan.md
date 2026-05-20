@@ -27,6 +27,7 @@ Build a local-first, low-frequency crypto trading learning system that can:
 - [x] Suggested command staging and safe `/run suggested`.
 - [x] Brain history download, replay backtest, and experiment records.
 - [x] Review-to-experiment learning loop.
+- [x] Daily and weekly learning reports.
 
 ## Phase 1: Brain Review And Learning Commands
 
@@ -133,3 +134,14 @@ Acceptance criteria:
 - [x] Brain can return a review context bundle with review details, linked experiments, and linked knowledge cards.
 - [x] `/run suggested` can execute safe `/experiment-link` suggestions.
 - [x] Export includes review-to-experiment links.
+
+## Phase 10: Learning Reports
+
+Status: completed
+
+Acceptance criteria:
+
+- [x] Brain can store a daily learning report from existing plan, checklist, review, experiment, and knowledge records.
+- [x] Brain can store a weekly learning report with aggregate trade count, PnL, plan-follow rate, and focus tags.
+- [x] Brain can return next learning tasks for a review day without placing orders or calling an external model.
+- [x] Export includes learning reports.

@@ -22,3 +22,5 @@
 - Added Phase 8 Brain history download, moving-average replay, and strategy experiment persistence.
 - Restarted local Brain and verified `/history-download`, `/backtest-ma`, and `/experiment-summary` end-to-end with public BTCUSDT 1h data.
 - Added Phase 9 review-to-experiment links and review context summaries.
+- Added Phase 10 daily reports, weekly reports, next learning tasks, and learning report export records.
+- Restarted local Brain and verified `/daily-report`, `/weekly-report`, and `/learning-next` end-to-end.

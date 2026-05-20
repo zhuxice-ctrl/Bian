@@ -145,6 +145,18 @@ create table if not exists review_experiment_links (
   unique (review_external_id, experiment_external_id, tag)
 );
 
+create table if not exists learning_reports (
+  id integer primary key autoincrement,
+  external_id text not null unique,
+  report_type text not null,
+  period_start text not null,
+  period_end text not null,
+  content text not null,
+  created_at text not null default CURRENT_TIMESTAMP,
+  updated_at text not null default CURRENT_TIMESTAMP,
+  unique (report_type, period_start, period_end)
+);
+
 create table if not exists brain_suggested_commands (
   id integer primary key autoincrement,
   external_id text not null unique,
