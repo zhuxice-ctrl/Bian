@@ -115,6 +115,9 @@ Supported commands:
 - `/test-buy BTCUSDT 10`: creates a pending Spot Testnet test buy request.
 - `确认-CODE`: executes the pending test order once.
 - `/confirm CODE`: ASCII confirmation command for terminals or channels that do not handle Chinese input reliably.
+- `/review-add date=2026-05-20 symbols=BTCUSDT trades=2 plan=yes pnl=12.5 tags=late_entry lesson=Wait_for_planned_entries note=Calm`: stores a daily review.
+- `/review-summary limit=5`: returns recent daily reviews.
+- `/lesson title=MA_lag category=technical content=Moving_average_signals_lag_price`: stores a learning card.
 
 The service is local-first. It can start without Binance keys so you can test chat, audit logging, and confirmation flow locally. Actual Spot Testnet order validation still requires `BINANCE_TESTNET_API_KEY` and `BINANCE_TESTNET_API_SECRET` in the local environment. A Feishu bridge can call this endpoint later, but the Binance keys should remain only in the local environment.
 

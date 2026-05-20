@@ -141,3 +141,72 @@ def test_brain_http_service_handles_command(tmp_path):
             thread.join()
 
         assert body["status"] == "ok"
+
+
+def test_review_add_command_persists_daily_review(tmp_path):
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor())
+
+        response = handler.handle(
+            "/review-add date=2026-05-20 symbols=BTCUSDT,ETHUSDT trades=2 plan=yes pnl=12.5 tags=late_entry,chasing lesson=Wait_for_planned_entries note=Calm",
+            user_id="owner",
+        )
+
+        row = conn.execute("select * from daily_reviews where review_date = '2026-05-20'").fetchone()
+        assert response["status"] == "saved"
+        assert response["external_id"] == "review-2026-05-20"
+        assert row["symbols_watched"] == '["BTCUSDT", "ETHUSDT"]'
+        assert row["trade_count"] == 2
+        assert row["plan_followed"] == 1
+        assert row["pnl"] == 12.5
+        assert row["mistake_tags"] == '["late_entry", "chasing"]'
+        assert row["lesson"] == "Wait for planned entries"
+        assert row["emotion_note"] == "Calm"
+
+
+def test_review_summary_command_returns_recent_reviews(tmp_path):
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor())
+        handler.handle(
+            "/review-add date=2026-05-20 symbols=BTCUSDT trades=2 plan=yes pnl=12.5 tags=late_entry lesson=Wait note=Calm",
+            user_id="owner",
+        )
+        handler.handle(
+            "/review-add date=2026-05-21 symbols=ETHUSDT trades=1 plan=no pnl=-3 tags=fomo lesson=Pause note=Anxious",
+            user_id="owner",
+        )
+
+        response = handler.handle("/review-summary limit=1", user_id="owner")
+
+        assert response["status"] == "ok"
+        assert response["reviews"] == [
+            {
+                "review_date": "2026-05-21",
+                "symbols_watched": ["ETHUSDT"],
+                "trade_count": 1,
+                "plan_followed": False,
+                "pnl": -3.0,
+                "mistake_tags": ["fomo"],
+                "lesson": "Pause",
+            }
+        ]
+
+
+def test_lesson_command_persists_knowledge_card(tmp_path):
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor())
+
+        response = handler.handle(
+            "/lesson title=MA_lag category=technical content=Moving_average_signals_lag_price",
+            user_id="owner",
+        )
+
+        row = conn.execute("select title, category, content from knowledge_cards").fetchone()
+        assert response["status"] == "saved"
+        assert response["external_id"].startswith("knowledge-")
+        assert row["title"] == "MA lag"
+        assert row["category"] == "technical"
+        assert row["content"] == "Moving average signals lag price"

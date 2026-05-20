@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from typing import Any, Callable
 from uuid import uuid4
 
+from trading_learning.journal.repository import save_daily_review
+from trading_learning.learning.repository import save_knowledge_card
+
 
 @dataclass(frozen=True)
 class PendingConfirmation:
@@ -61,6 +64,21 @@ class BrainCommandHandler:
 
         if command_text.startswith("/confirm "):
             response = self._confirm(command_text.removeprefix("/confirm ").strip(), user_id)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/review-add "):
+            response = self._save_review(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/review-summary"):
+            response = self._review_summary(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/lesson "):
+            response = self._save_lesson(command_text)
             self._audit(user_id, command_text, response)
             return response
 
@@ -152,6 +170,101 @@ class BrainCommandHandler:
             "requires_confirmation": False,
         }
 
+    def _save_review(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/review-add "))
+        required = {"date", "symbols", "trades", "plan", "pnl", "lesson"}
+        missing = sorted(required - fields.keys())
+        if missing:
+            return {
+                "status": "invalid",
+                "message": f"missing fields: {', '.join(missing)}",
+                "requires_confirmation": False,
+            }
+
+        review_date = fields["date"]
+        external_id = f"review-{review_date}"
+        try:
+            save_daily_review(
+                self.conn,
+                external_id=external_id,
+                review_date=review_date,
+                symbols_watched=self._csv_values(fields["symbols"]),
+                trade_count=int(fields["trades"]),
+                plan_followed=fields["plan"].lower() in {"yes", "true", "1"},
+                pnl=float(fields["pnl"]),
+                mistake_tags=self._csv_values(fields.get("tags", "")),
+                emotion_note=self._display_value(fields.get("note", "")),
+                lesson=self._display_value(fields["lesson"]),
+            )
+        except sqlite3.IntegrityError as exc:
+            return {
+                "status": "failed",
+                "message": str(exc),
+                "requires_confirmation": False,
+            }
+
+        return {
+            "status": "saved",
+            "message": f"saved review {external_id}",
+            "external_id": external_id,
+            "requires_confirmation": False,
+        }
+
+    def _review_summary(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/review-summary").strip())
+        limit = int(fields.get("limit", "5"))
+        rows = self.conn.execute(
+            """
+            select review_date, symbols_watched, trade_count, plan_followed, pnl, mistake_tags, lesson
+            from daily_reviews
+            order by review_date desc
+            limit ?
+            """,
+            (limit,),
+        ).fetchall()
+        return {
+            "status": "ok",
+            "reviews": [
+                {
+                    "review_date": row["review_date"],
+                    "symbols_watched": json.loads(row["symbols_watched"]),
+                    "trade_count": row["trade_count"],
+                    "plan_followed": bool(row["plan_followed"]),
+                    "pnl": row["pnl"],
+                    "mistake_tags": json.loads(row["mistake_tags"]),
+                    "lesson": row["lesson"],
+                }
+                for row in rows
+            ],
+            "requires_confirmation": False,
+        }
+
+    def _save_lesson(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/lesson "))
+        required = {"title", "category", "content"}
+        missing = sorted(required - fields.keys())
+        if missing:
+            return {
+                "status": "invalid",
+                "message": f"missing fields: {', '.join(missing)}",
+                "requires_confirmation": False,
+            }
+
+        external_id = f"knowledge-{uuid4()}"
+        save_knowledge_card(
+            self.conn,
+            external_id=external_id,
+            title=self._display_value(fields["title"]),
+            category=fields["category"],
+            content=self._display_value(fields["content"]),
+        )
+        return {
+            "status": "saved",
+            "message": f"saved lesson {external_id}",
+            "external_id": external_id,
+            "requires_confirmation": False,
+        }
+
     def _audit(self, user_id: str, command_text: str, response: dict[str, Any]) -> None:
         self.conn.execute(
             """
@@ -171,3 +284,20 @@ class BrainCommandHandler:
     @staticmethod
     def _default_confirmation_code() -> str:
         return uuid4().hex[:6]
+
+    @staticmethod
+    def _parse_key_value_args(value: str) -> dict[str, str]:
+        fields: dict[str, str] = {}
+        for part in value.split():
+            key, separator, field_value = part.partition("=")
+            if separator and key:
+                fields[key] = field_value
+        return fields
+
+    @staticmethod
+    def _csv_values(value: str) -> list[str]:
+        return [item.strip() for item in value.split(",") if item.strip()]
+
+    @staticmethod
+    def _display_value(value: str) -> str:
+        return value.replace("_", " ")
