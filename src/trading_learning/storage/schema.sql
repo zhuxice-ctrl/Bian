@@ -49,6 +49,20 @@ create table if not exists strategy_hypotheses (
   updated_at text not null default CURRENT_TIMESTAMP
 );
 
+create table if not exists strategy_experiments (
+  id integer primary key autoincrement,
+  external_id text not null unique,
+  strategy_name text not null,
+  symbol text not null,
+  interval text not null,
+  source_csv text not null,
+  parameters text not null default '{}',
+  metrics text not null default '{}',
+  note text not null default '',
+  created_at text not null default CURRENT_TIMESTAMP,
+  updated_at text not null default CURRENT_TIMESTAMP
+);
+
 create table if not exists ai_drafts (
   id integer primary key autoincrement,
   external_id text not null unique,

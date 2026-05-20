@@ -2,13 +2,21 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from dataclasses import replace
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 from typing import Any, Callable
 from uuid import uuid4
 
+from trading_learning.backtest.engine import run_spot_backtest
+from trading_learning.backtest.report import summarize_backtest
 from trading_learning.journal.repository import save_daily_review
+from trading_learning.journal.repository import save_trades
 from trading_learning.learning.repository import save_knowledge_card
+from trading_learning.market_data.binance_klines import fetch_klines, save_klines_csv
+from trading_learning.market_data.csv_loader import load_candles_csv
+from trading_learning.strategy.moving_average import moving_average_crossover_signals
 
 
 @dataclass(frozen=True)
@@ -28,12 +36,14 @@ class BrainCommandHandler:
         allowed_user_ids: tuple[str, ...] | None = None,
         confirmation_code: Callable[[], str] | None = None,
         natural_language: Any | None = None,
+        kline_fetcher: Callable[..., Any] | None = None,
     ) -> None:
         self.conn = conn
         self.executor = executor
         self.allowed_user_ids = set(allowed_user_ids or ())
         self.confirmation_code = confirmation_code or self._default_confirmation_code
         self.natural_language = natural_language
+        self.kline_fetcher = kline_fetcher or fetch_klines
 
     def handle(self, text: str, *, user_id: str) -> dict[str, Any]:
         command_text = text.strip()
@@ -127,6 +137,21 @@ class BrainCommandHandler:
 
         if command_text.startswith("/mistake-link "):
             response = self._mistake_link(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/history-download "):
+            response = self._history_download(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/backtest-ma "):
+            response = self._backtest_ma(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/experiment-summary"):
+            response = self._experiment_summary(command_text)
             self._audit(user_id, command_text, response)
             return response
 
@@ -637,6 +662,228 @@ class BrainCommandHandler:
             "requires_confirmation": False,
         }
 
+    def _history_download(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/history-download "))
+        required = {"symbol", "interval", "output"}
+        missing = sorted(required - fields.keys())
+        if missing:
+            return {
+                "status": "invalid",
+                "message": f"missing fields: {', '.join(missing)}",
+                "requires_confirmation": False,
+            }
+        try:
+            limit = int(fields.get("limit", "500"))
+            start_time_ms = self._optional_int(fields.get("start_ms"))
+            end_time_ms = self._optional_int(fields.get("end_ms"))
+        except ValueError:
+            return {
+                "status": "invalid",
+                "message": "limit, start_ms, and end_ms must be integers",
+                "requires_confirmation": False,
+            }
+        try:
+            output_path = self._safe_data_local_path(fields["output"])
+        except ValueError as exc:
+            return {
+                "status": "invalid",
+                "message": str(exc),
+                "requires_confirmation": False,
+            }
+        try:
+            candles = self.kline_fetcher(
+                symbol=fields["symbol"].upper(),
+                interval=fields["interval"],
+                limit=limit,
+                start_time_ms=start_time_ms,
+                end_time_ms=end_time_ms,
+            )
+            save_klines_csv(candles, output_path)
+        except Exception as exc:
+            return {
+                "status": "failed",
+                "message": str(exc),
+                "requires_confirmation": False,
+            }
+        return {
+            "status": "saved",
+            "message": f"downloaded {len(candles)} candles to {output_path}",
+            "path": str(output_path),
+            "count": len(candles),
+            "requires_confirmation": False,
+        }
+
+    def _backtest_ma(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/backtest-ma "))
+        required = {"csv", "symbol", "short", "long"}
+        missing = sorted(required - fields.keys())
+        if missing:
+            return {
+                "status": "invalid",
+                "message": f"missing fields: {', '.join(missing)}",
+                "requires_confirmation": False,
+            }
+        try:
+            symbol = fields["symbol"].upper()
+            short_window = int(fields["short"])
+            long_window = int(fields["long"])
+            starting_cash = float(fields.get("starting_cash", "1000"))
+            quote_amount = float(fields.get("quote_amount", "100"))
+            fee_rate = float(fields.get("fee", "0.001"))
+            daily_limit = int(fields.get("daily_limit", "5"))
+        except ValueError:
+            return {
+                "status": "invalid",
+                "message": "numeric backtest fields are invalid",
+                "requires_confirmation": False,
+            }
+
+        try:
+            csv_path = self._safe_data_local_path(fields["csv"])
+            candles = load_candles_csv(csv_path, symbol)
+            signals = moving_average_crossover_signals(
+                candles,
+                short_window=short_window,
+                long_window=long_window,
+            )
+            prices = {candle.opened_at: candle.close for candle in candles}
+            result = run_spot_backtest(
+                symbol=symbol,
+                signals=signals,
+                prices_by_timestamp=prices,
+                starting_cash=starting_cash,
+                quote_amount_per_buy=quote_amount,
+                fee_rate=fee_rate,
+                daily_trade_limit=daily_limit,
+            )
+            metrics = summarize_backtest(result)
+        except Exception as exc:
+            return {
+                "status": "failed",
+                "message": str(exc),
+                "requires_confirmation": False,
+            }
+        external_id = f"experiment-{uuid4()}"
+        namespaced_trades = [
+            replace(trade, external_id=f"{external_id}-{index}-{trade.side.value.lower()}")
+            for index, trade in enumerate(result.trades, start=1)
+        ]
+
+        parameters = {
+            "short_window": short_window,
+            "long_window": long_window,
+            "starting_cash": starting_cash,
+            "quote_amount": quote_amount,
+            "fee_rate": fee_rate,
+            "daily_trade_limit": daily_limit,
+        }
+        metrics_payload = {
+            "trade_count": result.trade_count,
+            "ending_cash": result.ending_cash,
+            "position_quantity": result.position_quantity,
+            "round_trips": metrics.round_trips,
+            "win_count": metrics.win_count,
+            "loss_count": metrics.loss_count,
+            "win_rate": metrics.win_rate,
+            "realized_pnl": metrics.realized_pnl,
+            "total_fees": metrics.total_fees,
+        }
+        try:
+            with self.conn:
+                self._insert_trades(namespaced_trades, source=external_id)
+                self.conn.execute(
+                    """
+                    insert into strategy_experiments (
+                      external_id, strategy_name, symbol, interval, source_csv, parameters, metrics, note
+                    ) values (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        external_id,
+                        "moving_average_crossover",
+                        symbol,
+                        fields.get("interval", ""),
+                        str(csv_path),
+                        json.dumps(parameters, ensure_ascii=False, sort_keys=True),
+                        json.dumps(metrics_payload, ensure_ascii=False, sort_keys=True),
+                        self._display_value(fields.get("note", "")),
+                    ),
+                )
+        except sqlite3.Error as exc:
+            return {
+                "status": "failed",
+                "message": str(exc),
+                "requires_confirmation": False,
+            }
+        return {
+            "status": "saved",
+            "message": f"saved experiment {external_id}",
+            "external_id": external_id,
+            "strategy_name": "moving_average_crossover",
+            "symbol": symbol,
+            "metrics": metrics_payload,
+            "requires_confirmation": False,
+        }
+
+    def _experiment_summary(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/experiment-summary").strip())
+        try:
+            limit = int(fields.get("limit", "5"))
+        except ValueError:
+            return {
+                "status": "invalid",
+                "message": "limit must be an integer",
+                "requires_confirmation": False,
+            }
+        rows = self.conn.execute(
+            """
+            select external_id, strategy_name, symbol, interval, source_csv, parameters, metrics, note
+            from strategy_experiments
+            order by id desc
+            limit ?
+            """,
+            (limit,),
+        ).fetchall()
+        return {
+            "status": "ok",
+            "experiments": [
+                {
+                    "external_id": row["external_id"],
+                    "strategy_name": row["strategy_name"],
+                    "symbol": row["symbol"],
+                    "interval": row["interval"],
+                    "source_csv": row["source_csv"],
+                    "parameters": json.loads(row["parameters"]),
+                    "metrics": json.loads(row["metrics"]),
+                    "note": row["note"],
+                }
+                for row in rows
+            ],
+            "requires_confirmation": False,
+        }
+
+    def _insert_trades(self, trades: list[Any], source: str) -> None:
+        self.conn.executemany(
+            """
+            insert into trades (
+              external_id, symbol, side, quantity, price, fee, timestamp, reason, source
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    trade.external_id,
+                    trade.symbol,
+                    trade.side.value,
+                    trade.quantity,
+                    trade.price,
+                    trade.fee,
+                    trade.timestamp.isoformat(),
+                    trade.reason,
+                    source,
+                )
+                for trade in trades
+            ],
+        )
+
     def _natural_language_reply(self, command_text: str, user_id: str) -> dict[str, Any]:
         try:
             response = self.natural_language.reply(
@@ -749,6 +996,9 @@ class BrainCommandHandler:
                 "/review-summary",
                 "/knowledge-add",
                 "/knowledge-search",
+                "/history-download",
+                "/backtest-ma",
+                "/experiment-summary",
             ],
         }
 
@@ -863,6 +1113,23 @@ class BrainCommandHandler:
     @staticmethod
     def _truthy(value: str) -> bool:
         return value.lower() in {"yes", "true", "1", "ok"}
+
+    @staticmethod
+    def _optional_int(value: str | None) -> int | None:
+        if value is None or value == "":
+            return None
+        return int(value)
+
+    @staticmethod
+    def _safe_data_local_path(value: str) -> Path:
+        path = Path(value)
+        allowed_root = Path("data/local").resolve()
+        resolved = path.resolve()
+        try:
+            resolved.relative_to(allowed_root)
+        except ValueError as exc:
+            raise ValueError("path must be under data/local") from exc
+        return path
 
     @staticmethod
     def _today() -> str:

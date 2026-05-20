@@ -19,3 +19,5 @@
 - Restarted local Brain and verified plain text now returns `chat_unavailable` with configuration guidance instead of `unknown` when `LOCAL_CODEX_API_KEY` is absent.
 - Added Phase 7 suggested command staging and safe `/run suggested` execution.
 - Restarted local Brain and verified `/run suggested` executes the latest safe suggested `/review-add` command end-to-end.
+- Added Phase 8 Brain history download, moving-average replay, and strategy experiment persistence.
+- Restarted local Brain and verified `/history-download`, `/backtest-ma`, and `/experiment-summary` end-to-end with public BTCUSDT 1h data.

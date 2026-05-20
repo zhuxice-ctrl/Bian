@@ -25,6 +25,7 @@ Build a local-first, low-frequency crypto trading learning system that can:
 - [x] Real testnet order placement beyond `/order/test` for Spot Testnet only.
 - [x] Natural-language chat fallback through local Codex API.
 - [x] Suggested command staging and safe `/run suggested`.
+- [x] Brain history download, replay backtest, and experiment records.
 
 ## Phase 1: Brain Review And Learning Commands
 
@@ -108,3 +109,15 @@ Acceptance criteria:
 - [x] `/run suggested` executes the latest safe low-risk suggestion once.
 - [x] High-risk suggestions such as trading or confirmation commands are blocked from automatic execution.
 - [x] Suggested command results are stored for auditability.
+
+## Phase 8: History Replay And Experiment Records
+
+Status: completed
+
+Acceptance criteria:
+
+- [x] Brain can download public Binance Spot K-lines to local CSV without API keys.
+- [x] Brain can run a moving-average replay from a local CSV.
+- [x] Backtest trades and experiment metrics are persisted for review.
+- [x] Brain can list recent experiment summaries.
+- [x] Export includes strategy experiment records.

@@ -12,6 +12,7 @@ _ALLOWED_EXPORT_TABLES = {
     "daily_reviews",
     "knowledge_cards",
     "strategy_hypotheses",
+    "strategy_experiments",
     "ai_drafts",
 }
 
@@ -26,7 +27,7 @@ def _rows_as_dicts(conn: sqlite3.Connection, table: str) -> list[dict]:
 def export_zip(conn: sqlite3.Connection, export_path: Path) -> None:
     export_path.parent.mkdir(parents=True, exist_ok=True)
     manifest = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "source_system": "trading_learning",
         "exported_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -34,6 +35,7 @@ def export_zip(conn: sqlite3.Connection, export_path: Path) -> None:
     trades = _rows_as_dicts(conn, "trades")
     knowledge_cards = _rows_as_dicts(conn, "knowledge_cards")
     hypotheses = _rows_as_dicts(conn, "strategy_hypotheses")
+    experiments = _rows_as_dicts(conn, "strategy_experiments")
     ai_drafts = _rows_as_dicts(conn, "ai_drafts")
 
     markdown_reviews = ["# Daily Reviews", ""]
@@ -55,6 +57,7 @@ def export_zip(conn: sqlite3.Connection, export_path: Path) -> None:
         archive.writestr("trades.jsonl", to_jsonl(trades))
         archive.writestr("knowledge_cards.jsonl", to_jsonl(knowledge_cards))
         archive.writestr("strategy_hypotheses.jsonl", to_jsonl(hypotheses))
+        archive.writestr("strategy_experiments.jsonl", to_jsonl(experiments))
         archive.writestr("ai_drafts.jsonl", to_jsonl(ai_drafts))
         archive.writestr("markdown/daily_reviews.md", "\n".join(markdown_reviews))
 
