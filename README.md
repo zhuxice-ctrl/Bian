@@ -11,9 +11,11 @@ Phase 1 supports:
 - Backtest metrics: round trips, win rate, realized PnL, fees
 - Daily review and learning records
 - Local Codex-compatible draft assistant
+- Binance Spot Testnet signed client and test-order CLI
+- Execution risk guard for test orders
 - JSONL and Markdown ZIP export
 
-Phase 1 does not place live orders.
+Phase 1 does not place live orders. The test-order command uses Binance Spot Testnet `/api/v3/order/test`, which validates a signed order request without placing a live order.
 
 ## Setup
 
@@ -61,6 +63,23 @@ $env:LOCAL_CODEX_MODEL="gpt-5.4-mini"
 $env:LOCAL_CODEX_API_KEY="your-local-only-key"
 trading-learning ai-review-draft --source-external-id review-2026-05-20 --review-text "review body"
 ```
+
+## Binance Spot Testnet Test Order
+
+API keys stay local. Put them in your local `.env` or shell environment; do not commit them.
+
+```powershell
+$env:BINANCE_TESTNET_BASE_URL="https://testnet.binance.vision"
+$env:BINANCE_TESTNET_API_KEY="your-testnet-key"
+$env:BINANCE_TESTNET_API_SECRET="your-testnet-secret"
+trading-learning spot-test-order --symbol BTCUSDT --side BUY --type MARKET --quote-order-qty 10 --orders-today 0 --max-quote-order-qty 20
+```
+
+The command applies local risk checks before making the signed request. Defaults:
+
+- Daily order limit: `5`
+- Max quote order quantity: `100`
+- Allowed symbols: `BTCUSDT,ETHUSDT`
 
 ## Export Data
 

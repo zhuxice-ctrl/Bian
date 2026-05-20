@@ -1,6 +1,7 @@
 import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Thread
+from urllib.parse import parse_qs, urlparse
 
 from trading_learning.cli import build_parser, main
 from trading_learning.storage.db import connect
@@ -18,6 +19,7 @@ def test_cli_has_expected_commands():
         "backtest-ma",
         "review-add",
         "ai-review-draft",
+        "spot-test-order",
         "export",
     }.issubset(command_names)
 
@@ -80,9 +82,9 @@ def test_review_add_persists_daily_review(tmp_path, monkeypatch):
             "--pnl",
             "12.5",
             "--mistake-tags",
-            "late_entry,追单",
+            "late_entry,chasing",
             "--emotion-note",
-            "有点焦虑",
+            "anxious",
             "--lesson",
             "wait for planned entries",
         ]
@@ -95,7 +97,7 @@ def test_review_add_persists_daily_review(tmp_path, monkeypatch):
     assert row["review_date"] == "2026-05-20"
     assert row["symbols_watched"] == '["BTCUSDT", "ETHUSDT"]'
     assert row["plan_followed"] == 1
-    assert row["mistake_tags"] == '["late_entry", "追单"]'
+    assert row["mistake_tags"] == '["late_entry", "chasing"]'
 
 
 class DraftHandler(BaseHTTPRequestHandler):
@@ -157,6 +159,105 @@ def test_ai_review_draft_requires_local_api_key(tmp_path, monkeypatch):
             "review-2026-05-20",
             "--review-text",
             "review body",
+        ]
+    )
+
+    assert exit_code == 1
+
+
+def test_spot_test_order_requires_testnet_keys(tmp_path, monkeypatch):
+    monkeypatch.setenv("TRADING_LEARNING_DB_PATH", str(tmp_path / "test.sqlite3"))
+    monkeypatch.delenv("BINANCE_TESTNET_API_KEY", raising=False)
+    monkeypatch.delenv("BINANCE_TESTNET_API_SECRET", raising=False)
+
+    exit_code = main(
+        [
+            "spot-test-order",
+            "--symbol",
+            "BTCUSDT",
+            "--side",
+            "BUY",
+            "--type",
+            "MARKET",
+            "--quote-order-qty",
+            "10",
+        ]
+    )
+
+    assert exit_code == 1
+
+
+def test_spot_test_order_applies_risk_and_sends_test_order(tmp_path, monkeypatch):
+    captured = {}
+
+    class TestnetHandler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            captured["path"] = self.path
+            captured["api_key"] = self.headers.get("X-MBX-APIKEY")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b"{}")
+
+        def log_message(self, format, *args):
+            return
+
+    server = HTTPServer(("127.0.0.1", 0), TestnetHandler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    monkeypatch.setenv("TRADING_LEARNING_DB_PATH", str(tmp_path / "test.sqlite3"))
+    monkeypatch.setenv("BINANCE_TESTNET_API_KEY", "test-key")
+    monkeypatch.setenv("BINANCE_TESTNET_API_SECRET", "test-secret")
+    monkeypatch.setenv("BINANCE_TESTNET_BASE_URL", f"http://127.0.0.1:{server.server_port}")
+    try:
+        exit_code = main(
+            [
+                "spot-test-order",
+                "--symbol",
+                "BTCUSDT",
+                "--side",
+                "BUY",
+                "--type",
+                "MARKET",
+                "--quote-order-qty",
+                "10",
+                "--orders-today",
+                "0",
+                "--max-quote-order-qty",
+                "20",
+            ]
+        )
+    finally:
+        server.shutdown()
+        thread.join()
+
+    query = parse_qs(urlparse(captured["path"]).query)
+    assert exit_code == 0
+    assert urlparse(captured["path"]).path == "/api/v3/order/test"
+    assert captured["api_key"] == "test-key"
+    assert query["symbol"] == ["BTCUSDT"]
+    assert query["side"] == ["BUY"]
+    assert query["type"] == ["MARKET"]
+    assert query["quoteOrderQty"] == ["10.0"]
+    assert "signature" in query
+
+
+def test_spot_test_order_rejects_risk_before_network(tmp_path, monkeypatch):
+    monkeypatch.setenv("TRADING_LEARNING_DB_PATH", str(tmp_path / "test.sqlite3"))
+    monkeypatch.setenv("BINANCE_TESTNET_API_KEY", "test-key")
+    monkeypatch.setenv("BINANCE_TESTNET_API_SECRET", "test-secret")
+
+    exit_code = main(
+        [
+            "spot-test-order",
+            "--symbol",
+            "SOLUSDT",
+            "--side",
+            "BUY",
+            "--type",
+            "MARKET",
+            "--quote-order-qty",
+            "10",
         ]
     )
 

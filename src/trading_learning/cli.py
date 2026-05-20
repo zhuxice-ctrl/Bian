@@ -8,11 +8,13 @@ from trading_learning.backtest.report import summarize_backtest
 from trading_learning.ai_assistant.local_codex import LocalCodexClient
 from trading_learning.ai_assistant.tasks import create_daily_review_draft
 from trading_learning.config import load_config
+from trading_learning.execution.binance_spot_testnet import BinanceSpotTestnetClient
 from trading_learning.export_import.exporter import export_zip
 from trading_learning.journal.repository import save_daily_review
 from trading_learning.journal.repository import save_trades
 from trading_learning.market_data.binance_klines import fetch_klines, save_klines_csv
 from trading_learning.market_data.csv_loader import load_candles_csv
+from trading_learning.risk.execution_guard import ExecutionRiskGuard, OrderIntent, RiskConfig
 from trading_learning.storage.db import connect, initialize_schema
 from trading_learning.strategy.moving_average import moving_average_crossover_signals
 
@@ -57,6 +59,19 @@ def build_parser() -> argparse.ArgumentParser:
     ai_review = subparsers.add_parser("ai-review-draft", help="create a local Codex review draft")
     ai_review.add_argument("--source-external-id", required=True)
     ai_review.add_argument("--review-text", required=True)
+
+    spot_test = subparsers.add_parser("spot-test-order", help="send a Binance Spot Testnet test order")
+    spot_test.add_argument("--symbol", required=True)
+    spot_test.add_argument("--side", required=True)
+    spot_test.add_argument("--type", required=True)
+    spot_test.add_argument("--quantity", type=float)
+    spot_test.add_argument("--quote-order-qty", type=float)
+    spot_test.add_argument("--price", type=float)
+    spot_test.add_argument("--time-in-force")
+    spot_test.add_argument("--orders-today", type=int, default=0)
+    spot_test.add_argument("--daily-order-limit", type=int, default=5)
+    spot_test.add_argument("--max-quote-order-qty", type=float, default=100.0)
+    spot_test.add_argument("--allowed-symbols", default="BTCUSDT,ETHUSDT")
 
     return parser
 
@@ -152,6 +167,45 @@ def main(argv: list[str] | None = None) -> int:
                 review_text=args.review_text,
             )
             print(f"saved ai draft {draft_id}")
+            return 0
+
+        if args.command == "spot-test-order":
+            if not config.binance_testnet_api_key or not config.binance_testnet_api_secret:
+                print("BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET are required")
+                return 1
+            intent = OrderIntent(
+                symbol=args.symbol,
+                side=args.side,
+                order_type=args.type,
+                quantity=args.quantity,
+                quote_order_qty=args.quote_order_qty,
+            )
+            guard = ExecutionRiskGuard(
+                RiskConfig(
+                    daily_order_limit=args.daily_order_limit,
+                    max_quote_order_qty=args.max_quote_order_qty,
+                    allowed_symbols=tuple(parse_csv_list(args.allowed_symbols)),
+                )
+            )
+            decision = guard.check_order(intent, orders_today=args.orders_today)
+            if not decision.allowed:
+                print(f"risk rejected: {decision.reason}")
+                return 1
+            client = BinanceSpotTestnetClient(
+                base_url=config.binance_testnet_base_url,
+                api_key=config.binance_testnet_api_key,
+                api_secret=config.binance_testnet_api_secret,
+            )
+            client.test_order(
+                symbol=args.symbol,
+                side=args.side,
+                order_type=args.type,
+                quantity=args.quantity,
+                quote_order_qty=args.quote_order_qty,
+                price=args.price,
+                time_in_force=args.time_in_force,
+            )
+            print("test order accepted by Binance Spot Testnet")
             return 0
 
         if args.command == "export":
