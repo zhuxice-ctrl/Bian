@@ -3,7 +3,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Thread
 from urllib.parse import parse_qs, urlparse
 
-from trading_learning.cli import build_parser, main, parse_key_value_map
+from trading_learning.cli import build_binance_testnet_executor, build_parser, main, parse_key_value_map
+from trading_learning.config import AppConfig
 from trading_learning.storage.db import connect
 
 
@@ -38,6 +39,30 @@ def test_parse_key_value_map_ignores_invalid_items():
         "ou_owner": "owner",
         "ou_guest": "guest",
     }
+
+
+def test_build_binance_testnet_executor_allows_keyless_local_brain(tmp_path):
+    executor = build_binance_testnet_executor(
+        AppConfig(
+            db_path=tmp_path / "test.sqlite3",
+            local_codex_base_url="http://127.0.0.1:61771/v1",
+            local_codex_model="test-model",
+            local_codex_api_key=None,
+            binance_testnet_base_url="https://testnet.binance.vision",
+            binance_testnet_api_key=None,
+            binance_testnet_api_secret=None,
+            feishu_verification_token=None,
+            feishu_encrypt_key=None,
+            feishu_user_map="",
+        )
+    )
+
+    try:
+        executor.test_order(symbol="BTCUSDT", side="BUY", order_type="MARKET", quote_order_qty=10)
+    except RuntimeError as exc:
+        assert "BINANCE_TESTNET_API_KEY" in str(exc)
+    else:
+        raise AssertionError("missing credentials executor must reject test orders")
 
 
 def test_backtest_ma_persists_generated_trades(tmp_path, monkeypatch):

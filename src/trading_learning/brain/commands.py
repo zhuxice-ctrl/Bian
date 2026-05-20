@@ -59,6 +59,11 @@ class BrainCommandHandler:
             self._audit(user_id, command_text, response)
             return response
 
+        if command_text.startswith("/confirm "):
+            response = self._confirm(command_text.removeprefix("/confirm ").strip(), user_id)
+            self._audit(user_id, command_text, response)
+            return response
+
         response = {
             "status": "unknown",
             "message": "unknown command",
@@ -126,12 +131,19 @@ class BrainCommandHandler:
             }
 
         payload = json.loads(row["payload"])
-        self.executor.test_order(
-            symbol=payload["symbol"],
-            side=payload["side"],
-            order_type=payload["order_type"],
-            quote_order_qty=payload["quote_order_qty"],
-        )
+        try:
+            self.executor.test_order(
+                symbol=payload["symbol"],
+                side=payload["side"],
+                order_type=payload["order_type"],
+                quote_order_qty=payload["quote_order_qty"],
+            )
+        except Exception as exc:
+            return {
+                "status": "failed",
+                "message": str(exc),
+                "requires_confirmation": False,
+            }
         self.conn.execute("delete from brain_pending_confirmations where id = ?", (row["id"],))
         self.conn.commit()
         return {

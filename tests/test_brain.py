@@ -16,6 +16,11 @@ class FakeExecutor:
         return {}
 
 
+class FailingExecutor:
+    def test_order(self, **kwargs):
+        raise RuntimeError("testnet credentials are not configured")
+
+
 def test_brain_status_command_returns_safe_summary(tmp_path):
     with connect(tmp_path / "brain.sqlite3") as conn:
         initialize_schema(conn)
@@ -66,6 +71,40 @@ def test_confirmation_executes_pending_test_order_once(tmp_path):
         pending_count = conn.execute("select count(*) from brain_pending_confirmations").fetchone()[0]
         assert audit_count >= 3
         assert pending_count == 0
+
+
+def test_ascii_confirmation_executes_pending_test_order(tmp_path):
+    executor = FakeExecutor()
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=executor, confirmation_code=lambda: "8392")
+
+        handler.handle("/test-buy BTCUSDT 10", user_id="owner")
+        response = handler.handle("/confirm 8392", user_id="owner")
+
+        assert response["status"] == "executed"
+        assert executor.test_orders == [
+            {
+                "symbol": "BTCUSDT",
+                "side": "BUY",
+                "order_type": "MARKET",
+                "quote_order_qty": 10.0,
+            }
+        ]
+
+
+def test_confirmation_failure_keeps_pending_order(tmp_path):
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FailingExecutor(), confirmation_code=lambda: "8392")
+
+        handler.handle("/test-buy BTCUSDT 10", user_id="owner")
+        response = handler.handle("确认-8392", user_id="owner")
+
+        pending_count = conn.execute("select count(*) from brain_pending_confirmations").fetchone()[0]
+        assert response["status"] == "failed"
+        assert "testnet credentials" in response["message"]
+        assert pending_count == 1
 
 
 def test_rejects_unauthorized_user(tmp_path):

@@ -12,6 +12,7 @@ from trading_learning.brain.commands import BrainCommandHandler
 from trading_learning.brain.feishu import FeishuEventAdapter
 from trading_learning.brain.service import build_handler
 from trading_learning.config import load_config
+from trading_learning.config import AppConfig
 from trading_learning.execution.binance_spot_testnet import BinanceSpotTestnetClient
 from trading_learning.export_import.exporter import export_zip
 from trading_learning.journal.repository import save_daily_review
@@ -21,6 +22,21 @@ from trading_learning.market_data.csv_loader import load_candles_csv
 from trading_learning.risk.execution_guard import ExecutionRiskGuard, OrderIntent, RiskConfig
 from trading_learning.storage.db import connect, initialize_schema
 from trading_learning.strategy.moving_average import moving_average_crossover_signals
+
+
+class MissingBinanceTestnetExecutor:
+    def test_order(self, **kwargs):
+        raise RuntimeError("BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET are required")
+
+
+def build_binance_testnet_executor(config: AppConfig):
+    if not config.binance_testnet_api_key or not config.binance_testnet_api_secret:
+        return MissingBinanceTestnetExecutor()
+    return BinanceSpotTestnetClient(
+        base_url=config.binance_testnet_base_url,
+        api_key=config.binance_testnet_api_key,
+        api_secret=config.binance_testnet_api_secret,
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -218,14 +234,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "brain-serve":
-            if not config.binance_testnet_api_key or not config.binance_testnet_api_secret:
-                print("BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET are required")
-                return 1
-            client = BinanceSpotTestnetClient(
-                base_url=config.binance_testnet_base_url,
-                api_key=config.binance_testnet_api_key,
-                api_secret=config.binance_testnet_api_secret,
-            )
+            client = build_binance_testnet_executor(config)
             command_handler = BrainCommandHandler(
                 conn,
                 executor=client,
