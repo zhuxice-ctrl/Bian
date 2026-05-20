@@ -28,6 +28,8 @@ Build a local-first, low-frequency crypto trading learning system that can:
 - [x] Brain history download, replay backtest, and experiment records.
 - [x] Review-to-experiment learning loop.
 - [x] Daily and weekly learning reports.
+- [x] Chinese Brain aliases and keyword commands.
+- [x] Local read-only dashboard with K-line replay.
 
 ## Phase 1: Brain Review And Learning Commands
 
@@ -145,3 +147,15 @@ Acceptance criteria:
 - [x] Brain can store a weekly learning report with aggregate trade count, PnL, plan-follow rate, and focus tags.
 - [x] Brain can return next learning tasks for a review day without placing orders or calling an external model.
 - [x] Export includes learning reports.
+
+## Phase 11: Chinese Commands And Local Dashboard
+
+Status: completed
+
+Acceptance criteria:
+
+- [x] Common Brain commands work through Chinese aliases and keyword-style input without a leading slash.
+- [x] Trading aliases still require the existing plan, checklist, and confirmation guard.
+- [x] The local dashboard serves read-only overview, review, experiment, knowledge, report, and K-line replay JSON.
+- [x] The browser dashboard can display summary panels and K-line replay from local experiment CSV data.
+- [x] The dashboard exposes no trading action and no local credentials.

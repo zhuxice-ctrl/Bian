@@ -14,6 +14,8 @@ from trading_learning.brain.natural_language import LocalCodexBrainAssistant
 from trading_learning.brain.service import build_handler
 from trading_learning.config import load_config
 from trading_learning.config import AppConfig
+from trading_learning.dashboard.data import DashboardData
+from trading_learning.dashboard.service import build_dashboard_handler
 from trading_learning.execution.binance_spot_testnet import BinanceSpotTestnetClient
 from trading_learning.export_import.exporter import export_zip
 from trading_learning.journal.repository import save_daily_review
@@ -21,7 +23,7 @@ from trading_learning.journal.repository import save_trades
 from trading_learning.market_data.binance_klines import fetch_klines, save_klines_csv
 from trading_learning.market_data.csv_loader import load_candles_csv
 from trading_learning.risk.execution_guard import ExecutionRiskGuard, OrderIntent, RiskConfig
-from trading_learning.storage.db import connect, initialize_schema
+from trading_learning.storage.db import connect, connect_readonly, initialize_schema
 from trading_learning.strategy.moving_average import moving_average_crossover_signals
 
 
@@ -114,6 +116,10 @@ def build_parser() -> argparse.ArgumentParser:
     brain_serve.add_argument("--port", type=int, default=8765)
     brain_serve.add_argument("--allowed-user-id", action="append", default=[])
 
+    dashboard_serve = subparsers.add_parser("dashboard-serve", help="start the local read-only dashboard")
+    dashboard_serve.add_argument("--host", default="127.0.0.1")
+    dashboard_serve.add_argument("--port", type=int, default=8780)
+
     return parser
 
 
@@ -121,6 +127,24 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     config = load_config()
+
+    if args.command == "dashboard-serve":
+        if not config.db_path.exists():
+            print(f"dashboard database not found: {config.db_path}. Run `trading-learning init-db` first.")
+            return 1
+        with connect_readonly(config.db_path) as conn:
+            server = HTTPServer(
+                (args.host, args.port),
+                build_dashboard_handler(DashboardData(conn)),
+            )
+            print(f"dashboard listening on http://{args.host}:{args.port}/")
+            try:
+                server.serve_forever()
+            except KeyboardInterrupt:
+                pass
+            finally:
+                server.server_close()
+        return 0
 
     with connect(config.db_path) as conn:
         initialize_schema(conn)

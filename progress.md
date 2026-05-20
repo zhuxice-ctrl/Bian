@@ -24,3 +24,6 @@
 - Added Phase 9 review-to-experiment links and review context summaries.
 - Added Phase 10 daily reports, weekly reports, next learning tasks, and learning report export records.
 - Restarted local Brain and verified `/daily-report`, `/weekly-report`, and `/learning-next` end-to-end.
+- Added Phase 11 Chinese Brain aliases, keyword commands, and guarded Chinese testnet buy confirmation.
+- Added Phase 11 local read-only dashboard with overview, reviews, experiments, knowledge cards, learning reports, and K-line replay endpoints.
+- Added a vanilla browser dashboard with canvas K-line rendering and experiment trade markers.

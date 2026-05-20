@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Trading Learning Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>Trading Learning Dashboard</h1>
+        <p>本地只读驾驶舱：复盘、实验、知识库和 K 线回放。</p>
+      </div>
+      <div class="status" id="connectionStatus">读取中</div>
+    </header>
+
+    <main class="layout">
+      <section class="panel overview">
+        <h2>总览</h2>
+        <div class="metrics" id="metrics"></div>
+      </section>
+
+      <section class="panel replay">
+        <div class="panel-header">
+          <h2>K 线回放</h2>
+          <div class="controls">
+            <select id="experimentSelect"></select>
+            <button id="loadReplay" type="button">载入</button>
+          </div>
+        </div>
+        <canvas id="klineCanvas" width="960" height="420"></canvas>
+        <input id="replayRange" type="range" min="20" max="300" value="120" />
+      </section>
+
+      <section class="panel">
+        <h2>最近复盘</h2>
+        <div class="list" id="reviewList"></div>
+      </section>
+
+      <section class="panel">
+        <h2>策略实验</h2>
+        <div class="list" id="experimentList"></div>
+      </section>
+
+      <section class="panel knowledge">
+        <h2>知识卡片</h2>
+        <div class="list" id="knowledgeList"></div>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

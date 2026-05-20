@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from trading_learning.backtest.engine import run_spot_backtest
 from trading_learning.backtest.report import summarize_backtest
+from trading_learning.brain.command_aliases import normalize_brain_command
 from trading_learning.journal.repository import save_daily_review
 from trading_learning.journal.repository import save_trades
 from trading_learning.learning.repository import save_knowledge_card
@@ -46,7 +47,7 @@ class BrainCommandHandler:
         self.kline_fetcher = kline_fetcher or fetch_klines
 
     def handle(self, text: str, *, user_id: str) -> dict[str, Any]:
-        command_text = text.strip()
+        command_text = normalize_brain_command(text.strip())
         if self.allowed_user_ids and user_id not in self.allowed_user_ids:
             response = {
                 "status": "forbidden",

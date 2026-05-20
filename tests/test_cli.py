@@ -22,6 +22,7 @@ def test_cli_has_expected_commands():
         "ai-review-draft",
         "spot-test-order",
         "brain-serve",
+        "dashboard-serve",
         "export",
     }.issubset(command_names)
 
@@ -32,6 +33,24 @@ def test_brain_serve_parser_defaults():
     assert args.command == "brain-serve"
     assert args.host == "127.0.0.1"
     assert args.port == 8765
+
+
+def test_dashboard_serve_parser_defaults():
+    args = build_parser().parse_args(["dashboard-serve"])
+
+    assert args.command == "dashboard-serve"
+    assert args.host == "127.0.0.1"
+    assert args.port == 8780
+
+
+def test_dashboard_serve_requires_existing_database_without_creating_schema(tmp_path, monkeypatch):
+    db_path = tmp_path / "missing.sqlite3"
+    monkeypatch.setenv("TRADING_LEARNING_DB_PATH", str(db_path))
+
+    result = main(["dashboard-serve", "--port", "0"])
+
+    assert result == 1
+    assert not db_path.exists()
 
 
 def test_parse_key_value_map_ignores_invalid_items():
