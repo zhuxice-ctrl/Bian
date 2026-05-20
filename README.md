@@ -90,6 +90,9 @@ The local brain is the control layer for chat-style operation. It runs on your m
 $env:BINANCE_TESTNET_BASE_URL="https://testnet.binance.vision"
 $env:BINANCE_TESTNET_API_KEY="your-testnet-key"
 $env:BINANCE_TESTNET_API_SECRET="your-testnet-secret"
+$env:FEISHU_VERIFICATION_TOKEN="your-feishu-verification-token"
+$env:FEISHU_ENCRYPT_KEY="your-feishu-encrypt-key"
+$env:FEISHU_USER_MAP="your-feishu-open-id:owner"
 trading-learning brain-serve --host 127.0.0.1 --port 8765 --allowed-user-id owner
 ```
 
@@ -106,6 +109,18 @@ Supported commands:
 - `确认-CODE`: executes the pending test order once.
 
 The service is local-first. A Feishu bridge can call this endpoint later, but the Binance keys should remain only in the local environment.
+
+### Feishu Event Bridge
+
+The same local service also exposes `POST http://127.0.0.1:8765/feishu/events` for Feishu event callbacks. It supports:
+
+- URL verification challenge.
+- `im.message.receive_v1` text messages.
+- Verification token checks.
+- Optional `X-Lark-Signature` verification when `FEISHU_ENCRYPT_KEY` is set.
+- Open ID to local user mapping through `FEISHU_USER_MAP`.
+
+For remote phone access, put a tunnel or reverse proxy in front of this local endpoint and point Feishu event subscription to that public HTTPS URL. Keep Binance keys and Feishu secrets in local environment variables only.
 
 ## Export Data
 

@@ -3,7 +3,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Thread
 from urllib.parse import parse_qs, urlparse
 
-from trading_learning.cli import build_parser, main
+from trading_learning.cli import build_parser, main, parse_key_value_map
 from trading_learning.storage.db import connect
 
 
@@ -31,6 +31,13 @@ def test_brain_serve_parser_defaults():
     assert args.command == "brain-serve"
     assert args.host == "127.0.0.1"
     assert args.port == 8765
+
+
+def test_parse_key_value_map_ignores_invalid_items():
+    assert parse_key_value_map("ou_owner:owner,broken,ou_guest:guest") == {
+        "ou_owner": "owner",
+        "ou_guest": "guest",
+    }
 
 
 def test_backtest_ma_persists_generated_trades(tmp_path, monkeypatch):

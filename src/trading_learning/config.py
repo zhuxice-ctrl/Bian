@@ -14,6 +14,9 @@ class AppConfig:
     binance_testnet_base_url: str
     binance_testnet_api_key: str | None
     binance_testnet_api_secret: str | None
+    feishu_verification_token: str | None
+    feishu_encrypt_key: str | None
+    feishu_user_map: str
 
 
 def load_config() -> AppConfig:
@@ -25,4 +28,7 @@ def load_config() -> AppConfig:
         binance_testnet_base_url=os.getenv("BINANCE_TESTNET_BASE_URL", "https://testnet.binance.vision"),
         binance_testnet_api_key=os.getenv("BINANCE_TESTNET_API_KEY"),
         binance_testnet_api_secret=os.getenv("BINANCE_TESTNET_API_SECRET"),
+        feishu_verification_token=os.getenv("FEISHU_VERIFICATION_TOKEN"),
+        feishu_encrypt_key=os.getenv("FEISHU_ENCRYPT_KEY"),
+        feishu_user_map=os.getenv("FEISHU_USER_MAP", ""),
     )

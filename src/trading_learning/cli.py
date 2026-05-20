@@ -9,6 +9,7 @@ from trading_learning.backtest.report import summarize_backtest
 from trading_learning.ai_assistant.local_codex import LocalCodexClient
 from trading_learning.ai_assistant.tasks import create_daily_review_draft
 from trading_learning.brain.commands import BrainCommandHandler
+from trading_learning.brain.feishu import FeishuEventAdapter
 from trading_learning.brain.service import build_handler
 from trading_learning.config import load_config
 from trading_learning.execution.binance_spot_testnet import BinanceSpotTestnetClient
@@ -230,8 +231,18 @@ def main(argv: list[str] | None = None) -> int:
                 executor=client,
                 allowed_user_ids=tuple(args.allowed_user_id),
             )
-            server = HTTPServer((args.host, args.port), build_handler(command_handler))
+            feishu_adapter = FeishuEventAdapter(
+                command_handler,
+                verification_token=config.feishu_verification_token,
+                encrypt_key=config.feishu_encrypt_key,
+                user_id_map=parse_key_value_map(config.feishu_user_map),
+            )
+            server = HTTPServer(
+                (args.host, args.port),
+                build_handler(command_handler, feishu_adapter=feishu_adapter),
+            )
             print(f"brain service listening on http://{args.host}:{args.port}/brain/command")
+            print(f"feishu event endpoint listening on http://{args.host}:{args.port}/feishu/events")
             try:
                 server.serve_forever()
             except KeyboardInterrupt:
@@ -251,3 +262,12 @@ def main(argv: list[str] | None = None) -> int:
 
 def parse_csv_list(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def parse_key_value_map(value: str) -> dict[str, str]:
+    pairs: dict[str, str] = {}
+    for item in parse_csv_list(value):
+        key, separator, mapped_value = item.partition(":")
+        if separator and key.strip() and mapped_value.strip():
+            pairs[key.strip()] = mapped_value.strip()
+    return pairs

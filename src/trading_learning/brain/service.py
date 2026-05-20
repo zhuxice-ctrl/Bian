@@ -8,15 +8,28 @@ from typing import Any
 
 class BrainRequestHandler(BaseHTTPRequestHandler):
     command_handler: Any
+    feishu_adapter: Any | None = None
 
     def do_POST(self) -> None:
-        if self.path != "/brain/command":
+        if self.path not in {"/brain/command", "/feishu/events"}:
             self._write_json({"status": "not_found", "message": "not found"}, HTTPStatus.NOT_FOUND)
             return
 
         try:
             length = int(self.headers.get("Content-Length", "0"))
-            body = json.loads(self.rfile.read(length).decode("utf-8"))
+            raw_body = self.rfile.read(length)
+            body = json.loads(raw_body.decode("utf-8"))
+            if self.path == "/feishu/events":
+                if self.feishu_adapter is None:
+                    self._write_json({"status": "not_configured", "message": "Feishu adapter not configured"}, HTTPStatus.NOT_FOUND)
+                    return
+                response = self.feishu_adapter.handle(
+                    body,
+                    raw_body=raw_body,
+                    headers=dict(self.headers.items()),
+                )
+                self._write_json(response, HTTPStatus.OK)
+                return
             response = self.command_handler.handle(
                 str(body.get("text", "")),
                 user_id=str(body.get("user_id", "")),
@@ -39,9 +52,10 @@ class BrainRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(encoded)
 
 
-def build_handler(command_handler: Any) -> type[BrainRequestHandler]:
+def build_handler(command_handler: Any, *, feishu_adapter: Any | None = None) -> type[BrainRequestHandler]:
     class ConfiguredBrainRequestHandler(BrainRequestHandler):
         pass
 
     ConfiguredBrainRequestHandler.command_handler = command_handler
+    ConfiguredBrainRequestHandler.feishu_adapter = feishu_adapter
     return ConfiguredBrainRequestHandler
