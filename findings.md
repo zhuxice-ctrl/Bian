@@ -9,3 +9,6 @@
 - Existing knowledge storage is available through `knowledge_cards`.
 - Brain command handler currently supports status, test buy, and confirmation; review/learning commands are the next missing layer.
 - Brain command values are currently parsed as simple `key=value` tokens; spaces can be represented with underscores and converted for stored display text.
+- Execution commands now require a same-day trading plan and an approved pre-trade checklist for the symbol.
+- Expanded order placement remains Spot Testnet only and still requires confirmation.
+- Feishu production cannot be fully completed inside the repository because it needs an external public HTTPS callback and Feishu app configuration.

@@ -18,11 +18,11 @@ Build a local-first, low-frequency crypto trading learning system that can:
 - [x] Windows long-running startup scripts.
 - [x] Local terminal chat helper.
 - [x] Feishu event endpoint foundation.
-- [ ] Brain review and learning commands.
-- [ ] Trading plan commands and pre-trade checklist.
-- [ ] Strategy knowledge-base workflow.
-- [ ] Feishu production wiring.
-- [ ] Real testnet order placement beyond `/order/test`.
+- [x] Brain review and learning commands.
+- [x] Trading plan commands and pre-trade checklist.
+- [x] Strategy knowledge-base workflow.
+- [x] Feishu production wiring support that can be completed locally.
+- [x] Real testnet order placement beyond `/order/test` for Spot Testnet only.
 
 ## Phase 1: Brain Review And Learning Commands
 
@@ -38,40 +38,48 @@ Acceptance criteria:
 
 ## Phase 2: Trading Plan Layer
 
-Status: next
+Status: completed
 
 Acceptance criteria:
 
-- Store daily trading plan and allowed symbols.
-- Store pre-trade checklist answers.
-- Block execution commands when the plan/checklist is missing or violated.
+- [x] Store daily trading plan and allowed symbols.
+- [x] Store pre-trade checklist answers.
+- [x] Block execution commands when the plan/checklist is missing or violated.
 
 ## Phase 3: Strategy Knowledge Base
 
-Status: pending
+Status: completed
 
 Acceptance criteria:
 
-- Add structured command(s) for technical/theory cards.
-- Add search/list command(s) for knowledge cards.
-- Add mistake-pattern tags that connect reviews to learning cards.
+- [x] Add structured command(s) for technical/theory cards.
+- [x] Add search/list command(s) for knowledge cards.
+- [x] Add mistake-pattern tags that connect reviews to learning cards.
 
 ## Phase 4: Feishu Production Connection
 
-Status: pending
+Status: local-ready
 
 Acceptance criteria:
 
-- Configure public HTTPS callback separately from repository.
-- Map Feishu user identity to local user id.
-- Verify events end-to-end from phone to local Brain.
+- [x] Provide local Feishu event smoke test script.
+- [x] Map Feishu user identity to local user id through `FEISHU_USER_MAP`.
+- [ ] Configure public HTTPS callback separately from repository.
+- [ ] Verify events end-to-end from phone to local Brain after external Feishu setup.
 
 ## Phase 5: Expanded Testnet Execution
 
-Status: pending
+Status: completed
 
 Acceptance criteria:
 
-- Add explicit create/cancel/get order commands for Binance Spot Testnet only.
-- Keep live trading disabled.
-- Require stricter confirmation and local risk checks.
+- [x] Add explicit create/cancel/get order commands for Binance Spot Testnet only.
+- [x] Keep live trading disabled.
+- [x] Require stricter confirmation and local plan/checklist checks.
+
+## Completion Boundary
+
+The local codebase is complete through the planned local phases. Remaining work is external setup:
+
+- Feishu app credentials and public HTTPS callback URL.
+- Phone-to-local end-to-end validation after Feishu setup.

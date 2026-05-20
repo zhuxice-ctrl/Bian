@@ -75,6 +75,19 @@ def test_restart_scripts_stop_listener_and_start_brain():
     assert "/status" in restart_script
 
 
+def test_feishu_event_smoke_script_posts_verification_and_message_events():
+    script = _read_script("feishu-event-smoke.ps1")
+
+    assert "http://127.0.0.1:8765/feishu/events" in script
+    assert "url_verification" in script
+    assert "im.message.receive_v1" in script
+    assert "Invoke-RestMethod" in script
+    assert "FEISHU_VERIFICATION_TOKEN" in script
+    assert "FEISHU_ENCRYPT_KEY" in script
+    assert "X-Lark-Signature" in script
+    assert "FEISHU_VERIFICATION_TOKEN=" not in script
+
+
 def test_service_scripts_do_not_contain_known_secret_values():
     combined = "\n".join(
         path.read_text(encoding="utf-8")

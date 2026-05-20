@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass
+from datetime import date
 from typing import Any, Callable
 from uuid import uuid4
 
@@ -57,6 +58,21 @@ class BrainCommandHandler:
             self._audit(user_id, command_text, response)
             return response
 
+        if command_text.startswith("/testnet-create-buy "):
+            response = self._prepare_testnet_create_buy(command_text, user_id)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/testnet-cancel "):
+            response = self._prepare_testnet_cancel(command_text, user_id)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/testnet-order "):
+            response = self._testnet_order(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
         if command_text.startswith("确认-"):
             response = self._confirm(command_text.removeprefix("确认-"), user_id)
             self._audit(user_id, command_text, response)
@@ -79,6 +95,36 @@ class BrainCommandHandler:
 
         if command_text.startswith("/lesson "):
             response = self._save_lesson(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/plan-set "):
+            response = self._save_plan(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/checklist "):
+            response = self._save_checklist(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/plan-status"):
+            response = self._plan_status(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/knowledge-add "):
+            response = self._knowledge_add(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/knowledge-search"):
+            response = self._knowledge_search(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/mistake-link "):
+            response = self._mistake_link(command_text)
             self._audit(user_id, command_text, response)
             return response
 
@@ -109,6 +155,10 @@ class BrainCommandHandler:
                 "requires_confirmation": False,
             }
 
+        block = self._execution_block(symbol)
+        if block is not None:
+            return block
+
         code = self.confirmation_code()
         payload = {
             "action": "test_order",
@@ -132,6 +182,94 @@ class BrainCommandHandler:
             "confirmation_code": code,
         }
 
+    def _prepare_testnet_create_buy(self, command_text: str, user_id: str) -> dict[str, Any]:
+        parts = command_text.split()
+        if len(parts) != 3:
+            return {
+                "status": "invalid",
+                "message": "usage: /testnet-create-buy SYMBOL QUOTE_AMOUNT",
+                "requires_confirmation": False,
+            }
+        symbol = parts[1].upper()
+        try:
+            quote_order_qty = float(parts[2])
+        except ValueError:
+            return {
+                "status": "invalid",
+                "message": "quote amount must be a number",
+                "requires_confirmation": False,
+            }
+        block = self._execution_block(symbol)
+        if block is not None:
+            return block
+        payload = {
+            "action": "create_order",
+            "symbol": symbol,
+            "side": "BUY",
+            "order_type": "MARKET",
+            "quote_order_qty": quote_order_qty,
+        }
+        return self._save_pending_confirmation(user_id, command_text, payload)
+
+    def _prepare_testnet_cancel(self, command_text: str, user_id: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/testnet-cancel "))
+        if "symbol" not in fields or "order_id" not in fields:
+            return {
+                "status": "invalid",
+                "message": "usage: /testnet-cancel symbol=SYMBOL order_id=ID",
+                "requires_confirmation": False,
+            }
+        payload = {
+            "action": "cancel_order",
+            "symbol": fields["symbol"].upper(),
+            "order_id": int(fields["order_id"]),
+        }
+        return self._save_pending_confirmation(user_id, command_text, payload)
+
+    def _testnet_order(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/testnet-order "))
+        if "symbol" not in fields or "order_id" not in fields:
+            return {
+                "status": "invalid",
+                "message": "usage: /testnet-order symbol=SYMBOL order_id=ID",
+                "requires_confirmation": False,
+            }
+        try:
+            order = self.executor.get_order(symbol=fields["symbol"].upper(), order_id=int(fields["order_id"]))
+        except Exception as exc:
+            return {
+                "status": "failed",
+                "message": str(exc),
+                "requires_confirmation": False,
+            }
+        return {
+            "status": "ok",
+            "order": order,
+            "requires_confirmation": False,
+        }
+
+    def _save_pending_confirmation(
+        self,
+        user_id: str,
+        command_text: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        code = self.confirmation_code()
+        self.conn.execute(
+            """
+            insert into brain_pending_confirmations (code, user_id, command_text, payload)
+            values (?, ?, ?, ?)
+            """,
+            (code, user_id, command_text, json.dumps(payload, ensure_ascii=False, sort_keys=True)),
+        )
+        self.conn.commit()
+        return {
+            "status": "pending_confirmation",
+            "message": f"Prepared {payload['action']}. Reply 确认-{code} to execute.",
+            "requires_confirmation": True,
+            "confirmation_code": code,
+        }
+
     def _confirm(self, code: str, user_id: str) -> dict[str, Any]:
         row = self.conn.execute(
             """
@@ -150,12 +288,27 @@ class BrainCommandHandler:
 
         payload = json.loads(row["payload"])
         try:
-            self.executor.test_order(
-                symbol=payload["symbol"],
-                side=payload["side"],
-                order_type=payload["order_type"],
-                quote_order_qty=payload["quote_order_qty"],
-            )
+            if payload["action"] == "test_order":
+                self.executor.test_order(
+                    symbol=payload["symbol"],
+                    side=payload["side"],
+                    order_type=payload["order_type"],
+                    quote_order_qty=payload["quote_order_qty"],
+                )
+            elif payload["action"] == "create_order":
+                self.executor.create_order(
+                    symbol=payload["symbol"],
+                    side=payload["side"],
+                    order_type=payload["order_type"],
+                    quote_order_qty=payload["quote_order_qty"],
+                )
+            elif payload["action"] == "cancel_order":
+                self.executor.cancel_order(
+                    symbol=payload["symbol"],
+                    order_id=payload["order_id"],
+                )
+            else:
+                raise ValueError(f"unknown pending action {payload['action']}")
         except Exception as exc:
             return {
                 "status": "failed",
@@ -167,6 +320,116 @@ class BrainCommandHandler:
         return {
             "status": "executed",
             "message": "Spot Testnet test order executed.",
+            "requires_confirmation": False,
+        }
+
+    def _save_plan(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/plan-set "))
+        required = {"date", "symbols", "max_trades"}
+        missing = sorted(required - fields.keys())
+        if missing:
+            return {
+                "status": "invalid",
+                "message": f"missing fields: {', '.join(missing)}",
+                "requires_confirmation": False,
+            }
+        external_id = f"plan-{fields['date']}"
+        self.conn.execute(
+            """
+            insert into trading_plans (
+              external_id, plan_date, symbols, max_trades, bias, conditions, forbidden
+            ) values (?, ?, ?, ?, ?, ?, ?)
+            on conflict(plan_date) do update set
+              symbols = excluded.symbols,
+              max_trades = excluded.max_trades,
+              bias = excluded.bias,
+              conditions = excluded.conditions,
+              forbidden = excluded.forbidden,
+              updated_at = CURRENT_TIMESTAMP
+            """,
+            (
+                external_id,
+                fields["date"],
+                json.dumps(self._csv_values(fields["symbols"]), ensure_ascii=False),
+                int(fields["max_trades"]),
+                self._display_value(fields.get("bias", "")),
+                self._display_value(fields.get("conditions", "")),
+                self._display_value(fields.get("forbidden", "")),
+            ),
+        )
+        self.conn.commit()
+        return {
+            "status": "saved",
+            "message": f"saved plan {external_id}",
+            "external_id": external_id,
+            "requires_confirmation": False,
+        }
+
+    def _save_checklist(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/checklist "))
+        if "symbol" not in fields:
+            return {
+                "status": "invalid",
+                "message": "missing fields: symbol",
+                "requires_confirmation": False,
+            }
+        checklist_date = fields.get("date", self._today())
+        symbol = fields["symbol"].upper()
+        external_id = f"checklist-{checklist_date}-{symbol}-{uuid4()}"
+        emotion = fields.get("emotion", "")
+        self.conn.execute(
+            """
+            insert into pre_trade_checklists (
+              external_id, checklist_date, symbol, plan_ok, setup_ok, risk_ok, emotion, emotion_ok
+            ) values (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                external_id,
+                checklist_date,
+                symbol,
+                1 if self._truthy(fields.get("plan", "")) else 0,
+                1 if self._truthy(fields.get("setup", "")) else 0,
+                1 if self._truthy(fields.get("risk", "")) else 0,
+                self._display_value(emotion),
+                0 if emotion.lower() in {"panic", "fomo", "angry", "revenge"} else 1,
+            ),
+        )
+        self.conn.commit()
+        return {
+            "status": "saved",
+            "message": f"saved checklist {external_id}",
+            "external_id": external_id,
+            "requires_confirmation": False,
+        }
+
+    def _plan_status(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/plan-status").strip())
+        plan_date = fields.get("date", self._today())
+        plan = self._plan_for_date(plan_date)
+        checklist_rows = self.conn.execute(
+            """
+            select symbol, plan_ok, setup_ok, risk_ok, emotion, emotion_ok, created_at
+            from pre_trade_checklists
+            where checklist_date = ?
+            order by id desc
+            """,
+            (plan_date,),
+        ).fetchall()
+        return {
+            "status": "ok",
+            "plan": plan,
+            "checklists": [
+                {
+                    "symbol": row["symbol"],
+                    "plan_ok": bool(row["plan_ok"]),
+                    "setup_ok": bool(row["setup_ok"]),
+                    "risk_ok": bool(row["risk_ok"]),
+                    "emotion": row["emotion"],
+                    "emotion_ok": bool(row["emotion_ok"]),
+                    "created_at": row["created_at"],
+                }
+                for row in checklist_rows
+            ],
             "requires_confirmation": False,
         }
 
@@ -265,6 +528,165 @@ class BrainCommandHandler:
             "requires_confirmation": False,
         }
 
+    def _knowledge_add(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/knowledge-add "))
+        required = {"title", "category", "content"}
+        missing = sorted(required - fields.keys())
+        if missing:
+            return {
+                "status": "invalid",
+                "message": f"missing fields: {', '.join(missing)}",
+                "requires_confirmation": False,
+            }
+        external_id = f"knowledge-{uuid4()}"
+        save_knowledge_card(
+            self.conn,
+            external_id=external_id,
+            title=self._display_value(fields["title"]),
+            category=fields["category"],
+            content=self._display_value(fields["content"]),
+        )
+        for tag in self._csv_values(fields.get("tags", "")):
+            self.conn.execute(
+                """
+                insert or ignore into knowledge_card_tags (card_external_id, tag)
+                values (?, ?)
+                """,
+                (external_id, tag),
+            )
+        self.conn.commit()
+        return {
+            "status": "saved",
+            "message": f"saved knowledge card {external_id}",
+            "external_id": external_id,
+            "requires_confirmation": False,
+        }
+
+    def _knowledge_search(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/knowledge-search").strip())
+        query = fields.get("query", "")
+        limit = int(fields.get("limit", "5"))
+        pattern = f"%{self._display_value(query)}%"
+        rows = self.conn.execute(
+            """
+            select external_id, title, category, content
+            from knowledge_cards
+            where title like ? or category like ? or content like ?
+            order by id desc
+            limit ?
+            """,
+            (pattern, pattern, pattern, limit),
+        ).fetchall()
+        return {
+            "status": "ok",
+            "cards": [
+                {
+                    "external_id": row["external_id"],
+                    "title": row["title"],
+                    "category": row["category"],
+                    "content": row["content"],
+                    "tags": self._tags_for_card(row["external_id"]),
+                }
+                for row in rows
+            ],
+            "requires_confirmation": False,
+        }
+
+    def _mistake_link(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/mistake-link "))
+        required = {"review", "card", "tag"}
+        missing = sorted(required - fields.keys())
+        if missing:
+            return {
+                "status": "invalid",
+                "message": f"missing fields: {', '.join(missing)}",
+                "requires_confirmation": False,
+            }
+        self.conn.execute(
+            """
+            insert or ignore into mistake_knowledge_links (review_external_id, card_external_id, tag)
+            values (?, ?, ?)
+            """,
+            (fields["review"], fields["card"], fields["tag"]),
+        )
+        self.conn.commit()
+        return {
+            "status": "saved",
+            "message": "linked mistake to knowledge card",
+            "requires_confirmation": False,
+        }
+
+    def _execution_block(self, symbol: str) -> dict[str, Any] | None:
+        plan = self._plan_for_date(self._today())
+        if plan is None:
+            return {
+                "status": "blocked",
+                "message": "today's trading plan is missing",
+                "requires_confirmation": False,
+            }
+        if symbol not in plan["symbols"]:
+            return {
+                "status": "blocked",
+                "message": f"{symbol} is not in today's plan",
+                "requires_confirmation": False,
+            }
+        row = self.conn.execute(
+            """
+            select plan_ok, setup_ok, risk_ok, emotion_ok
+            from pre_trade_checklists
+            where checklist_date = ? and symbol = ?
+            order by id desc
+            limit 1
+            """,
+            (self._today(), symbol),
+        ).fetchone()
+        if row is None:
+            return {
+                "status": "blocked",
+                "message": f"pre-trade checklist is missing for {symbol}",
+                "requires_confirmation": False,
+            }
+        if not all(bool(row[key]) for key in ("plan_ok", "setup_ok", "risk_ok", "emotion_ok")):
+            return {
+                "status": "blocked",
+                "message": f"pre-trade checklist is not fully approved for {symbol}",
+                "requires_confirmation": False,
+            }
+        return None
+
+    def _plan_for_date(self, plan_date: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            """
+            select external_id, plan_date, symbols, max_trades, bias, conditions, forbidden
+            from trading_plans
+            where plan_date = ?
+            """,
+            (plan_date,),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "external_id": row["external_id"],
+            "plan_date": row["plan_date"],
+            "symbols": json.loads(row["symbols"]),
+            "max_trades": row["max_trades"],
+            "bias": row["bias"],
+            "conditions": row["conditions"],
+            "forbidden": row["forbidden"],
+        }
+
+    def _tags_for_card(self, external_id: str) -> list[str]:
+        rows = self.conn.execute(
+            """
+            select tag
+            from knowledge_card_tags
+            where card_external_id = ?
+            order by id
+            """,
+            (external_id,),
+        ).fetchall()
+        return [row["tag"] for row in rows]
+
     def _audit(self, user_id: str, command_text: str, response: dict[str, Any]) -> None:
         self.conn.execute(
             """
@@ -301,3 +723,11 @@ class BrainCommandHandler:
     @staticmethod
     def _display_value(value: str) -> str:
         return value.replace("_", " ")
+
+    @staticmethod
+    def _truthy(value: str) -> bool:
+        return value.lower() in {"yes", "true", "1", "ok"}
+
+    @staticmethod
+    def _today() -> str:
+        return date.today().isoformat()

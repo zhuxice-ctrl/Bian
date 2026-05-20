@@ -77,3 +77,46 @@ create table if not exists brain_pending_confirmations (
   payload text not null,
   created_at text not null default CURRENT_TIMESTAMP
 );
+
+create table if not exists trading_plans (
+  id integer primary key autoincrement,
+  external_id text not null unique,
+  plan_date text not null unique,
+  symbols text not null,
+  max_trades integer not null,
+  bias text not null default '',
+  conditions text not null default '',
+  forbidden text not null default '',
+  created_at text not null default CURRENT_TIMESTAMP,
+  updated_at text not null default CURRENT_TIMESTAMP
+);
+
+create table if not exists pre_trade_checklists (
+  id integer primary key autoincrement,
+  external_id text not null unique,
+  checklist_date text not null,
+  symbol text not null,
+  plan_ok integer not null check (plan_ok in (0, 1)),
+  setup_ok integer not null check (setup_ok in (0, 1)),
+  risk_ok integer not null check (risk_ok in (0, 1)),
+  emotion text not null default '',
+  emotion_ok integer not null check (emotion_ok in (0, 1)),
+  created_at text not null default CURRENT_TIMESTAMP
+);
+
+create table if not exists knowledge_card_tags (
+  id integer primary key autoincrement,
+  card_external_id text not null,
+  tag text not null,
+  created_at text not null default CURRENT_TIMESTAMP,
+  unique (card_external_id, tag)
+);
+
+create table if not exists mistake_knowledge_links (
+  id integer primary key autoincrement,
+  review_external_id text not null,
+  card_external_id text not null,
+  tag text not null,
+  created_at text not null default CURRENT_TIMESTAMP,
+  unique (review_external_id, card_external_id, tag)
+);

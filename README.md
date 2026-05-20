@@ -112,12 +112,21 @@ powershell -ExecutionPolicy Bypass -File scripts/brain-chat.ps1
 Supported commands:
 
 - `/status`: health check and mode summary.
+- `/plan-set date=2026-05-20 symbols=BTCUSDT,ETHUSDT max_trades=5 bias=neutral conditions=trend_up forbidden=fomo`: stores the daily trading plan.
+- `/checklist symbol=BTCUSDT plan=yes setup=yes risk=yes emotion=calm`: stores the pre-trade checklist.
+- `/plan-status date=2026-05-20`: returns the plan and checklist records.
 - `/test-buy BTCUSDT 10`: creates a pending Spot Testnet test buy request.
+- `/testnet-create-buy BTCUSDT 10`: creates a pending real Spot Testnet market buy request.
+- `/testnet-cancel symbol=BTCUSDT order_id=123`: creates a pending Spot Testnet cancel request.
+- `/testnet-order symbol=BTCUSDT order_id=123`: fetches a Spot Testnet order.
 - `确认-CODE`: executes the pending test order once.
 - `/confirm CODE`: ASCII confirmation command for terminals or channels that do not handle Chinese input reliably.
 - `/review-add date=2026-05-20 symbols=BTCUSDT trades=2 plan=yes pnl=12.5 tags=late_entry lesson=Wait_for_planned_entries note=Calm`: stores a daily review.
 - `/review-summary limit=5`: returns recent daily reviews.
 - `/lesson title=MA_lag category=technical content=Moving_average_signals_lag_price`: stores a learning card.
+- `/knowledge-add title=FOMO_control category=psychology content=Pause_before_entry tags=fomo,discipline`: stores a tagged knowledge card.
+- `/knowledge-search query=FOMO limit=5`: searches knowledge cards.
+- `/mistake-link review=review-2026-05-20 card=knowledge-id tag=fomo`: links a review mistake to a knowledge card.
 
 The service is local-first. It can start without Binance keys so you can test chat, audit logging, and confirmation flow locally. Actual Spot Testnet order validation still requires `BINANCE_TESTNET_API_KEY` and `BINANCE_TESTNET_API_SECRET` in the local environment. A Feishu bridge can call this endpoint later, but the Binance keys should remain only in the local environment.
 
@@ -138,6 +147,12 @@ The same local service also exposes `POST http://127.0.0.1:8765/feishu/events` f
 - Open ID to local user mapping through `FEISHU_USER_MAP`.
 
 For remote phone access, put a tunnel or reverse proxy in front of this local endpoint and point Feishu event subscription to that public HTTPS URL. Keep Binance keys and Feishu secrets in local environment variables only.
+
+Before connecting the real Feishu app, run the local callback smoke test:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/feishu-event-smoke.ps1
+```
 
 ### Keep The Brain Running On Windows
 

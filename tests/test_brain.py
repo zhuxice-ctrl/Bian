@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from http.server import HTTPServer
 from threading import Thread
 
@@ -21,6 +22,15 @@ class FailingExecutor:
         raise RuntimeError("testnet credentials are not configured")
 
 
+def _approve_btc_plan(handler):
+    today = date.today().isoformat()
+    handler.handle(
+        f"/plan-set date={today} symbols=BTCUSDT max_trades=5 bias=neutral conditions=test forbidden=none",
+        user_id="owner",
+    )
+    handler.handle("/checklist symbol=BTCUSDT plan=yes setup=yes risk=yes emotion=calm", user_id="owner")
+
+
 def test_brain_status_command_returns_safe_summary(tmp_path):
     with connect(tmp_path / "brain.sqlite3") as conn:
         initialize_schema(conn)
@@ -39,6 +49,7 @@ def test_test_order_requires_confirmation_before_execution(tmp_path):
         initialize_schema(conn)
         handler = BrainCommandHandler(conn, executor=executor, confirmation_code=lambda: "8392")
 
+        _approve_btc_plan(handler)
         response = handler.handle("/test-buy BTCUSDT 10", user_id="owner")
 
         assert response["status"] == "pending_confirmation"
@@ -53,6 +64,7 @@ def test_confirmation_executes_pending_test_order_once(tmp_path):
         initialize_schema(conn)
         handler = BrainCommandHandler(conn, executor=executor, confirmation_code=lambda: "8392")
 
+        _approve_btc_plan(handler)
         handler.handle("/test-buy BTCUSDT 10", user_id="owner")
         response = handler.handle("确认-8392", user_id="owner")
         second_response = handler.handle("确认-8392", user_id="owner")
@@ -79,6 +91,7 @@ def test_ascii_confirmation_executes_pending_test_order(tmp_path):
         initialize_schema(conn)
         handler = BrainCommandHandler(conn, executor=executor, confirmation_code=lambda: "8392")
 
+        _approve_btc_plan(handler)
         handler.handle("/test-buy BTCUSDT 10", user_id="owner")
         response = handler.handle("/confirm 8392", user_id="owner")
 
@@ -98,6 +111,7 @@ def test_confirmation_failure_keeps_pending_order(tmp_path):
         initialize_schema(conn)
         handler = BrainCommandHandler(conn, executor=FailingExecutor(), confirmation_code=lambda: "8392")
 
+        _approve_btc_plan(handler)
         handler.handle("/test-buy BTCUSDT 10", user_id="owner")
         response = handler.handle("确认-8392", user_id="owner")
 
