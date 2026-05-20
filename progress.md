@@ -21,3 +21,4 @@
 - Restarted local Brain and verified `/run suggested` executes the latest safe suggested `/review-add` command end-to-end.
 - Added Phase 8 Brain history download, moving-average replay, and strategy experiment persistence.
 - Restarted local Brain and verified `/history-download`, `/backtest-ma`, and `/experiment-summary` end-to-end with public BTCUSDT 1h data.
+- Added Phase 9 review-to-experiment links and review context summaries.

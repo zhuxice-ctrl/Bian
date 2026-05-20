@@ -59,6 +59,19 @@ def test_export_zip_contains_manifest_and_jsonl(tmp_path):
                 "first replay",
             ),
         )
+        conn.execute(
+            """
+            insert into review_experiment_links (
+              review_external_id, experiment_external_id, tag, note
+            ) values (?, ?, ?, ?)
+            """,
+            (
+                "review-2026-05-01",
+                "experiment-ma-BTCUSDT-1h",
+                "late_entry",
+                "replayed the same setup",
+            ),
+        )
         export_zip(conn, export_path)
 
     with zipfile.ZipFile(export_path) as archive:
@@ -82,6 +95,12 @@ def test_export_zip_contains_manifest_and_jsonl(tmp_path):
             for line in experiments_text.splitlines()
             if line.strip()
         ]
+        review_experiment_links_text = archive.read("review_experiment_links.jsonl").decode("utf-8")
+        review_experiment_links = [
+            json.loads(line)
+            for line in review_experiment_links_text.splitlines()
+            if line.strip()
+        ]
         markdown = archive.read("markdown/daily_reviews.md").decode("utf-8")
 
     assert names == {
@@ -91,10 +110,11 @@ def test_export_zip_contains_manifest_and_jsonl(tmp_path):
         "knowledge_cards.jsonl",
         "strategy_hypotheses.jsonl",
         "strategy_experiments.jsonl",
+        "review_experiment_links.jsonl",
         "ai_drafts.jsonl",
         "markdown/daily_reviews.md",
     }
-    assert manifest["schema_version"] == "1.1.0"
+    assert manifest["schema_version"] == "1.2.0"
     assert manifest["source_system"] == "trading_learning"
     exported_at = datetime.fromisoformat(manifest["exported_at"])
     assert exported_at.tzinfo is not None
@@ -119,6 +139,10 @@ def test_export_zip_contains_manifest_and_jsonl(tmp_path):
     assert experiments[0]["external_id"] == "experiment-ma-BTCUSDT-1h"
     assert experiments[0]["strategy_name"] == "moving_average_crossover"
     assert experiments[0]["symbol"] == "BTCUSDT"
+
+    assert len(review_experiment_links) == 1
+    assert review_experiment_links[0]["review_external_id"] == "review-2026-05-01"
+    assert review_experiment_links[0]["experiment_external_id"] == "experiment-ma-BTCUSDT-1h"
 
     assert "# Daily Reviews" in markdown
     assert "## 2026-05-01" in markdown

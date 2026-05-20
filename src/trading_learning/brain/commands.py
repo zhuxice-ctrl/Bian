@@ -140,6 +140,16 @@ class BrainCommandHandler:
             self._audit(user_id, command_text, response)
             return response
 
+        if command_text.startswith("/experiment-link "):
+            response = self._experiment_link(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/review-context"):
+            response = self._review_context(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
         if command_text.startswith("/history-download "):
             response = self._history_download(command_text)
             self._audit(user_id, command_text, response)
@@ -662,6 +672,118 @@ class BrainCommandHandler:
             "requires_confirmation": False,
         }
 
+    def _experiment_link(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/experiment-link "))
+        required = {"review", "experiment", "tag"}
+        missing = sorted(required - fields.keys())
+        if missing:
+            return {
+                "status": "invalid",
+                "message": f"missing fields: {', '.join(missing)}",
+                "requires_confirmation": False,
+            }
+        review_id = fields["review"]
+        experiment_id = fields["experiment"]
+        if self._review_row(review_id) is None:
+            return {
+                "status": "not_found",
+                "message": f"review not found: {review_id}",
+                "requires_confirmation": False,
+            }
+        if self._experiment_row(experiment_id) is None:
+            return {
+                "status": "not_found",
+                "message": f"experiment not found: {experiment_id}",
+                "requires_confirmation": False,
+            }
+        self.conn.execute(
+            """
+            insert into review_experiment_links (
+              review_external_id, experiment_external_id, tag, note
+            ) values (?, ?, ?, ?)
+            on conflict(review_external_id, experiment_external_id, tag) do update set
+              note = excluded.note
+            """,
+            (
+                review_id,
+                experiment_id,
+                fields["tag"],
+                self._display_value(fields.get("note", "")),
+            ),
+        )
+        self.conn.commit()
+        return {
+            "status": "saved",
+            "message": "linked review to experiment",
+            "requires_confirmation": False,
+        }
+
+    def _review_context(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/review-context").strip())
+        review_id = fields.get("review", "")
+        if not review_id:
+            return {
+                "status": "invalid",
+                "message": "missing fields: review",
+                "requires_confirmation": False,
+            }
+        review_row = self._review_row(review_id)
+        if review_row is None:
+            return {
+                "status": "not_found",
+                "message": f"review not found: {review_id}",
+                "requires_confirmation": False,
+            }
+        experiment_rows = self.conn.execute(
+            """
+            select e.external_id, e.strategy_name, e.symbol, e.interval, e.parameters, e.metrics,
+                   l.tag as link_tag, l.note as link_note
+            from review_experiment_links l
+            join strategy_experiments e on e.external_id = l.experiment_external_id
+            where l.review_external_id = ?
+            order by l.id
+            """,
+            (review_id,),
+        ).fetchall()
+        knowledge_rows = self.conn.execute(
+            """
+            select k.external_id, k.title, k.category, k.content, l.tag as link_tag
+            from mistake_knowledge_links l
+            join knowledge_cards k on k.external_id = l.card_external_id
+            where l.review_external_id = ?
+            order by l.id
+            """,
+            (review_id,),
+        ).fetchall()
+        return {
+            "status": "ok",
+            "review": self._review_payload(review_row),
+            "experiments": [
+                {
+                    "external_id": row["external_id"],
+                    "strategy_name": row["strategy_name"],
+                    "symbol": row["symbol"],
+                    "interval": row["interval"],
+                    "parameters": json.loads(row["parameters"]),
+                    "metrics": json.loads(row["metrics"]),
+                    "link_tag": row["link_tag"],
+                    "link_note": row["link_note"],
+                }
+                for row in experiment_rows
+            ],
+            "knowledge_cards": [
+                {
+                    "external_id": row["external_id"],
+                    "title": row["title"],
+                    "category": row["category"],
+                    "content": row["content"],
+                    "link_tag": row["link_tag"],
+                }
+                for row in knowledge_rows
+            ],
+            "requires_confirmation": False,
+        }
+
     def _history_download(self, command_text: str) -> dict[str, Any]:
         fields = self._parse_key_value_args(command_text.removeprefix("/history-download "))
         required = {"symbol", "interval", "output"}
@@ -976,6 +1098,7 @@ class BrainCommandHandler:
             "/lesson ",
             "/knowledge-add ",
             "/mistake-link ",
+            "/experiment-link ",
             "/plan-set ",
             "/checklist ",
         )
@@ -996,6 +1119,8 @@ class BrainCommandHandler:
                 "/review-summary",
                 "/knowledge-add",
                 "/knowledge-search",
+                "/experiment-link",
+                "/review-context",
                 "/history-download",
                 "/backtest-ma",
                 "/experiment-summary",
@@ -1072,6 +1197,41 @@ class BrainCommandHandler:
             (external_id,),
         ).fetchall()
         return [row["tag"] for row in rows]
+
+    def _review_row(self, external_id: str) -> sqlite3.Row | None:
+        return self.conn.execute(
+            """
+            select external_id, review_date, symbols_watched, trade_count, plan_followed,
+                   pnl, mistake_tags, emotion_note, lesson
+            from daily_reviews
+            where external_id = ?
+            """,
+            (external_id,),
+        ).fetchone()
+
+    def _experiment_row(self, external_id: str) -> sqlite3.Row | None:
+        return self.conn.execute(
+            """
+            select external_id
+            from strategy_experiments
+            where external_id = ?
+            """,
+            (external_id,),
+        ).fetchone()
+
+    @staticmethod
+    def _review_payload(row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "external_id": row["external_id"],
+            "review_date": row["review_date"],
+            "symbols_watched": json.loads(row["symbols_watched"]),
+            "trade_count": row["trade_count"],
+            "plan_followed": bool(row["plan_followed"]),
+            "pnl": row["pnl"],
+            "mistake_tags": json.loads(row["mistake_tags"]),
+            "emotion_note": row["emotion_note"],
+            "lesson": row["lesson"],
+        }
 
     def _audit(self, user_id: str, command_text: str, response: dict[str, Any]) -> None:
         self.conn.execute(

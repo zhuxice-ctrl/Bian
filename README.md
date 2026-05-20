@@ -15,6 +15,7 @@ Phase 1 supports:
 - Execution risk guard for test orders
 - Local command brain with confirmation and audit logs
 - Brain-driven history download and strategy experiment records
+- Review-to-experiment learning loop records
 - JSONL and Markdown ZIP export
 
 Phase 1 does not place live orders. The test-order command uses Binance Spot Testnet `/api/v3/order/test`, which validates a signed order request without placing a live order.
@@ -125,7 +126,7 @@ When natural-language chat suggests a low-risk record command, run it explicitly
 powershell -ExecutionPolicy Bypass -File scripts/brain-chat.ps1 -Command "/run suggested"
 ```
 
-`/run suggested` only executes safe record/planning commands such as `/review-add`, `/lesson`, `/knowledge-add`, `/plan-set`, and `/checklist`. Trading and confirmation commands must be typed manually.
+`/run suggested` only executes safe record/planning commands such as `/review-add`, `/lesson`, `/knowledge-add`, `/experiment-link`, `/plan-set`, and `/checklist`. Trading and confirmation commands must be typed manually.
 
 Supported commands:
 
@@ -145,6 +146,8 @@ Supported commands:
 - `/knowledge-add title=FOMO_control category=psychology content=Pause_before_entry tags=fomo,discipline`: stores a tagged knowledge card.
 - `/knowledge-search query=FOMO limit=5`: searches knowledge cards.
 - `/mistake-link review=review-2026-05-20 card=knowledge-id tag=fomo`: links a review mistake to a knowledge card.
+- `/experiment-link review=review-2026-05-20 experiment=experiment-id tag=late_entry note=Replay_matches_review`: links a review to a strategy experiment.
+- `/review-context review=review-2026-05-20`: returns one review with linked experiments and knowledge cards.
 - `/history-download symbol=BTCUSDT interval=1h limit=500 output=data/local/BTCUSDT-1h.csv`: downloads public Binance Spot K-lines to CSV without API keys.
 - `/backtest-ma csv=data/local/BTCUSDT-1h.csv symbol=BTCUSDT interval=1h short=20 long=60 starting_cash=1000 quote_amount=100 fee=0.001 daily_limit=5 note=MA_replay`: runs a moving-average replay and stores the experiment summary.
 - `/experiment-summary limit=5`: returns recent strategy experiment summaries.

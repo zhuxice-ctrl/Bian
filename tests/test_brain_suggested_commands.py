@@ -112,3 +112,44 @@ def test_run_suggested_ignores_unknown_or_malformed_suggestion(tmp_path):
 
         assert response["status"] == "blocked"
         assert "safe command" in response["message"]
+
+
+def test_run_suggested_allows_experiment_link_commands(tmp_path):
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(
+            conn,
+            executor=FakeExecutor(),
+            natural_language=SuggestingAssistant(
+                "/experiment-link review=review-2026-05-21 experiment=experiment-ma-BTCUSDT-1h tag=late_entry note=Replay_matches_review"
+            ),
+        )
+        handler.handle(
+            "/review-add date=2026-05-21 symbols=BTCUSDT trades=1 plan=no pnl=-1 tags=late_entry lesson=Wait note=Calm",
+            user_id="owner",
+        )
+        conn.execute(
+            """
+            insert into strategy_experiments (
+              external_id, strategy_name, symbol, interval, source_csv, parameters, metrics, note
+            ) values (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "experiment-ma-BTCUSDT-1h",
+                "moving_average_crossover",
+                "BTCUSDT",
+                "1h",
+                "data/local/BTCUSDT-1h.csv",
+                "{}",
+                "{}",
+                "",
+            ),
+        )
+
+        handler.handle("link this replay", user_id="owner")
+        response = handler.handle("/run suggested", user_id="owner")
+        link_count = conn.execute("select count(*) from review_experiment_links").fetchone()[0]
+
+    assert response["status"] == "executed"
+    assert response["result"]["status"] == "saved"
+    assert link_count == 1

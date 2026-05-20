@@ -26,6 +26,7 @@ Build a local-first, low-frequency crypto trading learning system that can:
 - [x] Natural-language chat fallback through local Codex API.
 - [x] Suggested command staging and safe `/run suggested`.
 - [x] Brain history download, replay backtest, and experiment records.
+- [x] Review-to-experiment learning loop.
 
 ## Phase 1: Brain Review And Learning Commands
 
@@ -121,3 +122,14 @@ Acceptance criteria:
 - [x] Backtest trades and experiment metrics are persisted for review.
 - [x] Brain can list recent experiment summaries.
 - [x] Export includes strategy experiment records.
+
+## Phase 9: Review Experiment Learning Loop
+
+Status: completed
+
+Acceptance criteria:
+
+- [x] Brain can link a daily review to a strategy experiment.
+- [x] Brain can return a review context bundle with review details, linked experiments, and linked knowledge cards.
+- [x] `/run suggested` can execute safe `/experiment-link` suggestions.
+- [x] Export includes review-to-experiment links.

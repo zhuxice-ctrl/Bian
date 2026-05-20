@@ -135,6 +135,16 @@ create table if not exists mistake_knowledge_links (
   unique (review_external_id, card_external_id, tag)
 );
 
+create table if not exists review_experiment_links (
+  id integer primary key autoincrement,
+  review_external_id text not null,
+  experiment_external_id text not null,
+  tag text not null default '',
+  note text not null default '',
+  created_at text not null default CURRENT_TIMESTAMP,
+  unique (review_external_id, experiment_external_id, tag)
+);
+
 create table if not exists brain_suggested_commands (
   id integer primary key autoincrement,
   external_id text not null unique,

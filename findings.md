@@ -16,3 +16,4 @@
 - Current machine has local-only Codex-compatible API configuration in the Windows user environment; do not store or print the key in repository files or final reports.
 - `/run suggested` is intentionally limited to low-risk record/planning commands; trading and confirmation suggestions must be typed manually.
 - Historical replay now persists simulated trades with experiment-scoped source ids, so repeated experiments do not collide with prior backtest trade external ids.
+- Daily reviews can now be connected to replay experiments and knowledge cards through `/review-context`, making the learning loop queryable from Brain.

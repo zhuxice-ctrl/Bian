@@ -67,6 +67,7 @@ def test_initialize_schema_creates_core_tables(tmp_path):
         "knowledge_cards",
         "strategy_hypotheses",
         "strategy_experiments",
+        "review_experiment_links",
         "ai_drafts",
     }.issubset(table_names)
 
