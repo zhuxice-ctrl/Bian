@@ -123,6 +123,37 @@ The same local service also exposes `POST http://127.0.0.1:8765/feishu/events` f
 
 For remote phone access, put a tunnel or reverse proxy in front of this local endpoint and point Feishu event subscription to that public HTTPS URL. Keep Binance keys and Feishu secrets in local environment variables only.
 
+### Keep The Brain Running On Windows
+
+For a long-running local setup, install a current-user Startup shortcut. It starts the brain service when you log in, reads credentials from your Windows user environment variables, and does not store keys in the repository.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/install-brain-startup-shortcut.ps1
+```
+
+The shortcut is `TradingLearningBrain.lnk`. It writes logs to:
+
+- `logs/brain-service.log`
+- `logs/brain-service.err.log`
+
+To remove the Startup shortcut:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/uninstall-brain-startup-shortcut.ps1
+```
+
+If you prefer Task Scheduler and your Windows user has permission to register tasks, use:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/register-brain-task.ps1
+```
+
+To remove the scheduled task:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/unregister-brain-task.ps1
+```
+
 ## Export Data
 
 ```powershell
