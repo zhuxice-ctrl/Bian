@@ -58,3 +58,22 @@ create table if not exists ai_drafts (
   status text not null default 'draft',
   created_at text not null default CURRENT_TIMESTAMP
 );
+
+create table if not exists brain_audit_logs (
+  id integer primary key autoincrement,
+  external_id text not null unique,
+  user_id text not null,
+  command_text text not null,
+  status text not null,
+  response text not null,
+  created_at text not null default CURRENT_TIMESTAMP
+);
+
+create table if not exists brain_pending_confirmations (
+  id integer primary key autoincrement,
+  code text not null unique,
+  user_id text not null,
+  command_text text not null,
+  payload text not null,
+  created_at text not null default CURRENT_TIMESTAMP
+);

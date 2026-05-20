@@ -20,8 +20,17 @@ def test_cli_has_expected_commands():
         "review-add",
         "ai-review-draft",
         "spot-test-order",
+        "brain-serve",
         "export",
     }.issubset(command_names)
+
+
+def test_brain_serve_parser_defaults():
+    args = build_parser().parse_args(["brain-serve"])
+
+    assert args.command == "brain-serve"
+    assert args.host == "127.0.0.1"
+    assert args.port == 8765
 
 
 def test_backtest_ma_persists_generated_trades(tmp_path, monkeypatch):

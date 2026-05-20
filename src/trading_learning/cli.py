@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import argparse
+from http.server import HTTPServer
 from pathlib import Path
 
 from trading_learning.backtest.engine import run_spot_backtest
 from trading_learning.backtest.report import summarize_backtest
 from trading_learning.ai_assistant.local_codex import LocalCodexClient
 from trading_learning.ai_assistant.tasks import create_daily_review_draft
+from trading_learning.brain.commands import BrainCommandHandler
+from trading_learning.brain.service import build_handler
 from trading_learning.config import load_config
 from trading_learning.execution.binance_spot_testnet import BinanceSpotTestnetClient
 from trading_learning.export_import.exporter import export_zip
@@ -72,6 +75,11 @@ def build_parser() -> argparse.ArgumentParser:
     spot_test.add_argument("--daily-order-limit", type=int, default=5)
     spot_test.add_argument("--max-quote-order-qty", type=float, default=100.0)
     spot_test.add_argument("--allowed-symbols", default="BTCUSDT,ETHUSDT")
+
+    brain_serve = subparsers.add_parser("brain-serve", help="start the local command brain HTTP service")
+    brain_serve.add_argument("--host", default="127.0.0.1")
+    brain_serve.add_argument("--port", type=int, default=8765)
+    brain_serve.add_argument("--allowed-user-id", action="append", default=[])
 
     return parser
 
@@ -206,6 +214,30 @@ def main(argv: list[str] | None = None) -> int:
                 time_in_force=args.time_in_force,
             )
             print("test order accepted by Binance Spot Testnet")
+            return 0
+
+        if args.command == "brain-serve":
+            if not config.binance_testnet_api_key or not config.binance_testnet_api_secret:
+                print("BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET are required")
+                return 1
+            client = BinanceSpotTestnetClient(
+                base_url=config.binance_testnet_base_url,
+                api_key=config.binance_testnet_api_key,
+                api_secret=config.binance_testnet_api_secret,
+            )
+            command_handler = BrainCommandHandler(
+                conn,
+                executor=client,
+                allowed_user_ids=tuple(args.allowed_user_id),
+            )
+            server = HTTPServer((args.host, args.port), build_handler(command_handler))
+            print(f"brain service listening on http://{args.host}:{args.port}/brain/command")
+            try:
+                server.serve_forever()
+            except KeyboardInterrupt:
+                pass
+            finally:
+                server.server_close()
             return 0
 
         if args.command == "export":

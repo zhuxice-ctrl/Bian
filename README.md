@@ -13,6 +13,7 @@ Phase 1 supports:
 - Local Codex-compatible draft assistant
 - Binance Spot Testnet signed client and test-order CLI
 - Execution risk guard for test orders
+- Local command brain with confirmation and audit logs
 - JSONL and Markdown ZIP export
 
 Phase 1 does not place live orders. The test-order command uses Binance Spot Testnet `/api/v3/order/test`, which validates a signed order request without placing a live order.
@@ -80,6 +81,31 @@ The command applies local risk checks before making the signed request. Defaults
 - Daily order limit: `5`
 - Max quote order quantity: `100`
 - Allowed symbols: `BTCUSDT,ETHUSDT`
+
+## Local Brain HTTP Service
+
+The local brain is the control layer for chat-style operation. It runs on your machine, writes audit logs to SQLite, and requires confirmation before sending a Binance Spot Testnet test order.
+
+```powershell
+$env:BINANCE_TESTNET_BASE_URL="https://testnet.binance.vision"
+$env:BINANCE_TESTNET_API_KEY="your-testnet-key"
+$env:BINANCE_TESTNET_API_SECRET="your-testnet-secret"
+trading-learning brain-serve --host 127.0.0.1 --port 8765 --allowed-user-id owner
+```
+
+Send commands to `POST http://127.0.0.1:8765/brain/command`:
+
+```json
+{"text":"/status","user_id":"owner"}
+```
+
+Supported commands:
+
+- `/status`: health check and mode summary.
+- `/test-buy BTCUSDT 10`: creates a pending Spot Testnet test buy request.
+- `确认-CODE`: executes the pending test order once.
+
+The service is local-first. A Feishu bridge can call this endpoint later, but the Binance keys should remain only in the local environment.
 
 ## Export Data
 
