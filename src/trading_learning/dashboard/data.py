@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from trading_learning.backtest.report import build_backtest_report
 from trading_learning.config import DEFAULT_ALLOWED_SYMBOLS
 from trading_learning.market_data.catalog import inventory_datasets
 from trading_learning.market_data.csv_loader import load_candles_csv
+from trading_learning.models import BacktestResult, Side, Trade
 
 
 class DashboardData:
@@ -159,6 +162,34 @@ class DashboardData:
             "datasets": inventory_datasets(allowed_symbols=self.allowed_symbols),
         }
 
+    def backtest_report(self, experiment_id: str) -> dict[str, Any]:
+        replay = self.kline_replay(experiment_id, limit=5000)
+        if replay["status"] != "ok":
+            return replay
+        trades = tuple(self._trade_model(trade) for trade in replay["trades"])
+        metrics = replay["experiment"].get("metrics", {})
+        parameters = replay["experiment"].get("parameters", {})
+        starting_cash = float(parameters.get("starting_cash", 0.0))
+        ending_cash = float(metrics.get("ending_cash", starting_cash + float(metrics.get("realized_pnl", 0.0))))
+        position_quantity = float(metrics.get("position_quantity", 0.0))
+        result = BacktestResult(
+            symbol=replay["experiment"]["symbol"],
+            starting_cash=starting_cash,
+            ending_cash=ending_cash,
+            position_quantity=position_quantity,
+            trade_count=len(trades),
+            trades=trades,
+        )
+        report = build_backtest_report(result)
+        return {
+            "status": "ok",
+            "experiment": replay["experiment"],
+            "metrics": report["metrics"],
+            "trades": replay["trades"],
+            "round_trips": report["round_trips"],
+            "equity_curve": report["equity_curve"],
+        }
+
     def kline(self, *, csv_path: str, symbol: str, limit: int = 300) -> dict[str, Any]:
         path = self._safe_data_local_path(csv_path)
         candles = load_candles_csv(path, symbol.upper())
@@ -249,6 +280,19 @@ class DashboardData:
             "close": float(candle.close),
             "volume": float(candle.volume),
         }
+
+    @staticmethod
+    def _trade_model(trade: dict[str, Any]) -> Trade:
+        return Trade(
+            external_id=trade["external_id"],
+            symbol=trade["symbol"],
+            side=Side(trade["side"]),
+            quantity=float(trade["quantity"]),
+            price=float(trade["price"]),
+            fee=float(trade["fee"]),
+            timestamp=datetime.fromisoformat(trade["timestamp"]),
+            reason=trade["reason"],
+        )
 
     @staticmethod
     def _json(value: str, fallback: Any) -> Any:

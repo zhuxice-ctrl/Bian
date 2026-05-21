@@ -31,7 +31,7 @@ Build a local-first, low-frequency crypto trading learning system that can:
 - [x] Chinese Brain aliases and keyword commands.
 - [x] Local read-only dashboard with K-line replay.
 - [x] Phase 12 historical data center for BTCUSDT and ETHUSDT.
-- [ ] Phase 13 professional backtest report view.
+- [x] Phase 13 professional backtest report view.
 
 ## Phase 1: Brain Review And Learning Commands
 
@@ -183,7 +183,7 @@ Acceptance criteria:
 
 ## Phase 13: Professional Backtest Report View
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -194,7 +194,7 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] Backtest report data is available through local dashboard APIs.
-- [ ] The dashboard shows metrics, trade list, and visual report panels for an experiment.
-- [ ] Clicking a trade row updates the replay detail and visible range.
-- [ ] Tests cover report metric calculation, API payload shape, and static UI markers.
+- [x] Backtest report data is available through local dashboard APIs.
+- [x] The dashboard shows metrics, trade list, and visual report panels for an experiment.
+- [x] Clicking a trade row updates the replay detail and visible range.
+- [x] Tests cover report metric calculation, API payload shape, and static UI markers.

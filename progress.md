@@ -37,3 +37,5 @@
 - Added Phase 12 market data catalog module with predictable `data/local/market_data/{SYMBOL}/{SYMBOL}-{INTERVAL}.csv` paths.
 - Added CLI `refresh-market-data` and Brain `/market-refresh` for BTC/ETH multi-interval refresh.
 - Added dashboard `/api/datasets` plus a historical data picker that loads selected local CSV data into the existing K-line chart.
+- Added Phase 13 backtest report payloads with round trips, equity curve, fees, win/loss counts, and max drawdown.
+- Added dashboard `/api/backtest-report` and report UI panels for metrics, equity curve, and clickable trade rows.

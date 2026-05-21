@@ -29,3 +29,5 @@
 - Existing backtest metrics include trade count, round trips, win rate, realized PnL, and total fees, but do not yet expose equity curve or drawdown-style report data for the dashboard.
 - Phase 12 implements overwrite-style public data refresh for the configured limit. It does not yet do true incremental append/merge; that remains a future hardening step after the data center is usable.
 - Dashboard dataset loading is read-only and reuses the same K-line chart engine as experiment replay.
+- Phase 13 report metrics are deterministic from stored experiment trades. Equity curve currently advances on closed round trips, not mark-to-market on every candle; candle-by-candle equity can be added later if needed.
+- Trade-row clicks update the existing replay detail panel and visible K-line range without adding any trading action surface.

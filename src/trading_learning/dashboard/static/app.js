@@ -5,6 +5,7 @@ const state = {
   reviews: [],
   knowledge: [],
   replay: null,
+  report: null,
   chart: {
     klineChart: null,
     volumeChart: null,
@@ -12,6 +13,8 @@ const state = {
     volumeSeries: null,
     ma20Series: null,
     ma60Series: null,
+    equityChart: null,
+    equitySeries: null,
     markerApi: null,
     data: [],
     volumeData: [],
@@ -44,6 +47,7 @@ const text = {
   noTrade: "\u6ca1\u6709\u9009\u4e2d\u4ea4\u6613",
   play: "\u64ad\u653e",
   pause: "\u6682\u505c",
+  noReport: "\u9009\u62e9\u7b56\u7565\u5b9e\u9a8c\u540e\u663e\u793a\u56de\u6d4b\u62a5\u544a",
 };
 
 const fmt = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 });
@@ -201,6 +205,17 @@ function createCharts() {
     priceLineVisible: false,
     lastValueVisible: false,
   });
+  state.chart.equityChart = LightweightCharts.createChart(document.querySelector("#equityChart"), {
+    layout: { background: { color: "#ffffff" }, textColor: "#334155", fontSize: 12 },
+    grid: { vertLines: { color: "#edf2f7" }, horzLines: { color: "#edf2f7" } },
+    timeScale: { timeVisible: true, secondsVisible: false, borderColor: "#d9e1ea" },
+    rightPriceScale: { borderColor: "#d9e1ea" },
+  });
+  state.chart.equitySeries = state.chart.equityChart.addSeries(LightweightCharts.LineSeries, {
+    color: "#176b87",
+    lineWidth: 2,
+    priceLineVisible: false,
+  });
   state.chart.markerApi = LightweightCharts.createSeriesMarkers(state.chart.candleSeries, []);
   state.chart.klineChart.subscribeCrosshairMove(updateCrosshairPanel);
   state.chart.klineChart.subscribeClick(selectNearestTradeByClick);
@@ -220,9 +235,11 @@ function createCharts() {
 function resizeCharts() {
   const kline = document.querySelector("#klineChart");
   const volume = document.querySelector("#volumeChart");
+  const equity = document.querySelector("#equityChart");
   if (!state.chart.klineChart || !state.chart.volumeChart) return;
   state.chart.klineChart.applyOptions({ width: kline.clientWidth, height: kline.clientHeight });
   state.chart.volumeChart.applyOptions({ width: volume.clientWidth, height: volume.clientHeight });
+  state.chart.equityChart.applyOptions({ width: equity.clientWidth, height: equity.clientHeight });
 }
 
 function movingAverage(candles, windowSize) {
@@ -358,6 +375,74 @@ function updateTradeDetail(trade) {
   `;
 }
 
+function renderBacktestReport(report) {
+  state.report = report;
+  const metricsBox = document.querySelector("#reportMetrics");
+  const table = document.querySelector("#tradeTable");
+  if (!report || report.status !== "ok") {
+    metricsBox.innerHTML = metric("\u56de\u6d4b\u62a5\u544a", text.noReport);
+    table.innerHTML = "";
+    state.chart.equitySeries.setData([]);
+    return;
+  }
+  const metrics = report.metrics;
+  metricsBox.innerHTML = [
+    metric("\u4ea4\u6613", metrics.trade_count),
+    metric("\u56de\u5408", metrics.round_trips),
+    metric("\u80dc\u7387", `${fmt.format((metrics.win_rate || 0) * 100)}%`),
+    metric("\u76c8\u4e8f", fmt.format(metrics.realized_pnl || 0)),
+    metric("\u6700\u5927\u56de\u64a4", fmt.format(metrics.max_drawdown || 0)),
+    metric("\u624b\u7eed\u8d39", fmt.format(metrics.total_fees || 0)),
+  ].join("");
+  state.chart.equitySeries.setData(
+    (report.equity_curve || [])
+      .filter((point) => point.time)
+      .map((point) => ({ time: toChartTime(point.time), value: point.equity })),
+  );
+  table.innerHTML = `
+    <thead>
+      <tr><th>\u65b9\u5411</th><th>\u65f6\u95f4</th><th>\u4ef7\u683c</th><th>\u64cd\u4f5c</th></tr>
+    </thead>
+    <tbody>
+      ${(report.trades || [])
+        .map(
+          (trade) => `
+            <tr>
+              <td>${escapeHtml(trade.side)}</td>
+              <td>${escapeHtml(trade.timestamp)}</td>
+              <td>${fmt.format(trade.price)}</td>
+              <td><button type="button" data-trade-id="${escapeHtml(trade.external_id)}">\u5b9a\u4f4d</button></td>
+            </tr>
+          `,
+        )
+        .join("")}
+    </tbody>
+  `;
+  table.querySelectorAll("button[data-trade-id]").forEach((button) => {
+    button.addEventListener("click", () => focusTrade(button.dataset.tradeId));
+  });
+}
+
+async function loadBacktestReport() {
+  const select = document.querySelector("#experimentSelect");
+  if (!select.value) {
+    renderBacktestReport(null);
+    return;
+  }
+  const report = await getJson(`/api/backtest-report?experiment=${encodeURIComponent(select.value)}`);
+  renderBacktestReport(report);
+}
+
+function focusTrade(tradeId) {
+  const trade = (state.report?.trades || []).find((item) => item.external_id === tradeId);
+  if (!trade) return;
+  const candleIndex = nearestCandleIndex(toChartTime(trade.timestamp));
+  state.chart.visibleStart = Math.max(0, candleIndex - Math.floor(state.chart.visibleCount * 0.55));
+  applyVisibleRange();
+  updateTradeDetail(trade);
+  syncRange();
+}
+
 function nearestCandleIndex(timestamp) {
   let best = 0;
   let bestDistance = Number.POSITIVE_INFINITY;
@@ -449,6 +534,7 @@ async function loadReplay() {
   }
   state.replay = await getJson(`/api/kline?experiment=${encodeURIComponent(select.value)}&limit=5000`);
   renderKline();
+  await loadBacktestReport();
 }
 
 async function loadDataset() {
@@ -460,6 +546,7 @@ async function loadDataset() {
   const [symbol, path] = select.value.split("|");
   state.replay = await getJson(`/api/kline?csv=${encodeURIComponent(path)}&symbol=${encodeURIComponent(symbol)}&limit=5000`);
   renderKline();
+  renderBacktestReport(null);
 }
 
 async function boot() {
@@ -482,10 +569,12 @@ async function boot() {
     renderExperiments();
     renderDatasets();
     renderKnowledge();
-    if (state.datasets.length) {
+    if (state.experiments.length) {
+      await loadReplay();
+    } else if (state.datasets.length) {
       await loadDataset();
     } else {
-      await loadReplay();
+      renderBacktestReport(null);
     }
     document.querySelector("#connectionStatus").textContent = text.online;
   } catch (error) {
