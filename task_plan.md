@@ -30,6 +30,8 @@ Build a local-first, low-frequency crypto trading learning system that can:
 - [x] Daily and weekly learning reports.
 - [x] Chinese Brain aliases and keyword commands.
 - [x] Local read-only dashboard with K-line replay.
+- [ ] Phase 12 historical data center for BTCUSDT and ETHUSDT.
+- [ ] Phase 13 professional backtest report view.
 
 ## Phase 1: Brain Review And Learning Commands
 
@@ -159,3 +161,40 @@ Acceptance criteria:
 - [x] The local dashboard serves read-only overview, review, experiment, knowledge, report, and K-line replay JSON.
 - [x] The browser dashboard can display summary panels and K-line replay from local experiment CSV data.
 - [x] The dashboard exposes no trading action and no local credentials.
+
+## Phase 12: Historical Data Center
+
+Status: planned
+
+Scope:
+
+- Keep the default learning universe limited to `BTCUSDT` and `ETHUSDT`.
+- Provide one local workflow to download and refresh 1m, 5m, 15m, and 1h public Binance Spot K-lines.
+- Store market data under `data/local` with predictable file names.
+- Expose local dataset inventory to the dashboard so the user can choose symbol and interval without typing CSV paths.
+- Keep data download public-data only; no exchange keys are required or exposed.
+
+Acceptance criteria:
+
+- [ ] Brain/CLI can download or refresh the default BTC/ETH interval set.
+- [ ] Unsupported symbols remain blocked unless `TRADING_LEARNING_ALLOWED_SYMBOLS` is locally extended.
+- [ ] The dashboard can list available local datasets with symbol, interval, path, row count, first candle, and last candle.
+- [ ] Tests cover symbol scope, path safety, dataset inventory, and refresh behavior.
+
+## Phase 13: Professional Backtest Report View
+
+Status: planned
+
+Scope:
+
+- Upgrade replay from chart-only review into a report workspace.
+- Add equity curve, realized PnL, round trips, win/loss counts, win rate, total fees, and drawdown-oriented metrics.
+- Add a trade list beside or below the chart; selecting a row should locate the matching trade on the K-line.
+- Keep dashboard read-only and local-first.
+
+Acceptance criteria:
+
+- [ ] Backtest report data is available through local dashboard APIs.
+- [ ] The dashboard shows metrics, trade list, and visual report panels for an experiment.
+- [ ] Clicking a trade row updates the replay detail and visible range.
+- [ ] Tests cover report metric calculation, API payload shape, and static UI markers.

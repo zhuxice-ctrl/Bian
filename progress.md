@@ -27,3 +27,10 @@
 - Added Phase 11 Chinese Brain aliases, keyword commands, and guarded Chinese testnet buy confirmation.
 - Added Phase 11 local read-only dashboard with overview, reviews, experiments, knowledge cards, learning reports, and K-line replay endpoints.
 - Added a vanilla browser dashboard with canvas K-line rendering and experiment trade markers.
+
+## 2026-05-21
+
+- Embedded local TradingView Lightweight Charts in the dashboard replay view and pushed commit `d99e357`.
+- Added default learning-symbol scope for `BTCUSDT` and `ETHUSDT` across Brain, CLI data download, CLI backtest, and testnet risk defaults; pushed commit `46ab4d6`.
+- Started the next planned development pass from the user's MVP+ roadmap.
+- Added planned Phase 12 Historical Data Center and Phase 13 Professional Backtest Report View to `task_plan.md`.

@@ -18,3 +18,12 @@
 - Historical replay now persists simulated trades with experiment-scoped source ids, so repeated experiments do not collide with prior backtest trade external ids.
 - Daily reviews can now be connected to replay experiments and knowledge cards through `/review-context`, making the learning loop queryable from Brain.
 - Learning reports are deterministic local summaries; they do not call external models and do not add any trading execution path.
+
+## 2026-05-21
+
+- The current system is an MVP technical prototype, not a mature daily-use trading workstation.
+- The next practical milestone should focus on `历史数据中心 + 专业回测报告页` before expanding Feishu or automated execution.
+- Current market universe should stay narrow: default scope is `BTCUSDT` and `ETHUSDT`; later symbols should be explicitly added through local configuration.
+- Existing dashboard K-line replay uses local bundled Lightweight Charts and is read-only; this should remain the visualization base for Phase 13.
+- Existing market data layer can fetch one Binance Spot K-line request and write CSV, but it does not yet provide multi-interval batch refresh, local inventory, or data completeness checks.
+- Existing backtest metrics include trade count, round trips, win rate, realized PnL, and total fees, but do not yet expose equity curve or drawdown-style report data for the dashboard.
