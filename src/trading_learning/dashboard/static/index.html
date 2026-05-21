@@ -35,8 +35,8 @@
 
         <div class="replay-workspace">
           <div class="chart-stack">
-            <canvas id="klineCanvas" width="1160" height="520"></canvas>
-            <canvas id="volumeCanvas" width="1160" height="120"></canvas>
+            <div id="klineChart" class="chart-panel"></div>
+            <div id="volumeChart" class="volume-panel"></div>
             <div class="timeline-row">
               <input id="replayRange" type="range" min="0" max="0" value="0" />
             </div>
@@ -73,6 +73,7 @@
       </section>
     </main>
 
+    <script src="/static/vendor/lightweight-charts.standalone.production.js"></script>
     <script src="/static/app.js"></script>
   </body>
 </html>

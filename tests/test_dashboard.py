@@ -90,12 +90,19 @@ def test_dashboard_http_serves_api_and_static_page(tmp_path):
                 overview = json.loads(response.read().decode("utf-8"))
             with urlopen(f"http://127.0.0.1:{server.server_port}/", timeout=5) as response:
                 html = response.read().decode("utf-8")
+            with urlopen(
+                f"http://127.0.0.1:{server.server_port}/static/vendor/lightweight-charts.standalone.production.js",
+                timeout=5,
+            ) as response:
+                vendor_status = response.status
         finally:
             server.shutdown()
             thread.join()
 
         assert overview["status"] == "ok"
         assert "Trading Learning Dashboard" in html
+        assert "lightweight-charts.standalone.production.js" in html
+        assert vendor_status == 200
 
 
 def test_dashboard_http_rejects_kline_paths_outside_data_local(tmp_path):
@@ -129,19 +136,24 @@ def test_dashboard_static_page_exposes_interactive_replay_controls():
         'id="toggleMa60"',
         'id="ohlcPanel"',
         'id="tradeDetail"',
-        'id="volumeCanvas"',
+        'id="klineChart"',
+        'id="volumeChart"',
+        "lightweight-charts.standalone.production.js",
     ]:
         assert marker in html
 
 
-def test_dashboard_static_script_supports_chart_interactions():
+def test_dashboard_static_script_uses_lightweight_charts_engine():
     script = files("trading_learning.dashboard.static").joinpath("app.js").read_text(encoding="utf-8")
 
     for marker in [
-        "addEventListener(\"wheel\"",
-        "addEventListener(\"mousedown\"",
-        "addEventListener(\"mousemove\"",
-        "function renderCrosshair",
+        "LightweightCharts.createChart",
+        "LightweightCharts.CandlestickSeries",
+        "LightweightCharts.HistogramSeries",
+        "LightweightCharts.LineSeries",
+        "LightweightCharts.createSeriesMarkers",
+        "subscribeCrosshairMove",
+        "subscribeClick",
         "function startPlayback",
         "function stepReplay",
         "function jumpToNextTrade",

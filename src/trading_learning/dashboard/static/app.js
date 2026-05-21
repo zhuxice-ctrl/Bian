@@ -5,14 +5,21 @@ const state = {
   knowledge: [],
   replay: null,
   chart: {
+    klineChart: null,
+    volumeChart: null,
+    candleSeries: null,
+    volumeSeries: null,
+    ma20Series: null,
+    ma60Series: null,
+    markerApi: null,
+    data: [],
+    volumeData: [],
+    ma20Data: [],
+    ma60Data: [],
     visibleStart: 0,
     visibleCount: 120,
-    cursorIndex: null,
-    selectedTradeIndex: null,
-    isDragging: false,
-    dragX: 0,
-    dragStart: 0,
     playbackTimer: null,
+    syncLock: false,
   },
 };
 
@@ -60,6 +67,10 @@ function escapeHtml(value) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function toChartTime(value) {
+  return Math.floor(new Date(value).getTime() / 1000);
 }
 
 function renderOverview() {
@@ -120,176 +131,177 @@ function renderKnowledge() {
     .join("");
 }
 
-function visibleCandles() {
-  if (!state.replay || !state.replay.candles.length) return [];
-  const candles = state.replay.candles;
-  const count = Math.min(state.chart.visibleCount, candles.length);
-  const start = Math.max(0, Math.min(state.chart.visibleStart, candles.length - count));
-  state.chart.visibleStart = start;
-  return candles.slice(start, start + count);
+function createCharts() {
+  const chartOptions = {
+    layout: { background: { color: "#ffffff" }, textColor: "#334155", fontSize: 12 },
+    grid: { vertLines: { color: "#edf2f7" }, horzLines: { color: "#edf2f7" } },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    timeScale: { timeVisible: true, secondsVisible: false, borderColor: "#d9e1ea" },
+    rightPriceScale: { borderColor: "#d9e1ea" },
+    handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+    handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
+  };
+  const volumeOptions = {
+    ...chartOptions,
+    height: 120,
+    rightPriceScale: { visible: false },
+    leftPriceScale: { visible: false },
+  };
+  state.chart.klineChart = LightweightCharts.createChart(document.querySelector("#klineChart"), chartOptions);
+  state.chart.volumeChart = LightweightCharts.createChart(document.querySelector("#volumeChart"), volumeOptions);
+  state.chart.candleSeries = state.chart.klineChart.addSeries(LightweightCharts.CandlestickSeries, {
+    upColor: "#0f8b5f",
+    downColor: "#b42318",
+    borderUpColor: "#0f8b5f",
+    borderDownColor: "#b42318",
+    wickUpColor: "#0f8b5f",
+    wickDownColor: "#b42318",
+  });
+  state.chart.volumeSeries = state.chart.volumeChart.addSeries(LightweightCharts.HistogramSeries, {
+    priceFormat: { type: "volume" },
+    priceScaleId: "",
+  });
+  state.chart.ma20Series = state.chart.klineChart.addSeries(LightweightCharts.LineSeries, {
+    color: "#245a92",
+    lineWidth: 2,
+    priceLineVisible: false,
+    lastValueVisible: false,
+  });
+  state.chart.ma60Series = state.chart.klineChart.addSeries(LightweightCharts.LineSeries, {
+    color: "#8a5a00",
+    lineWidth: 2,
+    priceLineVisible: false,
+    lastValueVisible: false,
+  });
+  state.chart.markerApi = LightweightCharts.createSeriesMarkers(state.chart.candleSeries, []);
+  state.chart.klineChart.subscribeCrosshairMove(updateCrosshairPanel);
+  state.chart.klineChart.subscribeClick(selectNearestTradeByClick);
+  state.chart.klineChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+    if (!range || state.chart.syncLock) return;
+    state.chart.syncLock = true;
+    state.chart.volumeChart.timeScale().setVisibleLogicalRange(range);
+    state.chart.syncLock = false;
+    state.chart.visibleStart = Math.max(0, Math.floor(range.from));
+    state.chart.visibleCount = Math.max(1, Math.ceil(range.to - range.from));
+    syncRange();
+  });
+  window.addEventListener("resize", resizeCharts);
+  resizeCharts();
+}
+
+function resizeCharts() {
+  const kline = document.querySelector("#klineChart");
+  const volume = document.querySelector("#volumeChart");
+  if (!state.chart.klineChart || !state.chart.volumeChart) return;
+  state.chart.klineChart.applyOptions({ width: kline.clientWidth, height: kline.clientHeight });
+  state.chart.volumeChart.applyOptions({ width: volume.clientWidth, height: volume.clientHeight });
 }
 
 function movingAverage(candles, windowSize) {
-  return candles.map((_, index) => {
-    if (index + 1 < windowSize) return null;
-    const slice = candles.slice(index + 1 - windowSize, index + 1);
-    return slice.reduce((sum, candle) => sum + candle.close, 0) / windowSize;
-  });
+  return candles
+    .map((_, index) => {
+      if (index + 1 < windowSize) return null;
+      const slice = candles.slice(index + 1 - windowSize, index + 1);
+      return {
+        time: toChartTime(candles[index].opened_at),
+        value: slice.reduce((sum, candle) => sum + candle.close, 0) / windowSize,
+      };
+    })
+    .filter(Boolean);
 }
 
-function priceScale(candles) {
-  const highs = candles.map((candle) => candle.high);
-  const lows = candles.map((candle) => candle.low);
-  const high = Math.max(...highs);
-  const low = Math.min(...lows);
-  const padding = Math.max((high - low) * 0.08, 1);
-  return { high: high + padding, low: low - padding };
+function chartDataFromReplay(replay) {
+  const candles = replay.candles || [];
+  return {
+    candleData: candles.map((candle) => ({
+      time: toChartTime(candle.opened_at),
+      open: candle.open,
+      high: candle.high,
+      low: candle.low,
+      close: candle.close,
+    })),
+    volumeData: candles.map((candle) => ({
+      time: toChartTime(candle.opened_at),
+      value: candle.volume,
+      color: candle.close >= candle.open ? "rgba(15,139,95,0.45)" : "rgba(180,35,24,0.45)",
+    })),
+    ma20Data: movingAverage(candles, 20),
+    ma60Data: movingAverage(candles, 60),
+  };
 }
 
-function renderKline() {
-  const canvas = document.querySelector("#klineCanvas");
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const candles = visibleCandles();
-  if (!candles.length) {
-    ctx.fillStyle = "#64748b";
-    ctx.font = "14px Arial";
-    ctx.fillText(text.chooseReplay, 24, 32);
-    renderVolume([]);
-    updateOhlcPanel(null);
-    return;
-  }
-
-  const pad = { left: 58, right: 70, top: 18, bottom: 30 };
-  const chartWidth = canvas.width - pad.left - pad.right;
-  const chartHeight = canvas.height - pad.top - pad.bottom;
-  const xStep = chartWidth / candles.length;
-  const scale = priceScale(candles);
-  const y = (price) => pad.top + ((scale.high - price) / Math.max(1, scale.high - scale.low)) * chartHeight;
-
-  drawPriceGrid(ctx, canvas, pad, chartHeight, scale);
-  candles.forEach((candle, index) => drawCandle(ctx, candle, index, pad, xStep, y));
-  drawMovingAverage(ctx, candles, 20, pad, xStep, y, "#245a92", document.querySelector("#toggleMa20").checked);
-  drawMovingAverage(ctx, candles, 60, pad, xStep, y, "#8a5a00", document.querySelector("#toggleMa60").checked);
-  drawTradeMarkers(ctx, candles, pad, xStep, y);
-  renderCrosshair(ctx, canvas, candles, pad, xStep, y);
-  renderVolume(candles);
+function clearChartData() {
+  state.chart.data = [];
+  state.chart.volumeData = [];
+  state.chart.ma20Data = [];
+  state.chart.ma60Data = [];
+  state.chart.candleSeries.setData([]);
+  state.chart.volumeSeries.setData([]);
+  state.chart.ma20Series.setData([]);
+  state.chart.ma60Series.setData([]);
+  state.chart.markerApi.setMarkers([]);
   syncRange();
 }
 
-function drawPriceGrid(ctx, canvas, pad, chartHeight, scale) {
-  ctx.strokeStyle = "#e4eaf0";
-  ctx.fillStyle = "#64748b";
-  ctx.font = "12px Arial";
-  for (let i = 0; i < 6; i += 1) {
-    const yy = pad.top + (chartHeight / 5) * i;
-    const price = scale.high - ((scale.high - scale.low) / 5) * i;
-    ctx.beginPath();
-    ctx.moveTo(pad.left, yy);
-    ctx.lineTo(canvas.width - pad.right, yy);
-    ctx.stroke();
-    ctx.fillText(fmt.format(price), canvas.width - pad.right + 8, yy + 4);
-  }
-}
-
-function drawCandle(ctx, candle, index, pad, xStep, y) {
-  const x = pad.left + index * xStep + xStep / 2;
-  const rising = candle.close >= candle.open;
-  ctx.strokeStyle = rising ? "#0f8b5f" : "#b42318";
-  ctx.fillStyle = ctx.strokeStyle;
-  ctx.beginPath();
-  ctx.moveTo(x, y(candle.high));
-  ctx.lineTo(x, y(candle.low));
-  ctx.stroke();
-  const bodyTop = y(Math.max(candle.open, candle.close));
-  const bodyBottom = y(Math.min(candle.open, candle.close));
-  ctx.fillRect(x - Math.max(2, xStep * 0.3), bodyTop, Math.max(3, xStep * 0.6), Math.max(2, bodyBottom - bodyTop));
-}
-
-function drawMovingAverage(ctx, candles, windowSize, pad, xStep, y, color, enabled) {
-  if (!enabled) return;
-  const values = movingAverage(candles, windowSize);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1.4;
-  ctx.beginPath();
-  let started = false;
-  values.forEach((value, index) => {
-    if (value === null) return;
-    const x = pad.left + index * xStep + xStep / 2;
-    const yy = y(value);
-    if (!started) {
-      ctx.moveTo(x, yy);
-      started = true;
-    } else {
-      ctx.lineTo(x, yy);
-    }
-  });
-  ctx.stroke();
-}
-
-function drawTradeMarkers(ctx, candles, pad, xStep, y) {
-  const first = new Date(candles[0].opened_at).getTime();
-  const last = new Date(candles[candles.length - 1].opened_at).getTime();
-  (state.replay.trades || []).forEach((trade, tradeIndex) => {
-    const time = new Date(trade.timestamp).getTime();
-    if (time < first || time > last) return;
-    const candleIndex = nearestCandleIndex(candles, time);
-    const x = pad.left + candleIndex * xStep + xStep / 2;
-    const yy = y(trade.price);
-    ctx.fillStyle = trade.side === "BUY" ? "#0f8b5f" : "#b42318";
-    ctx.beginPath();
-    ctx.arc(x, yy, state.chart.selectedTradeIndex === tradeIndex ? 7 : 5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillText(trade.side, x + 8, yy - 8);
-  });
-}
-
-function renderCrosshair(ctx, canvas, candles, pad, xStep, y) {
-  if (state.chart.cursorIndex === null) {
-    updateOhlcPanel(candles[candles.length - 1]);
+function renderKline() {
+  if (!state.replay || state.replay.status !== "ok") {
+    clearChartData();
+    setOhlcMessage(state.replay?.message || text.chooseReplay);
+    updateTradeDetail(null);
     return;
   }
-  const index = Math.max(0, Math.min(candles.length - 1, state.chart.cursorIndex));
-  const candle = candles[index];
-  const x = pad.left + index * xStep + xStep / 2;
-  const yy = y(candle.close);
-  ctx.strokeStyle = "#334155";
-  ctx.setLineDash([4, 4]);
-  ctx.beginPath();
-  ctx.moveTo(x, pad.top);
-  ctx.lineTo(x, canvas.height - pad.bottom);
-  ctx.moveTo(pad.left, yy);
-  ctx.lineTo(canvas.width - pad.right, yy);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  updateOhlcPanel(candle);
+  if (!state.replay || !state.replay.candles || !state.replay.candles.length) {
+    clearChartData();
+    setOhlcMessage(text.chooseReplay);
+    updateTradeDetail(null);
+    return;
+  }
+  const data = chartDataFromReplay(state.replay);
+  state.chart.data = data.candleData;
+  state.chart.volumeData = data.volumeData;
+  state.chart.ma20Data = data.ma20Data;
+  state.chart.ma60Data = data.ma60Data;
+  state.chart.candleSeries.setData(data.candleData);
+  state.chart.volumeSeries.setData(data.volumeData);
+  renderIndicators();
+  state.chart.markerApi.setMarkers(tradeMarkers());
+  updateTradeDetail(null);
+  const count = data.candleData.length;
+  state.chart.visibleCount = Math.min(160, Math.max(30, count));
+  state.chart.visibleStart = Math.max(0, count - state.chart.visibleCount);
+  applyVisibleRange();
+  syncRange();
+  updateOhlcPanel(state.replay.candles[state.replay.candles.length - 1]);
 }
 
-function renderVolume(candles) {
-  const canvas = document.querySelector("#volumeCanvas");
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (!candles.length) return;
-  const pad = { left: 58, right: 70, top: 8, bottom: 20 };
-  const width = canvas.width - pad.left - pad.right;
-  const height = canvas.height - pad.top - pad.bottom;
-  const maxVolume = Math.max(...candles.map((candle) => candle.volume), 1);
-  const xStep = width / candles.length;
-  candles.forEach((candle, index) => {
-    const barHeight = (candle.volume / maxVolume) * height;
-    const x = pad.left + index * xStep + xStep * 0.18;
-    const y = pad.top + height - barHeight;
-    ctx.fillStyle = candle.close >= candle.open ? "rgba(15,139,95,0.55)" : "rgba(180,35,24,0.55)";
-    ctx.fillRect(x, y, Math.max(2, xStep * 0.64), barHeight);
-  });
+function renderIndicators() {
+  state.chart.ma20Series.setData(document.querySelector("#toggleMa20").checked ? state.chart.ma20Data : []);
+  state.chart.ma60Series.setData(document.querySelector("#toggleMa60").checked ? state.chart.ma60Data : []);
+}
+
+function tradeMarkers() {
+  return (state.replay?.trades || []).map((trade) => ({
+    time: toChartTime(trade.timestamp),
+    position: trade.side === "BUY" ? "belowBar" : "aboveBar",
+    color: trade.side === "BUY" ? "#0f8b5f" : "#b42318",
+    shape: trade.side === "BUY" ? "arrowUp" : "arrowDown",
+    text: trade.side,
+    id: trade.external_id,
+  }));
+}
+
+function updateCrosshairPanel(param) {
+  if (!param || !param.time || !state.replay) return;
+  const candle = state.replay.candles.find((item) => toChartTime(item.opened_at) === param.time);
+  updateOhlcPanel(candle || null);
 }
 
 function updateOhlcPanel(candle) {
-  const panel = document.querySelector("#ohlcPanel");
   if (!candle) {
-    panel.textContent = text.chooseReplay;
+    setOhlcMessage(text.chooseReplay);
     return;
   }
+  const panel = document.querySelector("#ohlcPanel");
   const change = candle.close - candle.open;
   const changePct = candle.open ? (change / candle.open) * 100 : 0;
   panel.innerHTML = `
@@ -298,6 +310,10 @@ function updateOhlcPanel(candle) {
     <span>${text.pnl} ${fmt.format(change)} (${fmt.format(changePct)}%)</span>
     <span>VOL ${fmt.format(candle.volume)}</span>
   `;
+}
+
+function setOhlcMessage(message) {
+  document.querySelector("#ohlcPanel").textContent = message;
 }
 
 function updateTradeDetail(trade) {
@@ -314,11 +330,11 @@ function updateTradeDetail(trade) {
   `;
 }
 
-function nearestCandleIndex(candles, timestamp) {
+function nearestCandleIndex(timestamp) {
   let best = 0;
   let bestDistance = Number.POSITIVE_INFINITY;
-  candles.forEach((candle, index) => {
-    const distance = Math.abs(new Date(candle.opened_at).getTime() - timestamp);
+  state.chart.data.forEach((candle, index) => {
+    const distance = Math.abs(candle.time - timestamp);
     if (distance < bestDistance) {
       best = index;
       bestDistance = distance;
@@ -329,22 +345,23 @@ function nearestCandleIndex(candles, timestamp) {
 
 function syncRange() {
   const range = document.querySelector("#replayRange");
-  const candles = state.replay?.candles || [];
-  range.max = Math.max(0, candles.length - 1);
-  range.value = Math.min(candles.length - 1, state.chart.visibleStart + state.chart.visibleCount - 1);
+  const count = state.chart.data.length;
+  if (!count) {
+    range.max = 0;
+    range.value = 0;
+    return;
+  }
+  range.max = Math.max(0, count - 1);
+  range.value = Math.min(count - 1, state.chart.visibleStart + state.chart.visibleCount - 1);
 }
 
-function canvasIndexFromEvent(event) {
-  const canvas = document.querySelector("#klineCanvas");
-  const rect = canvas.getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const candles = visibleCandles();
-  if (!candles.length) return null;
-  const padLeft = 58;
-  const padRight = 70;
-  const width = rect.width - padLeft - padRight;
-  const ratio = Math.max(0, Math.min(1, (x - padLeft) / width));
-  return Math.max(0, Math.min(candles.length - 1, Math.floor(ratio * candles.length)));
+function applyVisibleRange() {
+  const count = state.chart.data.length;
+  if (!count) return;
+  const from = Math.max(0, Math.min(state.chart.visibleStart, count - 1));
+  const to = Math.max(from + 1, Math.min(count - 1, from + state.chart.visibleCount));
+  state.chart.klineChart.timeScale().setVisibleLogicalRange({ from, to });
+  state.chart.volumeChart.timeScale().setVisibleLogicalRange({ from, to });
 }
 
 function startPlayback() {
@@ -359,108 +376,56 @@ function startPlayback() {
 }
 
 function stepReplay(delta) {
-  const candles = state.replay?.candles || [];
-  if (!candles.length) return;
-  const maxStart = Math.max(0, candles.length - state.chart.visibleCount);
+  const count = state.chart.data.length;
+  if (!count) return;
+  const maxStart = Math.max(0, count - state.chart.visibleCount);
   state.chart.visibleStart = Math.max(0, Math.min(maxStart, state.chart.visibleStart + delta));
-  renderKline();
+  applyVisibleRange();
+  syncRange();
 }
 
 function jumpToNextTrade() {
-  const candles = state.replay?.candles || [];
   const trades = state.replay?.trades || [];
-  if (!candles.length || !trades.length) return;
-  const currentTime = new Date(candles[Math.min(candles.length - 1, state.chart.visibleStart + state.chart.visibleCount - 1)].opened_at).getTime();
-  const nextIndex = trades.findIndex((trade) => new Date(trade.timestamp).getTime() > currentTime);
+  if (!state.chart.data.length || !trades.length) return;
+  const visibleEnd = Math.min(state.chart.data.length - 1, state.chart.visibleStart + state.chart.visibleCount - 1);
+  const currentTime = state.chart.data[visibleEnd].time;
+  const nextIndex = trades.findIndex((trade) => toChartTime(trade.timestamp) > currentTime);
   const tradeIndex = nextIndex >= 0 ? nextIndex : 0;
-  state.chart.selectedTradeIndex = tradeIndex;
-  const tradeTime = new Date(trades[tradeIndex].timestamp).getTime();
-  const candleIndex = nearestCandleIndex(candles, tradeTime);
+  const trade = trades[tradeIndex];
+  const candleIndex = nearestCandleIndex(toChartTime(trade.timestamp));
   state.chart.visibleStart = Math.max(0, candleIndex - Math.floor(state.chart.visibleCount * 0.55));
-  updateTradeDetail(trades[tradeIndex]);
-  renderKline();
+  applyVisibleRange();
+  updateTradeDetail(trade);
+  syncRange();
 }
 
-function selectNearestTrade(event) {
-  const index = canvasIndexFromEvent(event);
-  if (index === null || !state.replay) return;
-  const candles = visibleCandles();
-  const candle = candles[index];
-  const time = new Date(candle.opened_at).getTime();
-  let bestIndex = null;
+function selectNearestTradeByClick(param) {
+  if (!param || !param.time || !state.replay) return;
+  let selected = null;
   let bestDistance = Number.POSITIVE_INFINITY;
-  (state.replay.trades || []).forEach((trade, tradeIndex) => {
-    const distance = Math.abs(new Date(trade.timestamp).getTime() - time);
+  (state.replay.trades || []).forEach((trade) => {
+    const distance = Math.abs(toChartTime(trade.timestamp) - param.time);
     if (distance < bestDistance) {
+      selected = trade;
       bestDistance = distance;
-      bestIndex = tradeIndex;
     }
   });
-  if (bestIndex !== null) {
-    state.chart.selectedTradeIndex = bestIndex;
-    updateTradeDetail(state.replay.trades[bestIndex]);
-    renderKline();
-  }
+  updateTradeDetail(selected);
 }
 
 async function loadReplay() {
   const select = document.querySelector("#experimentSelect");
   if (!select.value) {
-    renderKline();
+    updateOhlcPanel(null);
     return;
   }
-  state.replay = await getJson(`/api/kline?experiment=${encodeURIComponent(select.value)}&limit=1000`);
-  const candles = state.replay.candles || [];
-  state.chart.visibleCount = Math.min(120, Math.max(20, candles.length));
-  state.chart.visibleStart = Math.max(0, candles.length - state.chart.visibleCount);
-  state.chart.cursorIndex = null;
-  state.chart.selectedTradeIndex = null;
-  updateTradeDetail(null);
+  state.replay = await getJson(`/api/kline?experiment=${encodeURIComponent(select.value)}&limit=5000`);
   renderKline();
-}
-
-function bindChartInteractions() {
-  const canvas = document.querySelector("#klineCanvas");
-  canvas.addEventListener("wheel", (event) => {
-    event.preventDefault();
-    const candles = state.replay?.candles || [];
-    if (!candles.length) return;
-    const direction = event.deltaY > 0 ? 1 : -1;
-    const nextCount = state.chart.visibleCount + direction * 12;
-    state.chart.visibleCount = Math.max(20, Math.min(candles.length, nextCount));
-    state.chart.visibleStart = Math.max(0, Math.min(state.chart.visibleStart, candles.length - state.chart.visibleCount));
-    renderKline();
-  });
-  canvas.addEventListener("mousedown", (event) => {
-    state.chart.isDragging = true;
-    state.chart.dragX = event.clientX;
-    state.chart.dragStart = state.chart.visibleStart;
-  });
-  canvas.addEventListener("mousemove", (event) => {
-    if (state.chart.isDragging) {
-      const rect = canvas.getBoundingClientRect();
-      const candlesPerPixel = state.chart.visibleCount / Math.max(1, rect.width - 128);
-      const moved = Math.round((state.chart.dragX - event.clientX) * candlesPerPixel);
-      const candles = state.replay?.candles || [];
-      state.chart.visibleStart = Math.max(0, Math.min(Math.max(0, candles.length - state.chart.visibleCount), state.chart.dragStart + moved));
-    }
-    state.chart.cursorIndex = canvasIndexFromEvent(event);
-    renderKline();
-  });
-  canvas.addEventListener("mouseup", () => {
-    state.chart.isDragging = false;
-  });
-  canvas.addEventListener("mouseleave", () => {
-    state.chart.isDragging = false;
-    state.chart.cursorIndex = null;
-    renderKline();
-  });
-  canvas.addEventListener("click", selectNearestTrade);
 }
 
 async function boot() {
   try {
-    bindChartInteractions();
+    createCharts();
     const [overview, reviews, experiments, knowledge] = await Promise.all([
       getJson("/api/overview"),
       getJson("/api/reviews?limit=8"),
@@ -487,12 +452,12 @@ document.querySelector("#loadReplay").addEventListener("click", loadReplay);
 document.querySelector("#replayRange").addEventListener("input", (event) => {
   const value = Number(event.target.value);
   state.chart.visibleStart = Math.max(0, value - state.chart.visibleCount + 1);
-  renderKline();
+  applyVisibleRange();
 });
 document.querySelector("#stepBack").addEventListener("click", () => stepReplay(-1));
 document.querySelector("#stepForward").addEventListener("click", () => stepReplay(1));
 document.querySelector("#playPause").addEventListener("click", startPlayback);
 document.querySelector("#nextTrade").addEventListener("click", jumpToNextTrade);
-document.querySelector("#toggleMa20").addEventListener("change", renderKline);
-document.querySelector("#toggleMa60").addEventListener("change", renderKline);
+document.querySelector("#toggleMa20").addEventListener("change", renderIndicators);
+document.querySelector("#toggleMa60").addEventListener("change", renderIndicators);
 boot();

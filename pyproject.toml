@@ -18,4 +18,4 @@ testpaths = ["tests"]
 
 [tool.setuptools.package-data]
 "trading_learning.storage" = ["schema.sql"]
-"trading_learning.dashboard" = ["static/*.html", "static/*.css", "static/*.js"]
+"trading_learning.dashboard" = ["static/*.html", "static/*.css", "static/*.js", "static/vendor/*.js", "static/vendor/*LICENSE"]

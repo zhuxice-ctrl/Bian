@@ -23,6 +23,9 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             if parsed.path == "/static/app.js":
                 self._write_static("app.js", "application/javascript; charset=utf-8")
                 return
+            if parsed.path == "/static/vendor/lightweight-charts.standalone.production.js":
+                self._write_static("vendor/lightweight-charts.standalone.production.js", "application/javascript; charset=utf-8")
+                return
             if parsed.path == "/api/overview":
                 self._write_json(self.data.overview(), HTTPStatus.OK)
                 return

@@ -88,6 +88,7 @@ h2 {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .panel-header {
@@ -109,6 +110,11 @@ button {
   background: #fff;
   color: var(--ink);
   font-size: 13px;
+}
+
+select {
+  max-width: 100%;
+  min-width: 0;
 }
 
 button {
@@ -230,24 +236,23 @@ button {
   line-height: 1.5;
 }
 
-#klineCanvas {
-  display: block;
+#klineChart,
+#volumeChart {
   width: 100%;
-  height: 520px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: #ffffff;
+  overflow: hidden;
+}
+
+#klineChart {
+  height: 520px;
   cursor: crosshair;
 }
 
-#volumeCanvas {
-  display: block;
-  width: 100%;
+#volumeChart {
   height: 120px;
   margin-top: 8px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #ffffff;
 }
 
 #replayRange {
@@ -260,6 +265,15 @@ button {
   .panel-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .controls {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .controls select {
+    flex: 1 1 220px;
   }
 
   .layout {
