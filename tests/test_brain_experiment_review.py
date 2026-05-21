@@ -68,6 +68,24 @@ def test_experiment_review_command_persists_draft_and_audits(tmp_path, monkeypat
     assert audit["status"] == "saved"
 
 
+def test_experiment_review_command_accepts_windows_style_data_local_path(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _write_csv(tmp_path)
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        _seed_experiment(conn)
+        conn.execute(
+            "update strategy_experiments set source_csv = 'data\\local\\BTCUSDT-1h.csv' where external_id = 'exp-review'"
+        )
+        conn.commit()
+        handler = BrainCommandHandler(conn, executor=FakeExecutor())
+
+        response = handler.handle("/experiment-review experiment=exp-review", user_id="owner")
+
+    assert response["status"] == "saved"
+    assert response["experiment_external_id"] == "exp-review"
+
+
 def test_experiment_review_command_rejects_missing_experiment(tmp_path):
     with connect(tmp_path / "brain.sqlite3") as conn:
         initialize_schema(conn)

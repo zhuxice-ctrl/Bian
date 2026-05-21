@@ -1822,7 +1822,7 @@ class BrainCommandHandler:
 
     @staticmethod
     def _safe_data_local_path(value: str) -> Path:
-        path = Path(value)
+        path = Path(value.replace("\\", "/"))
         allowed_root = Path("data/local").resolve()
         resolved = path.resolve()
         try:
