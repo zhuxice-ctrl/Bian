@@ -126,6 +126,111 @@ def test_dashboard_backtest_report_returns_metrics_and_equity_curve(tmp_path, mo
     assert report["trades"][0]["external_id"] == "trade-buy-1"
 
 
+def test_dashboard_backtest_report_returns_filter_metadata_and_trade_results(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    csv_path = tmp_path / "data" / "local" / "BTCUSDT-1h.csv"
+    csv_path.parent.mkdir(parents=True)
+    csv_path.write_text(
+        "opened_at,open,high,low,close,volume\n"
+        "2026-05-21T00:00:00+00:00,100,110,90,100,10\n"
+        "2026-05-21T01:00:00+00:00,100,112,99,110,12\n"
+        "2026-05-21T02:00:00+00:00,110,121,109,120,12\n"
+        "2026-05-21T03:00:00+00:00,120,122,115,116,12\n",
+        encoding="utf-8",
+    )
+    with connect(tmp_path / "dashboard.sqlite3") as conn:
+        initialize_schema(conn)
+        conn.execute(
+            """
+            insert into strategy_experiments (
+              external_id, strategy_name, symbol, interval, source_csv, parameters, metrics
+            ) values ('exp-filter', 'ma_cross', 'BTCUSDT', '1h', 'data/local/BTCUSDT-1h.csv', '{"starting_cash": 1000}', '{}')
+            """
+        )
+        conn.executemany(
+            """
+            insert into trades (external_id, symbol, side, quantity, price, fee, timestamp, reason, source)
+            values (?, 'BTCUSDT', ?, 1, ?, ?, ?, 'signal', 'exp-filter')
+            """,
+            [
+                ("trade-buy-1", "BUY", 100, 0.5, "2026-05-21T00:00:00+00:00"),
+                ("trade-sell-1", "SELL", 110, 0.5, "2026-05-21T01:00:00+00:00"),
+                ("trade-buy-2", "BUY", 120, 0.6, "2026-05-21T02:00:00+00:00"),
+                ("trade-sell-2", "SELL", 116, 0.4, "2026-05-21T03:00:00+00:00"),
+            ],
+        )
+        conn.execute(
+            """
+            insert into experiment_review_drafts (external_id, experiment_external_id, content)
+            values (
+              'experiment-review-exp-filter',
+              'exp-filter',
+              '{"risk_flags": [{"code": "negative_pnl", "severity": "high", "message": "Loss"}]}'
+            )
+            """
+        )
+        conn.commit()
+
+        report = DashboardData(conn).backtest_report("exp-filter")
+
+    assert report["filter_options"] == {
+        "sides": ["BUY", "SELL"],
+        "results": ["win", "loss"],
+        "risk_flags": ["negative_pnl"],
+        "start_time": "2026-05-21T00:00:00+00:00",
+        "end_time": "2026-05-21T03:00:00+00:00",
+    }
+    trade_results = {trade["external_id"]: trade["round_trip_result"] for trade in report["trades"]}
+    assert trade_results == {
+        "trade-buy-1": "win",
+        "trade-sell-1": "win",
+        "trade-buy-2": "loss",
+        "trade-sell-2": "loss",
+    }
+    assert report["trades"][0]["round_trip_pnl"] == 9.0
+    assert report["trades"][2]["round_trip_pnl"] == -5.0
+
+
+def test_dashboard_experiment_comparison_returns_metrics_and_parameters(tmp_path):
+    with connect(tmp_path / "dashboard.sqlite3") as conn:
+        initialize_schema(conn)
+        conn.executemany(
+            """
+            insert into strategy_experiments (
+              external_id, strategy_name, symbol, interval, source_csv, parameters, metrics, note
+            ) values (?, 'ma_cross', ?, '1h', ?, ?, ?, ?)
+            """,
+            [
+                (
+                    "exp-a",
+                    "BTCUSDT",
+                    "data/local/BTCUSDT-1h.csv",
+                    '{"short_window": 10, "long_window": 30}',
+                    '{"trade_count": 4, "realized_pnl": 12.5, "win_rate": 0.5}',
+                    "baseline",
+                ),
+                (
+                    "exp-b",
+                    "ETHUSDT",
+                    "data/local/ETHUSDT-1h.csv",
+                    '{"short_window": 20, "long_window": 60}',
+                    '{"trade_count": 6, "realized_pnl": -4.0, "win_rate": 0.33}',
+                    "slower",
+                ),
+            ],
+        )
+        conn.commit()
+
+        comparison = DashboardData(conn).experiment_comparison(["exp-a", "exp-b"])
+
+    assert comparison["status"] == "ok"
+    assert [item["external_id"] for item in comparison["experiments"]] == ["exp-a", "exp-b"]
+    assert comparison["experiments"][0]["parameters"] == {"short_window": 10, "long_window": 30}
+    assert comparison["experiments"][1]["metrics"]["realized_pnl"] == -4.0
+    assert comparison["metric_keys"] == ["realized_pnl", "trade_count", "win_rate"]
+    assert comparison["parameter_keys"] == ["long_window", "short_window"]
+
+
 def test_dashboard_experiment_review_returns_stored_or_generated_draft(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     csv_path = tmp_path / "data" / "local" / "BTCUSDT-1h.csv"
@@ -284,6 +389,11 @@ def test_dashboard_http_serves_api_and_static_page(tmp_path):
                     report = json.loads(response.read().decode("utf-8"))
                 with urlopen(f"http://127.0.0.1:{server.server_port}/api/experiment-review?experiment=missing", timeout=5) as response:
                     review = json.loads(response.read().decode("utf-8"))
+                with urlopen(
+                    f"http://127.0.0.1:{server.server_port}/api/experiment-comparison?experiments=missing",
+                    timeout=5,
+                ) as response:
+                    comparison = json.loads(response.read().decode("utf-8"))
             finally:
                 os.chdir(original_cwd)
         finally:
@@ -298,6 +408,8 @@ def test_dashboard_http_serves_api_and_static_page(tmp_path):
         assert datasets["datasets"][0]["symbol"] == "BTCUSDT"
         assert report["status"] == "not_found"
         assert review["status"] == "not_found"
+        assert comparison["status"] == "ok"
+        assert comparison["experiments"] == []
 
 
 def test_dashboard_http_rejects_kline_paths_outside_data_local(tmp_path):
@@ -337,6 +449,15 @@ def test_dashboard_static_page_exposes_interactive_replay_controls():
         'id="reportMetrics"',
         'id="equityChart"',
         'id="tradeTable"',
+        'id="tradeSideFilter"',
+        'id="tradeResultFilter"',
+        'id="tradeStartFilter"',
+        'id="tradeEndFilter"',
+        'id="tradeRiskFilter"',
+        'id="clearTradeFilters"',
+        'id="comparisonSelect"',
+        'id="loadComparison"',
+        'id="comparisonTable"',
         'id="experimentReviewStatus"',
         'id="reviewSummary"',
         'id="reviewRiskFlags"',
@@ -369,12 +490,18 @@ def test_dashboard_static_script_uses_lightweight_charts_engine():
         "function loadDataset",
         "function loadBacktestReport",
         "function renderBacktestReport",
+        "function filteredReportTrades",
+        "function renderTradeFilters",
+        "function renderTradeTable",
+        "function loadExperimentComparison",
+        "function renderExperimentComparison",
         "function loadExperimentReview",
         "function renderExperimentReview",
         "function renderRiskFlags",
         "function renderFocusTrades",
         "function focusTrade",
         "/api/backtest-report",
+        "/api/experiment-comparison",
         "/api/experiment-review",
         "/api/datasets",
     ]:

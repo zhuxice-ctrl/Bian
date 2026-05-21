@@ -7,6 +7,14 @@ const state = {
   replay: null,
   report: null,
   reviewDraft: null,
+  reportFilters: {
+    side: "",
+    result: "",
+    start: "",
+    end: "",
+    risk: "",
+  },
+  comparison: null,
   chart: {
     klineChart: null,
     volumeChart: null,
@@ -114,6 +122,9 @@ function renderReviews() {
 function renderExperiments() {
   const select = document.querySelector("#experimentSelect");
   select.innerHTML = state.experiments
+    .map((experiment) => `<option value="${escapeHtml(experiment.external_id)}">${escapeHtml(experiment.symbol)} ${escapeHtml(experiment.interval)} &middot; ${escapeHtml(experiment.external_id)}</option>`)
+    .join("");
+  document.querySelector("#comparisonSelect").innerHTML = state.experiments
     .map((experiment) => `<option value="${escapeHtml(experiment.external_id)}">${escapeHtml(experiment.symbol)} ${escapeHtml(experiment.interval)} &middot; ${escapeHtml(experiment.external_id)}</option>`)
     .join("");
   document.querySelector("#experimentList").innerHTML = state.experiments
@@ -388,6 +399,7 @@ function renderBacktestReport(report) {
   if (!report || report.status !== "ok") {
     metricsBox.innerHTML = metric("\u56de\u6d4b\u62a5\u544a", text.noReport);
     table.innerHTML = "";
+    renderTradeFilters(null);
     state.chart.equitySeries.setData([]);
     return;
   }
@@ -405,28 +417,124 @@ function renderBacktestReport(report) {
       .filter((point) => point.time)
       .map((point) => ({ time: toChartTime(point.time), value: point.equity })),
   );
+  renderTradeFilters(report.filter_options || {});
+  renderTradeTable();
+}
+
+function renderTradeFilters(options) {
+  const side = document.querySelector("#tradeSideFilter");
+  const result = document.querySelector("#tradeResultFilter");
+  const risk = document.querySelector("#tradeRiskFilter");
+  const start = document.querySelector("#tradeStartFilter");
+  const end = document.querySelector("#tradeEndFilter");
+  const sides = options?.sides || [];
+  const results = options?.results || [];
+  const risks = options?.risk_flags || [];
+  side.innerHTML = [`<option value="">\u5168\u90e8</option>`, ...sides.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`)].join("");
+  result.innerHTML = [
+    `<option value="">\u5168\u90e8</option>`,
+    ...results.map((item) => `<option value="${escapeHtml(item)}">${item === "win" ? "\u76c8\u5229" : item === "loss" ? "\u4e8f\u635f" : "\u6301\u4ed3"}</option>`),
+  ].join("");
+  risk.innerHTML = [`<option value="">\u5168\u90e8</option>`, ...risks.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`)].join("");
+  start.min = options?.start_time ? options.start_time.slice(0, 10) : "";
+  start.max = options?.end_time ? options.end_time.slice(0, 10) : "";
+  end.min = start.min;
+  end.max = start.max;
+  side.value = state.reportFilters.side;
+  result.value = state.reportFilters.result;
+  risk.value = state.reportFilters.risk;
+  start.value = state.reportFilters.start;
+  end.value = state.reportFilters.end;
+}
+
+function filteredReportTrades() {
+  const trades = state.report?.trades || [];
+  const riskOptions = state.report?.filter_options?.risk_flags || [];
+  if (state.reportFilters.risk && !riskOptions.includes(state.reportFilters.risk)) {
+    return [];
+  }
+  return trades.filter((trade) => {
+    const tradeDate = String(trade.timestamp || "").slice(0, 10);
+    if (state.reportFilters.side && trade.side !== state.reportFilters.side) return false;
+    if (state.reportFilters.result && trade.round_trip_result !== state.reportFilters.result) return false;
+    if (state.reportFilters.start && tradeDate < state.reportFilters.start) return false;
+    if (state.reportFilters.end && tradeDate > state.reportFilters.end) return false;
+    return true;
+  });
+}
+
+function renderTradeTable() {
+  const table = document.querySelector("#tradeTable");
+  if (!state.report || state.report.status !== "ok") {
+    table.innerHTML = "";
+    return;
+  }
+  const trades = filteredReportTrades();
   table.innerHTML = `
     <thead>
-      <tr><th>\u65b9\u5411</th><th>\u65f6\u95f4</th><th>\u4ef7\u683c</th><th>\u64cd\u4f5c</th></tr>
+      <tr><th>\u65b9\u5411</th><th>\u7ed3\u679c</th><th>\u65f6\u95f4</th><th>\u4ef7\u683c</th><th>PNL</th><th>\u64cd\u4f5c</th></tr>
     </thead>
     <tbody>
-      ${(report.trades || [])
+      ${trades.length ? trades
         .map(
           (trade) => `
             <tr>
               <td>${escapeHtml(trade.side)}</td>
+              <td>${escapeHtml(trade.round_trip_result || "-")}</td>
               <td>${escapeHtml(trade.timestamp)}</td>
               <td>${fmt.format(trade.price)}</td>
+              <td>${fmt.format(trade.round_trip_pnl || 0)}</td>
               <td><button type="button" data-trade-id="${escapeHtml(trade.external_id)}">\u5b9a\u4f4d</button></td>
+            </tr>
+          `,
+        )
+        .join("") : `<tr><td colspan="6">\u6ca1\u6709\u7b26\u5408\u6761\u4ef6\u7684\u4ea4\u6613</td></tr>`}
+    </tbody>
+  `;
+  table.querySelectorAll("button[data-trade-id]").forEach((button) => {
+    button.addEventListener("click", () => focusTrade(button.dataset.tradeId));
+  });
+}
+
+async function loadExperimentComparison() {
+  const selected = Array.from(document.querySelector("#comparisonSelect").selectedOptions).map((option) => option.value);
+  const ids = selected.length ? selected : state.experiments.slice(0, 2).map((experiment) => experiment.external_id);
+  const comparison = await getJson(`/api/experiment-comparison?experiments=${encodeURIComponent(ids.join(","))}`);
+  renderExperimentComparison(comparison);
+}
+
+function renderExperimentComparison(comparison) {
+  state.comparison = comparison;
+  const table = document.querySelector("#comparisonTable");
+  if (!comparison || comparison.status !== "ok" || !comparison.experiments.length) {
+    table.innerHTML = `<tbody><tr><td>\u9009\u62e9\u81f3\u5c11\u4e00\u4e2a\u5b9e\u9a8c\u8fdb\u884c\u5bf9\u6bd4</td></tr></tbody>`;
+    return;
+  }
+  const metricKeys = comparison.metric_keys || [];
+  const parameterKeys = comparison.parameter_keys || [];
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>\u5b9e\u9a8c</th><th>\u6807\u7684</th>
+        ${metricKeys.map((key) => `<th>${escapeHtml(key)}</th>`).join("")}
+        ${parameterKeys.map((key) => `<th>${escapeHtml(key)}</th>`).join("")}
+      </tr>
+    </thead>
+    <tbody>
+      ${comparison.experiments
+        .map(
+          (experiment) => `
+            <tr>
+              <td>${escapeHtml(experiment.external_id)}</td>
+              <td>${escapeHtml(experiment.symbol)} ${escapeHtml(experiment.interval)}</td>
+              ${metricKeys.map((key) => `<td>${escapeHtml(experiment.metrics[key] ?? "-")}</td>`).join("")}
+              ${parameterKeys.map((key) => `<td>${escapeHtml(experiment.parameters[key] ?? "-")}</td>`).join("")}
             </tr>
           `,
         )
         .join("")}
     </tbody>
   `;
-  table.querySelectorAll("button[data-trade-id]").forEach((button) => {
-    button.addEventListener("click", () => focusTrade(button.dataset.tradeId));
-  });
 }
 
 function renderExperimentReview(review) {
@@ -631,6 +739,7 @@ async function loadReplay() {
   renderKline();
   await loadBacktestReport();
   await loadExperimentReview();
+  await loadExperimentComparison();
 }
 
 async function loadDataset() {
@@ -694,4 +803,23 @@ document.querySelector("#playPause").addEventListener("click", startPlayback);
 document.querySelector("#nextTrade").addEventListener("click", jumpToNextTrade);
 document.querySelector("#toggleMa20").addEventListener("change", renderIndicators);
 document.querySelector("#toggleMa60").addEventListener("change", renderIndicators);
+["#tradeSideFilter", "#tradeResultFilter", "#tradeStartFilter", "#tradeEndFilter", "#tradeRiskFilter"].forEach((selector) => {
+  document.querySelector(selector).addEventListener("change", (event) => {
+    const key = {
+      tradeSideFilter: "side",
+      tradeResultFilter: "result",
+      tradeStartFilter: "start",
+      tradeEndFilter: "end",
+      tradeRiskFilter: "risk",
+    }[event.target.id];
+    state.reportFilters[key] = event.target.value;
+    renderTradeTable();
+  });
+});
+document.querySelector("#clearTradeFilters").addEventListener("click", () => {
+  state.reportFilters = { side: "", result: "", start: "", end: "", risk: "" };
+  renderTradeFilters(state.report?.filter_options || {});
+  renderTradeTable();
+});
+document.querySelector("#loadComparison").addEventListener("click", loadExperimentComparison);
 boot();

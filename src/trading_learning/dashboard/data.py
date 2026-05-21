@@ -182,13 +182,62 @@ class DashboardData:
             trades=trades,
         )
         report = build_backtest_report(result)
+        enriched_trades = self._annotated_trades(replay["trades"], report["round_trips"])
         return {
             "status": "ok",
             "experiment": replay["experiment"],
             "metrics": report["metrics"],
-            "trades": replay["trades"],
+            "trades": enriched_trades,
             "round_trips": report["round_trips"],
             "equity_curve": report["equity_curve"],
+            "filter_options": self._filter_options(enriched_trades, report["round_trips"], experiment_id),
+        }
+
+    def experiment_comparison(self, experiment_ids: list[str]) -> dict[str, Any]:
+        clean_ids = [experiment_id for experiment_id in experiment_ids if experiment_id]
+        if not clean_ids:
+            return {"status": "ok", "experiments": [], "metric_keys": [], "parameter_keys": []}
+        placeholders = ",".join("?" for _ in clean_ids)
+        rows = self.conn.execute(
+            f"""
+            select external_id, strategy_name, symbol, interval, parameters, metrics, note, created_at
+            from strategy_experiments
+            where external_id in ({placeholders})
+            """,
+            tuple(clean_ids),
+        ).fetchall()
+        rows_by_id = {row["external_id"]: row for row in rows}
+        experiments = []
+        metric_keys: set[str] = set()
+        parameter_keys: set[str] = set()
+        for experiment_id in clean_ids:
+            row = rows_by_id.get(experiment_id)
+            if row is None:
+                continue
+            parameters = self._json(row["parameters"], {})
+            metrics = self._json(row["metrics"], {})
+            parameter_keys.update(parameters.keys())
+            metric_keys.update(metrics.keys())
+            experiments.append(
+                {
+                    "external_id": row["external_id"],
+                    "strategy_name": row["strategy_name"],
+                    "symbol": row["symbol"],
+                    "interval": row["interval"],
+                    "parameters": parameters,
+                    "metrics": metrics,
+                    "note": row["note"],
+                    "created_at": row["created_at"],
+                }
+            )
+        preferred_metric_order = ["realized_pnl", "trade_count", "win_rate", "max_drawdown", "total_fees"]
+        ordered_metrics = [key for key in preferred_metric_order if key in metric_keys]
+        ordered_metrics.extend(sorted(metric_keys - set(ordered_metrics)))
+        return {
+            "status": "ok",
+            "experiments": experiments,
+            "metric_keys": ordered_metrics,
+            "parameter_keys": sorted(parameter_keys),
         }
 
     def experiment_review(self, experiment_id: str) -> dict[str, Any]:
@@ -287,6 +336,65 @@ class DashboardData:
             for trade in trades
         ]
         return kline
+
+    def _annotated_trades(self, trades: list[dict[str, Any]], round_trips: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        trip_by_trade_id: dict[str, dict[str, Any]] = {}
+        for trip in round_trips:
+            result = "win" if float(trip.get("pnl", 0.0) or 0.0) >= 0 else "loss"
+            for key in ("entry_trade_id", "exit_trade_id"):
+                trade_id = str(trip.get(key, "") or "")
+                if trade_id:
+                    trip_by_trade_id[trade_id] = {
+                        "round_trip_result": result,
+                        "round_trip_pnl": float(trip.get("pnl", 0.0) or 0.0),
+                        "round_trip_pnl_pct": float(trip.get("pnl_pct", 0.0) or 0.0),
+                    }
+        annotated = []
+        for trade in trades:
+            extra = trip_by_trade_id.get(
+                trade["external_id"],
+                {"round_trip_result": "open", "round_trip_pnl": 0.0, "round_trip_pnl_pct": 0.0},
+            )
+            annotated.append({**trade, **extra})
+        return annotated
+
+    def _filter_options(
+        self,
+        trades: list[dict[str, Any]],
+        round_trips: list[dict[str, Any]],
+        experiment_id: str,
+    ) -> dict[str, Any]:
+        timestamps = [trade["timestamp"] for trade in trades]
+        return {
+            "sides": [side for side in ("BUY", "SELL") if any(trade["side"] == side for trade in trades)],
+            "results": [
+                result
+                for result in ("win", "loss", "open")
+                if any(trade["round_trip_result"] == result for trade in trades)
+            ],
+            "risk_flags": self._experiment_risk_flags(experiment_id),
+            "start_time": min(timestamps) if timestamps else "",
+            "end_time": max(timestamps) if timestamps else "",
+        }
+
+    def _experiment_risk_flags(self, experiment_id: str) -> list[str]:
+        try:
+            row = self.conn.execute(
+                "select content from experiment_review_drafts where experiment_external_id = ?",
+                (experiment_id,),
+            ).fetchone()
+        except sqlite3.OperationalError as exc:
+            if "experiment_review_drafts" not in str(exc):
+                raise
+            return []
+        if row is None:
+            return []
+        content = self._json(row["content"], {})
+        return sorted(
+            str(flag.get("code", ""))
+            for flag in content.get("risk_flags", [])
+            if isinstance(flag, dict) and flag.get("code")
+        )
 
     def _tags_for_card(self, card_external_id: str) -> list[str]:
         rows = self.conn.execute(

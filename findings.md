@@ -43,3 +43,6 @@
 - Before Phase 16 or Phase 17 starts, Phase 15 should be committed and pushed so future work has a clean baseline.
 - Phase 16 is dashboard-heavy and should include browser verification in addition to pytest and JavaScript syntax checks.
 - Phase 17 depends on external Feishu app/public HTTPS setup, so repository work should focus on local event behavior, documentation, and safe command handling first.
+- Phase 16 v1 keeps filtering client-side for visible trade rows. Stored experiment, trade, review, and knowledge records remain read-only from the dashboard.
+- Round-trip result annotations are attached to both entry and exit trades so side/result filters can work on the existing trade table without adding a new storage table.
+- Experiment comparison is read-only and uses stored `strategy_experiments` metrics/parameters; it does not recompute backtests.

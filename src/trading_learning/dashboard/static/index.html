@@ -76,9 +76,31 @@
             <div id="equityChart" class="equity-panel"></div>
           </div>
           <div>
-            <h2>&#20132;&#26131;&#21015;&#34920;</h2>
+            <div class="table-heading">
+              <h2>&#20132;&#26131;&#21015;&#34920;</h2>
+              <button id="clearTradeFilters" type="button">&#28165;&#31354;&#36807;&#28388;</button>
+            </div>
+            <div class="trade-filters">
+              <label><span>&#26041;&#21521;</span><select id="tradeSideFilter"></select></label>
+              <label><span>&#32467;&#26524;</span><select id="tradeResultFilter"></select></label>
+              <label><span>&#24320;&#22987;</span><input id="tradeStartFilter" type="date" /></label>
+              <label><span>&#32467;&#26463;</span><input id="tradeEndFilter" type="date" /></label>
+              <label><span>&#39118;&#38505;</span><select id="tradeRiskFilter"></select></label>
+            </div>
             <table id="tradeTable" class="trade-table"></table>
           </div>
+        </div>
+
+        <div class="comparison-panel">
+          <div class="table-heading">
+            <div>
+              <h2>&#23454;&#39564;&#23545;&#27604;</h2>
+              <p class="hint">&#25353; Ctrl &#25110; Shift &#36873;&#25321;&#22810;&#20010;&#23454;&#39564;&#65292;&#23545;&#27604;&#25351;&#26631;&#21644;&#21442;&#25968;&#12290;</p>
+            </div>
+            <button id="loadComparison" type="button">&#23545;&#27604;</button>
+          </div>
+          <select id="comparisonSelect" multiple size="4"></select>
+          <table id="comparisonTable" class="comparison-table"></table>
         </div>
 
         <div class="review-draft">

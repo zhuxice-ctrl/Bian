@@ -53,3 +53,10 @@
 - Switched subsequent development to file-based planning workflow using `task_plan.md`, `findings.md`, and `progress.md`.
 - Added planned Phase 15S, Phase 16, and Phase 17 sections to the project plan.
 - Verified Phase 15S with `pytest -q` (`153 passed`), dashboard JavaScript syntax check, and current-diff sensitive information scan before commit.
+- Started Phase 16 professional backtest software experience.
+- Phase 16 v1 scope: report filter metadata, dashboard trade filters, and multi-experiment comparison.
+- Added backtest report filter metadata, round-trip result annotations, and experiment comparison payload/API.
+- Added dashboard trade filters for side, result, date range, and risk flag, plus a read-only experiment comparison table.
+- Browser-verified `http://127.0.0.1:8782/` on desktop and mobile: filters and comparison render, interactions update visible rows, and console logs are clean.
+- Verified Phase 16 with `pytest -q` (`155 passed`) and dashboard JavaScript syntax check.
+- Verified Phase 16S with `pytest -q` (`155 passed`), dashboard JavaScript syntax check, and current-diff sensitive information scan before commit.

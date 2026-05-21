@@ -288,7 +288,7 @@ Acceptance criteria:
 
 ## Phase 16: Professional Backtest Software Experience
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -300,12 +300,12 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] Dashboard can filter visible trades without mutating stored records.
-- [ ] Report payload supports enough metadata for range and filter views.
-- [ ] User can compare at least two experiments by metrics and parameters.
-- [ ] Static UI tests cover controls and expected DOM markers.
-- [ ] Data-layer tests cover filtering and comparison payloads.
-- [ ] Browser verification confirms chart/report controls render and do not overlap.
+- [x] Dashboard can filter visible trades without mutating stored records.
+- [x] Report payload supports enough metadata for range and filter views.
+- [x] User can compare at least two experiments by metrics and parameters.
+- [x] Static UI tests cover controls and expected DOM markers.
+- [x] Data-layer tests cover filtering and comparison payloads.
+- [x] Browser verification confirms chart/report controls render and do not overlap.
 
 ## Phase 17: Feishu Phone Access
 
@@ -326,3 +326,21 @@ Acceptance criteria:
 - [ ] Phone-facing responses are concise and Chinese-first.
 - [ ] No API keys or secrets are returned in responses, logs, or exports.
 - [ ] End-to-end setup documentation explains public HTTPS callback requirements.
+
+## Phase 16S: Commit And Push Phase 16
+
+Status: completed
+
+Scope:
+
+- Review Phase 16 diff.
+- Commit the current Phase 16 dashboard analysis improvements and planning artifacts.
+- Push to GitHub `main` after verification.
+
+Acceptance criteria:
+
+- [x] `pytest -q` passes.
+- [x] Dashboard JavaScript syntax check passes.
+- [x] Sensitive information scan shows no newly committed credentials.
+- [x] Commit is created with a clear Phase 16 message.
+- [x] Commit is pushed to GitHub `main`.

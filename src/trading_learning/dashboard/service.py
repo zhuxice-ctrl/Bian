@@ -65,6 +65,15 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     HTTPStatus.OK,
                 )
                 return
+            if parsed.path == "/api/experiment-comparison":
+                query = parse_qs(parsed.query)
+                experiment_ids = [
+                    item.strip()
+                    for item in query.get("experiments", [""])[0].split(",")
+                    if item.strip()
+                ]
+                self._write_json(self.data.experiment_comparison(experiment_ids), HTTPStatus.OK)
+                return
             if parsed.path == "/api/kline":
                 query = parse_qs(parsed.query)
                 if "experiment" in query:
