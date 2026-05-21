@@ -237,3 +237,92 @@ Acceptance criteria:
 - [x] The dashboard renders review summary, risk flags, focus trades, questions, and tasks for the selected experiment.
 - [x] Empty/missing review draft states are clear.
 - [x] Static UI tests and browser smoke tests cover the panel.
+
+## Phase 15: Experiment Review Learning Loop
+
+Status: completed
+
+Scope:
+
+- Add a Chinese Brain command to commit one experiment review draft into durable learning records.
+- Generate or refresh the experiment review draft before committing it.
+- Write or update the daily review, generated knowledge cards, review-experiment link, review-knowledge links, and daily learning report.
+- Keep the dashboard read-only and avoid any trading execution path.
+
+Acceptance criteria:
+
+- [x] `沉淀实验复盘 实验=... 日期=...` routes to the local Brain write command.
+- [x] `/experiment-review-commit experiment=... date=...` writes learning-loop records from a deterministic draft.
+- [x] Rerunning the command is idempotent for generated daily reviews, knowledge cards, and links.
+- [x] Tests cover the Chinese alias, persistence behavior, and idempotency.
+
+## Development Planning Workflow
+
+Status: active
+
+Rules for future phases:
+
+- Keep `task_plan.md`, `findings.md`, and `progress.md` as the persistent planning source of truth.
+- Before implementation, add or update the target phase with scope, acceptance criteria, and test strategy.
+- Use TDD for behavior changes: write failing tests first, verify the failure, then implement.
+- After each phase, update progress and findings with the concrete result and verification output.
+- Keep dashboard write actions out of scope unless a separate safety design is approved.
+
+## Phase 15S: Commit And Push Phase 15
+
+Status: completed
+
+Scope:
+
+- Review Phase 15 diff.
+- Commit the current Phase 15 implementation and planning artifacts.
+- Push to GitHub `main` after verification.
+
+Acceptance criteria:
+
+- [x] `pytest -q` passes.
+- [x] Dashboard JavaScript syntax check passes.
+- [x] Sensitive information scan shows no newly committed credentials.
+- [x] Commit is created with a clear Phase 15 message.
+- [x] Commit is pushed to GitHub `main`.
+
+## Phase 16: Professional Backtest Software Experience
+
+Status: planned
+
+Scope:
+
+- Improve the dashboard backtest workspace from a single experiment viewer into a stronger analysis tool.
+- Add trade filtering by side, PnL result, date range, and risk/review flag.
+- Add experiment date/range controls for chart and report panels.
+- Add parameter summary and comparison for multiple experiments.
+- Keep dashboard read-only and avoid adding any trading or secret-bearing surface.
+
+Acceptance criteria:
+
+- [ ] Dashboard can filter visible trades without mutating stored records.
+- [ ] Report payload supports enough metadata for range and filter views.
+- [ ] User can compare at least two experiments by metrics and parameters.
+- [ ] Static UI tests cover controls and expected DOM markers.
+- [ ] Data-layer tests cover filtering and comparison payloads.
+- [ ] Browser verification confirms chart/report controls render and do not overlap.
+
+## Phase 17: Feishu Phone Access
+
+Status: planned
+
+Scope:
+
+- Connect Feishu mobile messages to local Brain through the existing event endpoint.
+- Support phone queries for status, recent experiments, experiment reviews, daily learning reports, and next learning tasks.
+- Allow safe learning commands from phone, including experiment review commit.
+- Keep Binance keys, local Codex keys, and Feishu secrets in the local environment only.
+- Keep all trading execution commands behind existing plan, checklist, and confirmation guards.
+
+Acceptance criteria:
+
+- [ ] Local Feishu event smoke tests cover safe learning queries and commands.
+- [ ] User mapping rejects unauthorized Feishu users.
+- [ ] Phone-facing responses are concise and Chinese-first.
+- [ ] No API keys or secrets are returned in responses, logs, or exports.
+- [ ] End-to-end setup documentation explains public HTTPS callback requirements.

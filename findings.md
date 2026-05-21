@@ -37,3 +37,9 @@
 - Brain `/experiment-review experiment=...` is the persistence path for review drafts and still does not expose any trading action.
 - Existing local databases may not have `experiment_review_drafts` until a write-path schema initialization runs; dashboard review preview now tolerates that table being absent.
 - Phase 14B uses the review draft as explanation beside replay, not as an execution signal or trade recommendation.
+- Phase 15 should keep dashboard writes out of scope. The safer first write path is Brain, because it already has local audit logging and command normalization.
+- Generated experiment-review knowledge cards can be deterministic and idempotent by using experiment-scoped external ids.
+- Knowledge cards can carry all risk flag tags, while review-to-knowledge links should remain one link per card to avoid noisy daily report context.
+- Before Phase 16 or Phase 17 starts, Phase 15 should be committed and pushed so future work has a clean baseline.
+- Phase 16 is dashboard-heavy and should include browser verification in addition to pytest and JavaScript syntax checks.
+- Phase 17 depends on external Feishu app/public HTTPS setup, so repository work should focus on local event behavior, documentation, and safe command handling first.

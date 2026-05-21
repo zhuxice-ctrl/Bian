@@ -81,6 +81,48 @@ def test_chinese_review_alias_persists_daily_review(tmp_path):
         assert row["pnl"] == 3.5
 
 
+def test_chinese_experiment_review_commit_alias_normalizes_to_internal_command(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    csv_path = tmp_path / "data" / "local" / "BTCUSDT-1h.csv"
+    csv_path.parent.mkdir(parents=True)
+    csv_path.write_text(
+        "opened_at,open,high,low,close,volume\n"
+        "2026-05-21T00:00:00+00:00,100,101,99,100,10\n"
+        "2026-05-21T01:00:00+00:00,100,101,94,95,12\n",
+        encoding="utf-8",
+    )
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        conn.execute(
+            """
+            insert into strategy_experiments (
+              external_id, strategy_name, symbol, interval, source_csv, parameters, metrics
+            ) values ('exp-review', 'moving_average_crossover', 'BTCUSDT', '1h', ?, '{"starting_cash": 1000}', '{}')
+            """,
+            ("data/local/BTCUSDT-1h.csv",),
+        )
+        conn.executemany(
+            """
+            insert into trades (external_id, symbol, side, quantity, price, fee, timestamp, reason, source)
+            values (?, 'BTCUSDT', ?, 1, ?, 0.5, ?, 'signal', 'exp-review')
+            """,
+            [
+                ("buy-1", "BUY", 100, "2026-05-21T00:00:00+00:00"),
+                ("sell-1", "SELL", 95, "2026-05-21T01:00:00+00:00"),
+            ],
+        )
+        conn.commit()
+        handler = BrainCommandHandler(conn, executor=FakeExecutor())
+
+        response = handler.handle(
+            _u(r"\u6c89\u6dc0\u5b9e\u9a8c\u590d\u76d8 \u5b9e\u9a8c=exp-review \u65e5\u671f=2026-05-21"),
+            user_id="owner",
+        )
+
+        assert response["status"] == "saved"
+        assert response["review_external_id"] == "review-2026-05-21"
+
+
 def test_chinese_learning_and_summary_keywords_route_to_readonly_commands(tmp_path):
     today = date.today().isoformat()
     with connect(tmp_path / "brain.sqlite3") as conn:

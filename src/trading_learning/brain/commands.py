@@ -178,6 +178,11 @@ class BrainCommandHandler:
             self._audit(user_id, command_text, response)
             return response
 
+        if command_text.startswith("/experiment-review-commit"):
+            response = self._experiment_review_commit(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
         if command_text.startswith("/experiment-review"):
             response = self._experiment_review(command_text)
             self._audit(user_id, command_text, response)
@@ -1076,6 +1081,170 @@ class BrainCommandHandler:
         self.conn.commit()
         return external_id
 
+    def _experiment_review_commit(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/experiment-review-commit").strip())
+        experiment_id = fields.get("experiment", "").strip()
+        review_date = fields.get("date", self._today()).strip()
+        if not experiment_id:
+            return {
+                "status": "invalid",
+                "message": "missing fields: experiment",
+                "requires_confirmation": False,
+            }
+
+        if self._experiment_row(experiment_id) is None:
+            return {
+                "status": "not_found",
+                "message": f"experiment not found: {experiment_id}",
+                "requires_confirmation": False,
+            }
+        draft = self._saved_experiment_review_draft(experiment_id)
+        if draft is None:
+            draft_response = self._experiment_review(f"/experiment-review experiment={experiment_id}")
+            if draft_response["status"] != "saved":
+                return draft_response
+            draft = draft_response["draft"]
+        review_id = f"review-{review_date}"
+        summary = draft.get("summary", {})
+        risk_codes = [str(flag.get("code", "")) for flag in draft.get("risk_flags", []) if flag.get("code")]
+        link_tag = risk_codes[0] if risk_codes else "experiment_review"
+        self._upsert_experiment_daily_review(review_id, review_date, summary, risk_codes, draft)
+        self._upsert_review_experiment_link(review_id, experiment_id, link_tag)
+        card_ids = self._upsert_experiment_review_knowledge(review_id, experiment_id, draft, risk_codes)
+        report_response = self._daily_report(f"/daily-report date={review_date}")
+        if report_response["status"] != "saved":
+            return report_response
+        return {
+            "status": "saved",
+            "message": f"committed experiment review {experiment_id} to learning loop",
+            "experiment_external_id": experiment_id,
+            "review_external_id": review_id,
+            "knowledge_card_count": len(card_ids),
+            "learning_report_external_id": report_response["external_id"],
+            "draft": draft,
+            "requires_confirmation": False,
+        }
+
+    def _saved_experiment_review_draft(self, experiment_id: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            """
+            select content
+            from experiment_review_drafts
+            where experiment_external_id = ?
+            """,
+            (experiment_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return json.loads(row["content"])
+
+    def _upsert_experiment_daily_review(
+        self,
+        review_id: str,
+        review_date: str,
+        summary: dict[str, Any],
+        risk_codes: list[str],
+        draft: dict[str, Any],
+    ) -> None:
+        symbol = str(summary.get("symbol", "") or "")
+        task = next(iter(draft.get("learning_tasks", [])), "")
+        question = next(iter(draft.get("review_questions", [])), "")
+        lesson = task or question or "Review experiment before changing parameters"
+        self.conn.execute(
+            """
+            insert into daily_reviews (
+              external_id, review_date, symbols_watched, trade_count, plan_followed,
+              pnl, mistake_tags, emotion_note, lesson
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            on conflict(external_id) do update set
+              review_date = excluded.review_date,
+              symbols_watched = excluded.symbols_watched,
+              trade_count = excluded.trade_count,
+              plan_followed = excluded.plan_followed,
+              pnl = excluded.pnl,
+              mistake_tags = excluded.mistake_tags,
+              emotion_note = excluded.emotion_note,
+              lesson = excluded.lesson,
+              updated_at = CURRENT_TIMESTAMP
+            """,
+            (
+                review_id,
+                review_date,
+                json.dumps([symbol] if symbol else [], ensure_ascii=False),
+                int(summary.get("trade_count", 0) or 0),
+                0 if risk_codes else 1,
+                float(summary.get("realized_pnl", 0.0) or 0.0),
+                json.dumps(risk_codes, ensure_ascii=False),
+                "Experiment review committed by Brain",
+                lesson,
+            ),
+        )
+        self.conn.commit()
+
+    def _upsert_review_experiment_link(self, review_id: str, experiment_id: str, tag: str) -> None:
+        self.conn.execute(
+            """
+            insert into review_experiment_links (
+              review_external_id, experiment_external_id, tag, note
+            ) values (?, ?, ?, ?)
+            on conflict(review_external_id, experiment_external_id, tag) do update set
+              note = excluded.note
+            """,
+            (review_id, experiment_id, tag, "Committed from experiment review draft"),
+        )
+        self.conn.commit()
+
+    def _upsert_experiment_review_knowledge(
+        self,
+        review_id: str,
+        experiment_id: str,
+        draft: dict[str, Any],
+        risk_codes: list[str],
+    ) -> list[str]:
+        card_ids: list[str] = []
+        tags = risk_codes or ["experiment_review"]
+        link_tag = tags[0]
+        items: list[tuple[str, str, str]] = []
+        for index, question in enumerate(draft.get("review_questions", []), start=1):
+            items.append((f"question-{index}", f"Experiment review question {index}", str(question)))
+        for index, task in enumerate(draft.get("learning_tasks", []), start=1):
+            items.append((f"task-{index}", f"Experiment review task {index}", str(task)))
+
+        for suffix, title, content in items:
+            card_id = f"knowledge-experiment-review-{experiment_id}-{suffix}"
+            self.conn.execute(
+                """
+                insert into knowledge_cards (
+                  external_id, title, category, content, source
+                ) values (?, ?, ?, ?, 'experiment_review')
+                on conflict(external_id) do update set
+                  title = excluded.title,
+                  category = excluded.category,
+                  content = excluded.content,
+                  source = excluded.source,
+                  updated_at = CURRENT_TIMESTAMP
+                """,
+                (card_id, title, "experiment_review", content),
+            )
+            for tag in tags:
+                self.conn.execute(
+                    """
+                    insert or ignore into knowledge_card_tags (card_external_id, tag)
+                    values (?, ?)
+                    """,
+                    (card_id, tag),
+                )
+            self.conn.execute(
+                """
+                insert or ignore into mistake_knowledge_links (review_external_id, card_external_id, tag)
+                values (?, ?, ?)
+                """,
+                (review_id, card_id, link_tag),
+            )
+            card_ids.append(card_id)
+        self.conn.commit()
+        return card_ids
+
     def _daily_report(self, command_text: str) -> dict[str, Any]:
         fields = self._parse_key_value_args(command_text.removeprefix("/daily-report").strip())
         report_date = fields.get("date", self._today())
@@ -1373,6 +1542,7 @@ class BrainCommandHandler:
             "/knowledge-add ",
             "/mistake-link ",
             "/experiment-link ",
+            "/experiment-review-commit ",
             "/plan-set ",
             "/checklist ",
         )
@@ -1400,6 +1570,7 @@ class BrainCommandHandler:
                 "/backtest-ma",
                 "/experiment-summary",
                 "/experiment-review",
+                "/experiment-review-commit",
                 "/daily-report",
                 "/weekly-report",
                 "/learning-next",

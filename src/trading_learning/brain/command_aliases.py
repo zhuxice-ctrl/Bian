@@ -28,6 +28,7 @@ _KEY_ALIASES = {
     _u(r"\u6807\u7b7e"): "tags",
     _u(r"\u6559\u8bad"): "lesson",
     _u(r"\u7b14\u8bb0"): "note",
+    _u(r"\u5b9e\u9a8c"): "experiment",
     _u(r"\u6570\u91cf"): "limit",
     _u(r"\u5468\u671f"): "interval",
     _u(r"\u77ed\u7ebf"): "short",
@@ -51,6 +52,7 @@ _PRE_TRADE_CHECK = _u(r"\u4ea4\u6613\u524d\u68c0\u67e5")
 _ADD_REVIEW = _u(r"\u6dfb\u52a0\u590d\u76d8")
 _DOWNLOAD_HISTORY = _u(r"\u4e0b\u8f7d\u5386\u53f2")
 _MA_BACKTEST = _u(r"\u5747\u7ebf\u56de\u6d4b")
+_COMMIT_EXPERIMENT_REVIEW = _u(r"\u6c89\u6dc0\u5b9e\u9a8c\u590d\u76d8")
 _TESTNET_BUY = _u(r"\u6d4b\u8bd5\u7f51\u4e70\u5165")
 _TEST_BUY = _u(r"\u6d4b\u8bd5\u4e70\u5165")
 
@@ -97,6 +99,11 @@ def normalize_brain_command(text: str) -> str:
         return _rewrite_keyed_command("/history-download", command.removeprefix(_DOWNLOAD_HISTORY + " "))
     if command.startswith(_MA_BACKTEST + " "):
         return _rewrite_keyed_command("/backtest-ma", command.removeprefix(_MA_BACKTEST + " "))
+    if command.startswith(_COMMIT_EXPERIMENT_REVIEW + " "):
+        return _rewrite_keyed_command(
+            "/experiment-review-commit",
+            command.removeprefix(_COMMIT_EXPERIMENT_REVIEW + " "),
+        )
 
     return command
 

@@ -47,3 +47,9 @@
 - Added focus-trade location buttons that reuse the existing trade focus behavior.
 - Fixed dashboard compatibility for older local databases that do not yet have `experiment_review_drafts`.
 - Browser-verified `http://127.0.0.1:8781/`: review card renders, focus-trade click updates trade detail, and fresh console logs are clean.
+- Started Phase 15 experiment review learning-loop commit.
+- Added Chinese Brain command `沉淀实验复盘 实验=... 日期=...` and internal `/experiment-review-commit`.
+- The commit command now turns an experiment review draft into a daily review, generated knowledge cards, links, and a daily learning report.
+- Switched subsequent development to file-based planning workflow using `task_plan.md`, `findings.md`, and `progress.md`.
+- Added planned Phase 15S, Phase 16, and Phase 17 sections to the project plan.
+- Verified Phase 15S with `pytest -q` (`153 passed`), dashboard JavaScript syntax check, and current-diff sensitive information scan before commit.
