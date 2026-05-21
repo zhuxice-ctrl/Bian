@@ -99,7 +99,7 @@ class FeishuEventAdapter:
         if payload.get("type") == "url_verification":
             if not self._valid_token(payload.get("token")):
                 return {"status": "forbidden", "message": "invalid Feishu verification token"}
-            return {"status": "verified", "challenge": payload.get("challenge", "")}
+            return {"challenge": payload.get("challenge", "")}
 
         if self.encrypt_key and not self._valid_signature(headers or {}, raw_body):
             return {"status": "forbidden", "message": "invalid Feishu signature"}

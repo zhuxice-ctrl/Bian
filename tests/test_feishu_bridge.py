@@ -49,8 +49,7 @@ def test_feishu_url_verification_returns_challenge():
 
     response = adapter.handle({"type": "url_verification", "token": "verify-token", "challenge": "abc"})
 
-    assert response["status"] == "verified"
-    assert response["challenge"] == "abc"
+    assert response == {"challenge": "abc"}
 
 
 def test_feishu_url_verification_does_not_require_signature():
@@ -62,8 +61,7 @@ def test_feishu_url_verification_does_not_require_signature():
 
     response = adapter.handle({"type": "url_verification", "token": "verify-token", "challenge": "abc"})
 
-    assert response["status"] == "verified"
-    assert response["challenge"] == "abc"
+    assert response == {"challenge": "abc"}
 
 
 def test_feishu_rejects_invalid_verification_token():
