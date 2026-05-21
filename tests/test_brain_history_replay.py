@@ -119,6 +119,64 @@ def test_history_download_returns_failed_response_when_fetcher_fails(tmp_path):
     assert audit["status"] == "failed"
 
 
+def test_market_refresh_downloads_default_symbol_interval_scope(tmp_path, monkeypatch):
+    captured = []
+
+    def fake_fetcher(**kwargs):
+        captured.append(kwargs)
+        return [
+            Candle(
+                symbol=kwargs["symbol"],
+                opened_at=datetime.fromisoformat("2026-05-20T09:00:00+00:00"),
+                open=100.0,
+                high=105.0,
+                low=99.0,
+                close=104.0,
+                volume=12.5,
+            )
+        ]
+
+    monkeypatch.chdir(tmp_path)
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor(), kline_fetcher=fake_fetcher)
+
+        response = handler.handle("/market-refresh limit=2", user_id="owner")
+        audit = conn.execute("select status from brain_audit_logs").fetchone()
+
+    assert response["status"] == "saved"
+    assert response["count"] == 8
+    assert [item["symbol"] for item in captured] == [
+        "BTCUSDT",
+        "BTCUSDT",
+        "BTCUSDT",
+        "BTCUSDT",
+        "ETHUSDT",
+        "ETHUSDT",
+        "ETHUSDT",
+        "ETHUSDT",
+    ]
+    assert [item["interval"] for item in captured] == ["1m", "5m", "15m", "1h"] * 2
+    assert all(item["limit"] == 2 for item in captured)
+    assert audit["status"] == "saved"
+
+
+def test_market_refresh_rejects_symbols_outside_learning_scope(tmp_path):
+    def unexpected_fetcher(**kwargs):
+        raise AssertionError("unsupported symbols must be rejected before fetching")
+
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor(), kline_fetcher=unexpected_fetcher)
+
+        response = handler.handle("/market-refresh symbols=SOLUSDT intervals=1h", user_id="owner")
+        audit = conn.execute("select status from brain_audit_logs").fetchone()
+
+    assert response["status"] == "invalid"
+    assert "symbol not allowed: SOLUSDT" in response["message"]
+    assert audit["status"] == "invalid"
+
+
 def test_backtest_ma_rejects_symbols_outside_learning_scope(tmp_path):
     with connect(tmp_path / "brain.sqlite3") as conn:
         initialize_schema(conn)

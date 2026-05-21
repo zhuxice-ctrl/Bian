@@ -34,3 +34,6 @@
 - Added default learning-symbol scope for `BTCUSDT` and `ETHUSDT` across Brain, CLI data download, CLI backtest, and testnet risk defaults; pushed commit `46ab4d6`.
 - Started the next planned development pass from the user's MVP+ roadmap.
 - Added planned Phase 12 Historical Data Center and Phase 13 Professional Backtest Report View to `task_plan.md`.
+- Added Phase 12 market data catalog module with predictable `data/local/market_data/{SYMBOL}/{SYMBOL}-{INTERVAL}.csv` paths.
+- Added CLI `refresh-market-data` and Brain `/market-refresh` for BTC/ETH multi-interval refresh.
+- Added dashboard `/api/datasets` plus a historical data picker that loads selected local CSV data into the existing K-line chart.

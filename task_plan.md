@@ -30,7 +30,7 @@ Build a local-first, low-frequency crypto trading learning system that can:
 - [x] Daily and weekly learning reports.
 - [x] Chinese Brain aliases and keyword commands.
 - [x] Local read-only dashboard with K-line replay.
-- [ ] Phase 12 historical data center for BTCUSDT and ETHUSDT.
+- [x] Phase 12 historical data center for BTCUSDT and ETHUSDT.
 - [ ] Phase 13 professional backtest report view.
 
 ## Phase 1: Brain Review And Learning Commands
@@ -164,7 +164,7 @@ Acceptance criteria:
 
 ## Phase 12: Historical Data Center
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -176,10 +176,10 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] Brain/CLI can download or refresh the default BTC/ETH interval set.
-- [ ] Unsupported symbols remain blocked unless `TRADING_LEARNING_ALLOWED_SYMBOLS` is locally extended.
-- [ ] The dashboard can list available local datasets with symbol, interval, path, row count, first candle, and last candle.
-- [ ] Tests cover symbol scope, path safety, dataset inventory, and refresh behavior.
+- [x] Brain/CLI can download or refresh the default BTC/ETH interval set.
+- [x] Unsupported symbols remain blocked unless `TRADING_LEARNING_ALLOWED_SYMBOLS` is locally extended.
+- [x] The dashboard can list available local datasets with symbol, interval, path, row count, first candle, and last candle.
+- [x] Tests cover symbol scope, path safety, dataset inventory, and refresh behavior.
 
 ## Phase 13: Professional Backtest Report View
 

@@ -5,12 +5,20 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from trading_learning.config import DEFAULT_ALLOWED_SYMBOLS
+from trading_learning.market_data.catalog import inventory_datasets
 from trading_learning.market_data.csv_loader import load_candles_csv
 
 
 class DashboardData:
-    def __init__(self, conn: sqlite3.Connection) -> None:
+    def __init__(
+        self,
+        conn: sqlite3.Connection,
+        *,
+        allowed_symbols: tuple[str, ...] = DEFAULT_ALLOWED_SYMBOLS,
+    ) -> None:
         self.conn = conn
+        self.allowed_symbols = allowed_symbols
 
     def overview(self) -> dict[str, Any]:
         review = self.conn.execute(
@@ -143,6 +151,12 @@ class DashboardData:
                 }
                 for row in rows
             ],
+        }
+
+    def datasets(self) -> dict[str, Any]:
+        return {
+            "status": "ok",
+            "datasets": inventory_datasets(allowed_symbols=self.allowed_symbols),
         }
 
     def kline(self, *, csv_path: str, symbol: str, limit: int = 300) -> dict[str, Any]:

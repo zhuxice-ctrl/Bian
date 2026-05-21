@@ -17,6 +17,7 @@ def test_cli_has_expected_commands():
     assert {
         "init-db",
         "download-klines",
+        "refresh-market-data",
         "backtest-ma",
         "review-add",
         "ai-review-draft",
@@ -138,6 +139,37 @@ def test_download_klines_rejects_symbols_outside_learning_scope(tmp_path, monkey
             "data/local/SOLUSDT-1h.csv",
         ]
     )
+
+    assert exit_code == 1
+
+
+def test_refresh_market_data_uses_default_btc_eth_scope(tmp_path, monkeypatch):
+    captured = {}
+
+    def fake_refresh(**kwargs):
+        captured.update(kwargs)
+        return {"status": "saved", "datasets": [{"symbol": "BTCUSDT"}, {"symbol": "ETHUSDT"}]}
+
+    monkeypatch.setenv("TRADING_LEARNING_DB_PATH", str(tmp_path / "test.sqlite3"))
+    monkeypatch.setattr("trading_learning.cli.refresh_market_data", fake_refresh)
+
+    exit_code = main(["refresh-market-data", "--limit", "10"])
+
+    assert exit_code == 0
+    assert captured["symbols"] == ("BTCUSDT", "ETHUSDT")
+    assert captured["intervals"] == ("1m", "5m", "15m", "1h")
+    assert captured["allowed_symbols"] == ("BTCUSDT", "ETHUSDT")
+    assert captured["limit"] == 10
+
+
+def test_refresh_market_data_rejects_symbols_outside_learning_scope(tmp_path, monkeypatch):
+    def fake_refresh(**kwargs):
+        raise AssertionError("unsupported symbols must be rejected before refresh")
+
+    monkeypatch.setenv("TRADING_LEARNING_DB_PATH", str(tmp_path / "test.sqlite3"))
+    monkeypatch.setattr("trading_learning.cli.refresh_market_data", fake_refresh)
+
+    exit_code = main(["refresh-market-data", "--symbols", "SOLUSDT", "--intervals", "1h"])
 
     assert exit_code == 1
 

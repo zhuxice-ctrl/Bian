@@ -27,9 +27,22 @@
             <h2>K &#32447;&#22797;&#30424;&#21488;</h2>
             <p class="hint">&#28378;&#36718;&#32553;&#25918;&#65292;&#25302;&#21160;&#27983;&#35272;&#65292;&#31227;&#21160;&#40736;&#26631;&#26597;&#30475;&#21313;&#23383;&#20809;&#26631;&#21644;&#24403;&#21069; OHLC&#12290;</p>
           </div>
-          <div class="controls">
-            <select id="experimentSelect"></select>
-            <button id="loadReplay" type="button">&#36733;&#20837;</button>
+        </div>
+
+        <div class="source-grid">
+          <div class="source-control">
+            <span>&#21382;&#21490;&#25968;&#25454;</span>
+            <div class="controls">
+              <select id="datasetSelect"></select>
+              <button id="loadDataset" type="button">&#36733;&#20837;&#25968;&#25454;</button>
+            </div>
+          </div>
+          <div class="source-control">
+            <span>&#31574;&#30053;&#23454;&#39564;</span>
+            <div class="controls">
+              <select id="experimentSelect"></select>
+              <button id="loadReplay" type="button">&#36733;&#20837;&#23454;&#39564;</button>
+            </div>
           </div>
         </div>
 
@@ -65,6 +78,11 @@
       <section class="panel">
         <h2>&#31574;&#30053;&#23454;&#39564;</h2>
         <div class="list" id="experimentList"></div>
+      </section>
+
+      <section class="panel knowledge">
+        <h2>&#21382;&#21490;&#25968;&#25454;</h2>
+        <div class="list" id="datasetList"></div>
       </section>
 
       <section class="panel knowledge">

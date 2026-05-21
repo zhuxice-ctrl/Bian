@@ -48,6 +48,9 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                     HTTPStatus.OK,
                 )
                 return
+            if parsed.path == "/api/datasets":
+                self._write_json(self.data.datasets(), HTTPStatus.OK)
+                return
             if parsed.path == "/api/kline":
                 query = parse_qs(parsed.query)
                 if "experiment" in query:

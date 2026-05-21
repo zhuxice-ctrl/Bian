@@ -27,3 +27,5 @@
 - Existing dashboard K-line replay uses local bundled Lightweight Charts and is read-only; this should remain the visualization base for Phase 13.
 - Existing market data layer can fetch one Binance Spot K-line request and write CSV, but it does not yet provide multi-interval batch refresh, local inventory, or data completeness checks.
 - Existing backtest metrics include trade count, round trips, win rate, realized PnL, and total fees, but do not yet expose equity curve or drawdown-style report data for the dashboard.
+- Phase 12 implements overwrite-style public data refresh for the configured limit. It does not yet do true incremental append/merge; that remains a future hardening step after the data center is usable.
+- Dashboard dataset loading is read-only and reuses the same K-line chart engine as experiment replay.

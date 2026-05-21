@@ -1,4 +1,5 @@
 import json
+import os
 from importlib.resources import files
 from http.server import HTTPServer
 from threading import Thread
@@ -78,8 +79,51 @@ def test_dashboard_kline_replay_reads_safe_csv_and_experiment_trades(tmp_path, m
         assert replay["trades"][0]["side"] == "BUY"
 
 
-def test_dashboard_http_serves_api_and_static_page(tmp_path):
+def test_dashboard_dataset_inventory_lists_local_market_data(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    csv_path = tmp_path / "data" / "local" / "market_data" / "BTCUSDT" / "BTCUSDT-1h.csv"
+    csv_path.parent.mkdir(parents=True)
+    csv_path.write_text(
+        "opened_at,open,high,low,close,volume\n"
+        "2026-05-21T00:00:00+00:00,100,110,90,105,10\n"
+        "2026-05-21T01:00:00+00:00,105,112,101,108,12\n",
+        encoding="utf-8",
+    )
     with connect(tmp_path / "dashboard.sqlite3") as conn:
+        initialize_schema(conn)
+
+        datasets = DashboardData(conn).datasets()
+
+    assert datasets == {
+        "status": "ok",
+        "datasets": [
+            {
+                "symbol": "BTCUSDT",
+                "interval": "1h",
+                "path": str(csv_path.relative_to(tmp_path)),
+                "row_count": 2,
+                "first_opened_at": "2026-05-21T00:00:00+00:00",
+                "last_opened_at": "2026-05-21T01:00:00+00:00",
+            }
+        ],
+    }
+
+
+def test_dashboard_http_serves_api_and_static_page(tmp_path):
+    csv_path = tmp_path / "data" / "local" / "market_data" / "BTCUSDT" / "BTCUSDT-1h.csv"
+    csv_path.parent.mkdir(parents=True)
+    csv_path.write_text(
+        "opened_at,open,high,low,close,volume\n"
+        "2026-05-21T00:00:00+00:00,100,110,90,105,10\n",
+        encoding="utf-8",
+    )
+    original_cwd = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        conn_ctx = connect(tmp_path / "dashboard.sqlite3")
+    finally:
+        os.chdir(original_cwd)
+    with conn_ctx as conn:
         initialize_schema(conn)
         handler_cls = build_dashboard_handler(DashboardData(conn))
         server = HTTPServer(("127.0.0.1", 0), handler_cls)
@@ -95,6 +139,13 @@ def test_dashboard_http_serves_api_and_static_page(tmp_path):
                 timeout=5,
             ) as response:
                 vendor_status = response.status
+            original_cwd = os.getcwd()
+            os.chdir(tmp_path)
+            try:
+                with urlopen(f"http://127.0.0.1:{server.server_port}/api/datasets", timeout=5) as response:
+                    datasets = json.loads(response.read().decode("utf-8"))
+            finally:
+                os.chdir(original_cwd)
         finally:
             server.shutdown()
             thread.join()
@@ -103,6 +154,8 @@ def test_dashboard_http_serves_api_and_static_page(tmp_path):
         assert "Trading Learning Dashboard" in html
         assert "lightweight-charts.standalone.production.js" in html
         assert vendor_status == 200
+        assert datasets["status"] == "ok"
+        assert datasets["datasets"][0]["symbol"] == "BTCUSDT"
 
 
 def test_dashboard_http_rejects_kline_paths_outside_data_local(tmp_path):
@@ -136,6 +189,9 @@ def test_dashboard_static_page_exposes_interactive_replay_controls():
         'id="toggleMa60"',
         'id="ohlcPanel"',
         'id="tradeDetail"',
+        'id="datasetSelect"',
+        'id="loadDataset"',
+        'id="datasetList"',
         'id="klineChart"',
         'id="volumeChart"',
         "lightweight-charts.standalone.production.js",
@@ -158,5 +214,8 @@ def test_dashboard_static_script_uses_lightweight_charts_engine():
         "function stepReplay",
         "function jumpToNextTrade",
         "function movingAverage",
+        "function renderDatasets",
+        "function loadDataset",
+        "/api/datasets",
     ]:
         assert marker in script

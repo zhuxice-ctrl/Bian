@@ -45,6 +45,14 @@ By default, learning data downloads are limited to `BTCUSDT` and `ETHUSDT`.
 trading-learning download-klines --symbol BTCUSDT --interval 1h --limit 500 --output data/local/BTCUSDT-1h.csv
 ```
 
+To refresh the default local data center for BTC/ETH across `1m`, `5m`, `15m`, and `1h`:
+
+```powershell
+trading-learning refresh-market-data --limit 500
+```
+
+Files are stored under `data/local/market_data/{SYMBOL}/{SYMBOL}-{INTERVAL}.csv` and appear in the dashboard historical data picker.
+
 ## Run Backtest
 
 ```powershell
@@ -146,7 +154,7 @@ The dashboard serves local SQLite summaries and a browser K-line replay from CSV
 trading-learning dashboard-serve --host 127.0.0.1 --port 8780
 ```
 
-Open `http://127.0.0.1:8780/`. JSON endpoints include `/api/overview`, `/api/reviews`, `/api/experiments`, `/api/knowledge`, `/api/reports?type=daily`, `/api/reports?type=weekly`, and `/api/kline?experiment=EXPERIMENT_ID`.
+Open `http://127.0.0.1:8780/`. JSON endpoints include `/api/overview`, `/api/reviews`, `/api/experiments`, `/api/knowledge`, `/api/datasets`, `/api/reports?type=daily`, `/api/reports?type=weekly`, and `/api/kline?experiment=EXPERIMENT_ID`.
 
 Supported commands:
 
@@ -169,6 +177,7 @@ Supported commands:
 - `/experiment-link review=review-2026-05-20 experiment=experiment-id tag=late_entry note=Replay_matches_review`: links a review to a strategy experiment.
 - `/review-context review=review-2026-05-20`: returns one review with linked experiments and knowledge cards.
 - `/history-download symbol=BTCUSDT interval=1h limit=500 output=data/local/BTCUSDT-1h.csv`: downloads public Binance Spot K-lines to CSV without API keys.
+- `/market-refresh limit=500`: refreshes default BTC/ETH `1m,5m,15m,1h` local CSV datasets for the dashboard data center.
 - `/backtest-ma csv=data/local/BTCUSDT-1h.csv symbol=BTCUSDT interval=1h short=20 long=60 starting_cash=1000 quote_amount=100 fee=0.001 daily_limit=5 note=MA_replay`: runs a moving-average replay and stores the experiment summary.
 - `/experiment-summary limit=5`: returns recent strategy experiment summaries.
 - `/daily-report date=2026-05-20`: stores a daily learning report from plan, checklist, review, experiments, and knowledge links.

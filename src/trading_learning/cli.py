@@ -21,6 +21,8 @@ from trading_learning.export_import.exporter import export_zip
 from trading_learning.journal.repository import save_daily_review
 from trading_learning.journal.repository import save_trades
 from trading_learning.market_data.binance_klines import fetch_klines, save_klines_csv
+from trading_learning.market_data.catalog import DEFAULT_MARKET_INTERVALS
+from trading_learning.market_data.catalog import refresh_market_data
 from trading_learning.market_data.csv_loader import load_candles_csv
 from trading_learning.risk.execution_guard import ExecutionRiskGuard, OrderIntent, RiskConfig
 from trading_learning.storage.db import connect, connect_readonly, initialize_schema
@@ -70,6 +72,11 @@ def build_parser() -> argparse.ArgumentParser:
     download.add_argument("--limit", type=int, default=500)
     download.add_argument("--start-time-ms", type=int)
     download.add_argument("--end-time-ms", type=int)
+
+    refresh_market = subparsers.add_parser("refresh-market-data", help="refresh default local market data CSV files")
+    refresh_market.add_argument("--symbols", default="")
+    refresh_market.add_argument("--intervals", default="")
+    refresh_market.add_argument("--limit", type=int, default=500)
 
     backtest = subparsers.add_parser("backtest-ma", help="run a moving-average backtest")
     backtest.add_argument("--csv", required=True)
@@ -135,7 +142,7 @@ def main(argv: list[str] | None = None) -> int:
         with connect_readonly(config.db_path) as conn:
             server = HTTPServer(
                 (args.host, args.port),
-                build_dashboard_handler(DashboardData(conn)),
+                build_dashboard_handler(DashboardData(conn, allowed_symbols=config.allowed_symbols)),
             )
             print(f"dashboard listening on http://{args.host}:{args.port}/")
             try:
@@ -167,6 +174,22 @@ def main(argv: list[str] | None = None) -> int:
             )
             save_klines_csv(candles, Path(args.output))
             print(f"downloaded {len(candles)} candles to {args.output}")
+            return 0
+
+        if args.command == "refresh-market-data":
+            symbols = tuple(symbol.upper() for symbol in parse_csv_list(args.symbols)) or config.allowed_symbols
+            intervals = tuple(parse_csv_list(args.intervals)) or DEFAULT_MARKET_INTERVALS
+            unsupported = [symbol for symbol in symbols if symbol not in config.allowed_symbols]
+            if unsupported:
+                print(f"symbol not allowed: {unsupported[0]}. allowed: {', '.join(config.allowed_symbols)}")
+                return 1
+            result = refresh_market_data(
+                symbols=symbols,
+                intervals=intervals,
+                allowed_symbols=config.allowed_symbols,
+                limit=args.limit,
+            )
+            print(f"refreshed {len(result['datasets'])} datasets")
             return 0
 
         if args.command == "backtest-ma":

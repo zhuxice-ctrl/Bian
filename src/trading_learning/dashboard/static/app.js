@@ -1,6 +1,7 @@
 const state = {
   overview: null,
   experiments: [],
+  datasets: [],
   reviews: [],
   knowledge: [],
   replay: null,
@@ -37,6 +38,7 @@ const text = {
   trades: "\u4ea4\u6613",
   winRate: "\u80dc\u7387",
   chooseReplay: "\u9009\u62e9\u4e00\u4e2a\u5b9e\u9a8c\u8f7d\u5165 K \u7ebf\u56de\u653e",
+  chooseDataset: "\u9009\u62e9\u4e00\u4e2a\u5386\u53f2\u6570\u636e\u96c6\u8f7d\u5165 K \u7ebf",
   online: "\u672c\u5730\u5728\u7ebf",
   failed: "\u8bfb\u53d6\u5931\u8d25",
   noTrade: "\u6ca1\u6709\u9009\u4e2d\u4ea4\u6613",
@@ -111,6 +113,32 @@ function renderExperiments() {
           <span>${escapeHtml(experiment.strategy_name)} &middot; ${escapeHtml(experiment.symbol)} ${escapeHtml(experiment.interval)}</span>
           <strong>${escapeHtml(experiment.external_id)}</strong>
           <p>${text.trades} ${experiment.metrics.trade_count ?? 0} &middot; ${text.winRate} ${fmt.format((experiment.metrics.win_rate ?? 0) * 100)}% &middot; ${text.pnl} ${fmt.format(experiment.metrics.realized_pnl ?? 0)}</p>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderDatasets() {
+  const select = document.querySelector("#datasetSelect");
+  if (!state.datasets.length) {
+    select.innerHTML = `<option value="">\u6682\u65e0\u672c\u5730\u6570\u636e</option>`;
+    document.querySelector("#datasetList").innerHTML = "";
+    return;
+  }
+  select.innerHTML = state.datasets
+    .map((dataset) => {
+      const value = `${dataset.symbol}|${dataset.path}`;
+      return `<option value="${escapeHtml(value)}">${escapeHtml(dataset.symbol)} ${escapeHtml(dataset.interval)} &middot; ${dataset.row_count} bars</option>`;
+    })
+    .join("");
+  document.querySelector("#datasetList").innerHTML = state.datasets
+    .map(
+      (dataset) => `
+        <article class="item">
+          <span>${escapeHtml(dataset.symbol)} &middot; ${escapeHtml(dataset.interval)} &middot; ${dataset.row_count} bars</span>
+          <strong>${escapeHtml(dataset.path)}</strong>
+          <p>${escapeHtml(dataset.first_opened_at || "-")} \u2192 ${escapeHtml(dataset.last_opened_at || "-")}</p>
         </article>
       `,
     )
@@ -423,24 +451,42 @@ async function loadReplay() {
   renderKline();
 }
 
+async function loadDataset() {
+  const select = document.querySelector("#datasetSelect");
+  if (!select.value) {
+    setOhlcMessage(text.chooseDataset);
+    return;
+  }
+  const [symbol, path] = select.value.split("|");
+  state.replay = await getJson(`/api/kline?csv=${encodeURIComponent(path)}&symbol=${encodeURIComponent(symbol)}&limit=5000`);
+  renderKline();
+}
+
 async function boot() {
   try {
     createCharts();
-    const [overview, reviews, experiments, knowledge] = await Promise.all([
+    const [overview, reviews, experiments, knowledge, datasets] = await Promise.all([
       getJson("/api/overview"),
       getJson("/api/reviews?limit=8"),
       getJson("/api/experiments?limit=12"),
       getJson("/api/knowledge?limit=12"),
+      getJson("/api/datasets"),
     ]);
     state.overview = overview;
     state.reviews = reviews.reviews;
     state.experiments = experiments.experiments;
     state.knowledge = knowledge.cards;
+    state.datasets = datasets.datasets;
     renderOverview();
     renderReviews();
     renderExperiments();
+    renderDatasets();
     renderKnowledge();
-    await loadReplay();
+    if (state.datasets.length) {
+      await loadDataset();
+    } else {
+      await loadReplay();
+    }
     document.querySelector("#connectionStatus").textContent = text.online;
   } catch (error) {
     document.querySelector("#connectionStatus").textContent = text.failed;
@@ -449,6 +495,7 @@ async function boot() {
 }
 
 document.querySelector("#loadReplay").addEventListener("click", loadReplay);
+document.querySelector("#loadDataset").addEventListener("click", loadDataset);
 document.querySelector("#replayRange").addEventListener("input", (event) => {
   const value = Number(event.target.value);
   state.chart.visibleStart = Math.max(0, value - state.chart.visibleCount + 1);

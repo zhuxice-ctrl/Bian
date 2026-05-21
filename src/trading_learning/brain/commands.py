@@ -17,6 +17,8 @@ from trading_learning.journal.repository import save_daily_review
 from trading_learning.journal.repository import save_trades
 from trading_learning.learning.repository import save_knowledge_card
 from trading_learning.market_data.binance_klines import fetch_klines, save_klines_csv
+from trading_learning.market_data.catalog import DEFAULT_MARKET_INTERVALS
+from trading_learning.market_data.catalog import refresh_market_data
 from trading_learning.market_data.csv_loader import load_candles_csv
 from trading_learning.strategy.moving_average import moving_average_crossover_signals
 
@@ -156,6 +158,11 @@ class BrainCommandHandler:
 
         if command_text.startswith("/history-download "):
             response = self._history_download(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/market-refresh"):
+            response = self._market_refresh(command_text)
             self._audit(user_id, command_text, response)
             return response
 
@@ -811,6 +818,46 @@ class BrainCommandHandler:
             "requires_confirmation": False,
         }
 
+    def _market_refresh(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/market-refresh").strip())
+        try:
+            limit = int(fields.get("limit", "500"))
+        except ValueError:
+            return {
+                "status": "invalid",
+                "message": "limit must be an integer",
+                "requires_confirmation": False,
+            }
+        symbols = tuple(symbol.upper() for symbol in self._csv_values(fields.get("symbols", ""))) or self.allowed_market_symbols
+        intervals = tuple(self._csv_values(fields.get("intervals", ""))) or DEFAULT_MARKET_INTERVALS
+        try:
+            result = refresh_market_data(
+                symbols=symbols,
+                intervals=intervals,
+                allowed_symbols=self.allowed_market_symbols,
+                limit=limit,
+                fetcher=self.kline_fetcher,
+            )
+        except ValueError as exc:
+            return {
+                "status": "invalid",
+                "message": str(exc),
+                "requires_confirmation": False,
+            }
+        except Exception as exc:
+            return {
+                "status": "failed",
+                "message": str(exc),
+                "requires_confirmation": False,
+            }
+        return {
+            "status": "saved",
+            "message": f"refreshed {len(result['datasets'])} datasets",
+            "count": len(result["datasets"]),
+            "datasets": result["datasets"],
+            "requires_confirmation": False,
+        }
+
     def _backtest_ma(self, command_text: str) -> dict[str, Any]:
         fields = self._parse_key_value_args(command_text.removeprefix("/backtest-ma "))
         required = {"csv", "symbol", "short", "long"}
@@ -1281,6 +1328,7 @@ class BrainCommandHandler:
                 "/experiment-link",
                 "/review-context",
                 "/history-download",
+                "/market-refresh",
                 "/backtest-ma",
                 "/experiment-summary",
                 "/daily-report",
