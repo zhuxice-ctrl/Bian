@@ -192,14 +192,19 @@ class DashboardData:
         }
 
     def experiment_review(self, experiment_id: str) -> dict[str, Any]:
-        row = self.conn.execute(
-            """
-            select external_id, experiment_external_id, content, status, created_at, updated_at
-            from experiment_review_drafts
-            where experiment_external_id = ?
-            """,
-            (experiment_id,),
-        ).fetchone()
+        try:
+            row = self.conn.execute(
+                """
+                select external_id, experiment_external_id, content, status, created_at, updated_at
+                from experiment_review_drafts
+                where experiment_external_id = ?
+                """,
+                (experiment_id,),
+            ).fetchone()
+        except sqlite3.OperationalError as exc:
+            if "experiment_review_drafts" not in str(exc):
+                raise
+            row = None
         if row is not None:
             return {
                 "status": "ok",

@@ -43,3 +43,7 @@
 - Added Phase 14A/14B sections to `task_plan.md` and created the Phase 14 implementation plan.
 - Added deterministic experiment review drafts with Brain `/experiment-review`, dashboard `/api/experiment-review`, storage, and export support.
 - Verified Phase 14A with targeted tests and full suite: `148 passed`.
+- Added Phase 14B dashboard review card with review summary, risk flags, focus trades, review questions, and learning tasks.
+- Added focus-trade location buttons that reuse the existing trade focus behavior.
+- Fixed dashboard compatibility for older local databases that do not yet have `experiment_review_drafts`.
+- Browser-verified `http://127.0.0.1:8781/`: review card renders, focus-trade click updates trade detail, and fresh console logs are clean.

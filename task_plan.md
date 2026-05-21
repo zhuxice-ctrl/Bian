@@ -33,7 +33,7 @@ Build a local-first, low-frequency crypto trading learning system that can:
 - [x] Phase 12 historical data center for BTCUSDT and ETHUSDT.
 - [x] Phase 13 professional backtest report view.
 - [x] Phase 14A experiment review draft API and Brain command.
-- [ ] Phase 14B dashboard experiment review card.
+- [x] Phase 14B dashboard experiment review card.
 
 ## Phase 1: Brain Review And Learning Commands
 
@@ -224,7 +224,7 @@ Acceptance criteria:
 
 ## Phase 14B: Dashboard Experiment Review Card
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -234,6 +234,6 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] The dashboard renders review summary, risk flags, focus trades, questions, and tasks for the selected experiment.
-- [ ] Empty/missing review draft states are clear.
-- [ ] Static UI tests and browser smoke tests cover the panel.
+- [x] The dashboard renders review summary, risk flags, focus trades, questions, and tasks for the selected experiment.
+- [x] Empty/missing review draft states are clear.
+- [x] Static UI tests and browser smoke tests cover the panel.

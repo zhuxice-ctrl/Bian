@@ -35,3 +35,5 @@
 - `ai_drafts` already exists, but experiment review drafts need a dedicated table because they are tied to one strategy experiment and should be upsertable.
 - `/api/experiment-review` is read-only from the dashboard perspective: it returns a stored draft when present, otherwise a generated unsaved preview.
 - Brain `/experiment-review experiment=...` is the persistence path for review drafts and still does not expose any trading action.
+- Existing local databases may not have `experiment_review_drafts` until a write-path schema initialization runs; dashboard review preview now tolerates that table being absent.
+- Phase 14B uses the review draft as explanation beside replay, not as an execution signal or trade recommendation.

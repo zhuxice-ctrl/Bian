@@ -6,6 +6,7 @@ const state = {
   knowledge: [],
   replay: null,
   report: null,
+  reviewDraft: null,
   chart: {
     klineChart: null,
     volumeChart: null,
@@ -48,6 +49,11 @@ const text = {
   play: "\u64ad\u653e",
   pause: "\u6682\u505c",
   noReport: "\u9009\u62e9\u7b56\u7565\u5b9e\u9a8c\u540e\u663e\u793a\u56de\u6d4b\u62a5\u544a",
+  noReview: "\u9009\u62e9\u7b56\u7565\u5b9e\u9a8c\u540e\u663e\u793a\u590d\u76d8\u8349\u7a3f",
+  generatedReview: "\u672a\u4fdd\u5b58\u9884\u89c8",
+  savedReview: "\u5df2\u4fdd\u5b58\u8349\u7a3f",
+  noRiskFlags: "\u6682\u65e0\u98ce\u9669\u6807\u8bb0",
+  noFocusTrades: "\u6682\u65e0\u91cd\u70b9\u4e8f\u635f\u4ea4\u6613",
 };
 
 const fmt = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 });
@@ -423,6 +429,85 @@ function renderBacktestReport(report) {
   });
 }
 
+function renderExperimentReview(review) {
+  state.reviewDraft = review;
+  const status = document.querySelector("#experimentReviewStatus");
+  const summary = document.querySelector("#reviewSummary");
+  const riskFlags = document.querySelector("#reviewRiskFlags");
+  const focusTrades = document.querySelector("#reviewFocusTrades");
+  const questions = document.querySelector("#reviewQuestions");
+  const tasks = document.querySelector("#reviewLearningTasks");
+  if (!review || !["ok", "generated"].includes(review.status)) {
+    status.textContent = review?.message || text.noReview;
+    summary.innerHTML = "";
+    riskFlags.textContent = text.noRiskFlags;
+    focusTrades.textContent = text.noFocusTrades;
+    questions.innerHTML = "";
+    tasks.innerHTML = "";
+    return;
+  }
+  const draft = review.draft || {};
+  const detail = draft.summary || {};
+  status.textContent = review.persisted ? text.savedReview : text.generatedReview;
+  summary.innerHTML = [
+    metric("\u6807\u7684", `${escapeHtml(detail.symbol || "-")} ${escapeHtml(detail.interval || "")}`),
+    metric("\u5b9e\u9a8c", escapeHtml(detail.experiment_external_id || review.experiment_external_id || "-")),
+    metric("\u76c8\u4e8f", fmt.format(detail.realized_pnl || 0)),
+    metric("\u80dc\u7387", `${fmt.format((detail.win_rate || 0) * 100)}%`),
+    metric("\u56de\u64a4", fmt.format(detail.max_drawdown || 0)),
+    metric("\u624b\u7eed\u8d39", fmt.format(detail.total_fees || 0)),
+  ].join("");
+  riskFlags.innerHTML = renderRiskFlags(draft.risk_flags || []);
+  focusTrades.innerHTML = renderFocusTrades(draft.focus_trades || []);
+  questions.innerHTML = renderNumberedItems(draft.review_questions || []);
+  tasks.innerHTML = renderNumberedItems(draft.learning_tasks || []);
+  focusTrades.querySelectorAll("button[data-trade-id]").forEach((button) => {
+    button.addEventListener("click", () => focusTrade(button.dataset.tradeId));
+  });
+}
+
+function renderRiskFlags(flags) {
+  if (!flags.length) {
+    return `<p class="empty-note">${text.noRiskFlags}</p>`;
+  }
+  return flags
+    .map(
+      (flag) => `
+        <article class="risk-flag severity-${escapeHtml(flag.severity || "low")}">
+          <strong>${escapeHtml(flag.code || "")}</strong>
+          <span>${escapeHtml(flag.message || "")}</span>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderFocusTrades(trades) {
+  if (!trades.length) {
+    return `<p class="empty-note">${text.noFocusTrades}</p>`;
+  }
+  return trades
+    .map((trade) => {
+      const tradeId = trade.exit_trade_id || trade.entry_trade_id || "";
+      return `
+        <article class="focus-trade">
+          <strong>${escapeHtml(trade.entry_trade_id || "-")} \u2192 ${escapeHtml(trade.exit_trade_id || "-")}</strong>
+          <span>${escapeHtml(trade.entry_time || "")} / ${escapeHtml(trade.exit_time || "")}</span>
+          <span>PNL ${fmt.format(trade.pnl || 0)} (${fmt.format((trade.pnl_pct || 0) * 100)}%)</span>
+          <button type="button" data-trade-id="${escapeHtml(tradeId)}">\u5b9a\u4f4d</button>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderNumberedItems(items) {
+  if (!items.length) {
+    return `<p class="empty-note">-</p>`;
+  }
+  return `<ol>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ol>`;
+}
+
 async function loadBacktestReport() {
   const select = document.querySelector("#experimentSelect");
   if (!select.value) {
@@ -431,6 +516,16 @@ async function loadBacktestReport() {
   }
   const report = await getJson(`/api/backtest-report?experiment=${encodeURIComponent(select.value)}`);
   renderBacktestReport(report);
+}
+
+async function loadExperimentReview() {
+  const select = document.querySelector("#experimentSelect");
+  if (!select.value) {
+    renderExperimentReview(null);
+    return;
+  }
+  const review = await getJson(`/api/experiment-review?experiment=${encodeURIComponent(select.value)}`);
+  renderExperimentReview(review);
 }
 
 function focusTrade(tradeId) {
@@ -535,6 +630,7 @@ async function loadReplay() {
   state.replay = await getJson(`/api/kline?experiment=${encodeURIComponent(select.value)}&limit=5000`);
   renderKline();
   await loadBacktestReport();
+  await loadExperimentReview();
 }
 
 async function loadDataset() {
@@ -547,6 +643,7 @@ async function loadDataset() {
   state.replay = await getJson(`/api/kline?csv=${encodeURIComponent(path)}&symbol=${encodeURIComponent(symbol)}&limit=5000`);
   renderKline();
   renderBacktestReport(null);
+  renderExperimentReview(null);
 }
 
 async function boot() {
@@ -575,6 +672,7 @@ async function boot() {
       await loadDataset();
     } else {
       renderBacktestReport(null);
+      renderExperimentReview(null);
     }
     document.querySelector("#connectionStatus").textContent = text.online;
   } catch (error) {

@@ -176,6 +176,45 @@ def test_dashboard_experiment_review_returns_stored_or_generated_draft(tmp_path,
     assert stored["external_id"] == "experiment-review-exp-review"
 
 
+def test_dashboard_experiment_review_generates_preview_when_draft_table_is_missing(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    csv_path = tmp_path / "data" / "local" / "BTCUSDT-1h.csv"
+    csv_path.parent.mkdir(parents=True)
+    csv_path.write_text(
+        "opened_at,open,high,low,close,volume\n"
+        "2026-05-21T00:00:00+00:00,100,110,90,100,10\n"
+        "2026-05-21T01:00:00+00:00,100,112,94,95,12\n",
+        encoding="utf-8",
+    )
+    with connect(tmp_path / "dashboard.sqlite3") as conn:
+        initialize_schema(conn)
+        conn.execute("drop table experiment_review_drafts")
+        conn.execute(
+            """
+            insert into strategy_experiments (
+              external_id, strategy_name, symbol, interval, source_csv, parameters, metrics
+            ) values ('exp-legacy', 'ma_cross', 'BTCUSDT', '1h', 'data/local/BTCUSDT-1h.csv', '{"starting_cash": 1000}', '{}')
+            """
+        )
+        conn.executemany(
+            """
+            insert into trades (external_id, symbol, side, quantity, price, fee, timestamp, reason, source)
+            values (?, 'BTCUSDT', ?, 1, ?, 0.5, ?, 'signal', 'exp-legacy')
+            """,
+            [
+                ("trade-buy-1", "BUY", 100, "2026-05-21T00:00:00+00:00"),
+                ("trade-sell-1", "SELL", 95, "2026-05-21T01:00:00+00:00"),
+            ],
+        )
+        conn.commit()
+
+        generated = DashboardData(conn).experiment_review("exp-legacy")
+
+    assert generated["status"] == "generated"
+    assert generated["persisted"] is False
+    assert generated["draft"]["summary"]["experiment_external_id"] == "exp-legacy"
+
+
 def test_dashboard_dataset_inventory_lists_local_market_data(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     csv_path = tmp_path / "data" / "local" / "market_data" / "BTCUSDT" / "BTCUSDT-1h.csv"
@@ -298,6 +337,12 @@ def test_dashboard_static_page_exposes_interactive_replay_controls():
         'id="reportMetrics"',
         'id="equityChart"',
         'id="tradeTable"',
+        'id="experimentReviewStatus"',
+        'id="reviewSummary"',
+        'id="reviewRiskFlags"',
+        'id="reviewFocusTrades"',
+        'id="reviewQuestions"',
+        'id="reviewLearningTasks"',
         'id="klineChart"',
         'id="volumeChart"',
         "lightweight-charts.standalone.production.js",
@@ -324,8 +369,13 @@ def test_dashboard_static_script_uses_lightweight_charts_engine():
         "function loadDataset",
         "function loadBacktestReport",
         "function renderBacktestReport",
+        "function loadExperimentReview",
+        "function renderExperimentReview",
+        "function renderRiskFlags",
+        "function renderFocusTrades",
         "function focusTrade",
         "/api/backtest-report",
+        "/api/experiment-review",
         "/api/datasets",
     ]:
         assert marker in script
