@@ -101,10 +101,16 @@ class FeishuEventAdapter:
                 return {"status": "forbidden", "message": "invalid Feishu verification token"}
             return {"challenge": payload.get("challenge", "")}
 
+        header = payload.get("header", {})
+        if header.get("event_type") == "url_verification":
+            if not self._valid_token(header.get("token")):
+                return {"status": "forbidden", "message": "invalid Feishu verification token"}
+            event = payload.get("event", {})
+            return {"challenge": event.get("challenge", payload.get("challenge", ""))}
+
         if self.encrypt_key and not self._valid_signature(headers or {}, raw_body):
             return {"status": "forbidden", "message": "invalid Feishu signature"}
 
-        header = payload.get("header", {})
         if not self._valid_token(header.get("token")):
             return {"status": "forbidden", "message": "invalid Feishu verification token"}
 

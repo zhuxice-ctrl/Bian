@@ -64,6 +64,25 @@ def test_feishu_url_verification_does_not_require_signature():
     assert response == {"challenge": "abc"}
 
 
+def test_feishu_v2_url_verification_returns_event_challenge():
+    adapter = FeishuEventAdapter(FakeCommandHandler(), verification_token="verify-token")
+
+    response = adapter.handle(
+        {
+            "schema": "2.0",
+            "header": {
+                "event_type": "url_verification",
+                "token": "verify-token",
+            },
+            "event": {
+                "challenge": "abc-v2",
+            },
+        }
+    )
+
+    assert response == {"challenge": "abc-v2"}
+
+
 def test_feishu_rejects_invalid_verification_token():
     adapter = FeishuEventAdapter(FakeCommandHandler(), verification_token="verify-token")
 
