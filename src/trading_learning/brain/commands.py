@@ -12,6 +12,7 @@ from uuid import uuid4
 from trading_learning.backtest.engine import run_spot_backtest
 from trading_learning.backtest.report import summarize_backtest
 from trading_learning.brain.command_aliases import normalize_brain_command
+from trading_learning.config import DEFAULT_ALLOWED_SYMBOLS
 from trading_learning.journal.repository import save_daily_review
 from trading_learning.journal.repository import save_trades
 from trading_learning.learning.repository import save_knowledge_card
@@ -35,6 +36,7 @@ class BrainCommandHandler:
         *,
         executor: Any,
         allowed_user_ids: tuple[str, ...] | None = None,
+        allowed_market_symbols: tuple[str, ...] = DEFAULT_ALLOWED_SYMBOLS,
         confirmation_code: Callable[[], str] | None = None,
         natural_language: Any | None = None,
         kline_fetcher: Callable[..., Any] | None = None,
@@ -42,6 +44,7 @@ class BrainCommandHandler:
         self.conn = conn
         self.executor = executor
         self.allowed_user_ids = set(allowed_user_ids or ())
+        self.allowed_market_symbols = tuple(symbol.upper() for symbol in allowed_market_symbols)
         self.confirmation_code = confirmation_code or self._default_confirmation_code
         self.natural_language = natural_language
         self.kline_fetcher = kline_fetcher or fetch_klines
@@ -774,6 +777,9 @@ class BrainCommandHandler:
                 "message": "limit, start_ms, and end_ms must be integers",
                 "requires_confirmation": False,
             }
+        symbol = fields["symbol"].upper()
+        if symbol not in self.allowed_market_symbols:
+            return self._symbol_not_allowed(symbol)
         try:
             output_path = self._safe_data_local_path(fields["output"])
         except ValueError as exc:
@@ -784,7 +790,7 @@ class BrainCommandHandler:
             }
         try:
             candles = self.kline_fetcher(
-                symbol=fields["symbol"].upper(),
+                symbol=symbol,
                 interval=fields["interval"],
                 limit=limit,
                 start_time_ms=start_time_ms,
@@ -829,6 +835,8 @@ class BrainCommandHandler:
                 "message": "numeric backtest fields are invalid",
                 "requires_confirmation": False,
             }
+        if symbol not in self.allowed_market_symbols:
+            return self._symbol_not_allowed(symbol)
 
         try:
             csv_path = self._safe_data_local_path(fields["csv"])
@@ -1485,6 +1493,13 @@ class BrainCommandHandler:
             ),
         )
         self.conn.commit()
+
+    def _symbol_not_allowed(self, symbol: str) -> dict[str, Any]:
+        return {
+            "status": "invalid",
+            "message": f"symbol not allowed: {symbol}. allowed: {', '.join(self.allowed_market_symbols)}",
+            "requires_confirmation": False,
+        }
 
     @staticmethod
     def _default_confirmation_code() -> str:

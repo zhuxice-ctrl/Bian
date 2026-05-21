@@ -124,6 +124,47 @@ def test_backtest_ma_persists_generated_trades(tmp_path, monkeypatch):
     assert trade_count > 0
 
 
+def test_download_klines_rejects_symbols_outside_learning_scope(tmp_path, monkeypatch):
+    monkeypatch.setenv("TRADING_LEARNING_DB_PATH", str(tmp_path / "test.sqlite3"))
+
+    exit_code = main(
+        [
+            "download-klines",
+            "--symbol",
+            "SOLUSDT",
+            "--interval",
+            "1h",
+            "--output",
+            "data/local/SOLUSDT-1h.csv",
+        ]
+    )
+
+    assert exit_code == 1
+
+
+def test_backtest_ma_rejects_symbols_outside_learning_scope(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.sqlite3"
+    csv_path = tmp_path / "prices.csv"
+    csv_path.write_text("opened_at,open,high,low,close,volume\n", encoding="utf-8")
+    monkeypatch.setenv("TRADING_LEARNING_DB_PATH", str(db_path))
+
+    exit_code = main(
+        [
+            "backtest-ma",
+            "--csv",
+            str(csv_path),
+            "--symbol",
+            "SOLUSDT",
+            "--short-window",
+            "2",
+            "--long-window",
+            "3",
+        ]
+    )
+
+    assert exit_code == 1
+
+
 def test_review_add_persists_daily_review(tmp_path, monkeypatch):
     db_path = tmp_path / "test.sqlite3"
     monkeypatch.setenv("TRADING_LEARNING_DB_PATH", str(db_path))

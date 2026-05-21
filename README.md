@@ -39,6 +39,7 @@ trading-learning init-db
 ## Download Binance Klines
 
 This uses Binance Spot public market data through `https://data-api.binance.vision` and does not require an API key.
+By default, learning data downloads are limited to `BTCUSDT` and `ETHUSDT`.
 
 ```powershell
 trading-learning download-klines --symbol BTCUSDT --interval 1h --limit 500 --output data/local/BTCUSDT-1h.csv
@@ -51,6 +52,7 @@ trading-learning backtest-ma --csv tests/fixtures/btcusdt_1h_sample.csv --symbol
 ```
 
 The backtest stores simulated trades in SQLite and prints summary metrics.
+Backtests use the same default learning scope: `BTCUSDT` and `ETHUSDT`.
 
 ## Add Daily Review
 
@@ -85,6 +87,12 @@ The command applies local risk checks before making the signed request. Defaults
 - Daily order limit: `5`
 - Max quote order quantity: `100`
 - Allowed symbols: `BTCUSDT,ETHUSDT`
+
+To add another symbol later, extend the local-only scope before running download, backtest, or testnet commands:
+
+```powershell
+$env:TRADING_LEARNING_ALLOWED_SYMBOLS="BTCUSDT,ETHUSDT,SOLUSDT"
+```
 
 ## Local Brain HTTP Service
 

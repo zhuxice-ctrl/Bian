@@ -80,6 +80,26 @@ def test_history_download_rejects_output_outside_data_local(tmp_path):
     assert audit_count == 1
 
 
+def test_history_download_rejects_symbols_outside_learning_scope(tmp_path):
+    def unexpected_fetcher(**kwargs):
+        raise AssertionError("unsupported symbols must be rejected before fetching")
+
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor(), kline_fetcher=unexpected_fetcher)
+
+        response = handler.handle(
+            "/history-download symbol=SOLUSDT interval=1h output=data/local/SOLUSDT-1h.csv",
+            user_id="owner",
+        )
+        audit = conn.execute("select status from brain_audit_logs").fetchone()
+
+    assert response["status"] == "invalid"
+    assert "symbol not allowed: SOLUSDT" in response["message"]
+    assert "BTCUSDT, ETHUSDT" in response["message"]
+    assert audit["status"] == "invalid"
+
+
 def test_history_download_returns_failed_response_when_fetcher_fails(tmp_path):
     def failing_fetcher(**kwargs):
         raise RuntimeError("network unavailable")
@@ -97,6 +117,22 @@ def test_history_download_returns_failed_response_when_fetcher_fails(tmp_path):
     assert response["status"] == "failed"
     assert "network unavailable" in response["message"]
     assert audit["status"] == "failed"
+
+
+def test_backtest_ma_rejects_symbols_outside_learning_scope(tmp_path):
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor())
+
+        response = handler.handle(
+            "/backtest-ma csv=data/local/SOLUSDT-1h.csv symbol=SOLUSDT short=2 long=3",
+            user_id="owner",
+        )
+        audit = conn.execute("select status from brain_audit_logs").fetchone()
+
+    assert response["status"] == "invalid"
+    assert "symbol not allowed: SOLUSDT" in response["message"]
+    assert audit["status"] == "invalid"
 
 
 def test_backtest_ma_persists_trades_and_experiment_summary(tmp_path):

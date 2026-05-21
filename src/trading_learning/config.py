@@ -4,6 +4,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+DEFAULT_ALLOWED_SYMBOLS = ("BTCUSDT", "ETHUSDT")
+
 
 @dataclass(frozen=True)
 class AppConfig:
@@ -17,6 +19,7 @@ class AppConfig:
     feishu_verification_token: str | None
     feishu_encrypt_key: str | None
     feishu_user_map: str
+    allowed_symbols: tuple[str, ...] = DEFAULT_ALLOWED_SYMBOLS
 
 
 def load_config() -> AppConfig:
@@ -31,4 +34,9 @@ def load_config() -> AppConfig:
         feishu_verification_token=os.getenv("FEISHU_VERIFICATION_TOKEN"),
         feishu_encrypt_key=os.getenv("FEISHU_ENCRYPT_KEY"),
         feishu_user_map=os.getenv("FEISHU_USER_MAP", ""),
+        allowed_symbols=parse_symbols(os.getenv("TRADING_LEARNING_ALLOWED_SYMBOLS", ",".join(DEFAULT_ALLOWED_SYMBOLS))),
     )
+
+
+def parse_symbols(value: str) -> tuple[str, ...]:
+    return tuple(symbol.strip().upper() for symbol in value.split(",") if symbol.strip())

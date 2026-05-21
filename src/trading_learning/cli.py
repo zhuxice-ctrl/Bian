@@ -109,7 +109,7 @@ def build_parser() -> argparse.ArgumentParser:
     spot_test.add_argument("--orders-today", type=int, default=0)
     spot_test.add_argument("--daily-order-limit", type=int, default=5)
     spot_test.add_argument("--max-quote-order-qty", type=float, default=100.0)
-    spot_test.add_argument("--allowed-symbols", default="BTCUSDT,ETHUSDT")
+    spot_test.add_argument("--allowed-symbols")
 
     brain_serve = subparsers.add_parser("brain-serve", help="start the local command brain HTTP service")
     brain_serve.add_argument("--host", default="127.0.0.1")
@@ -154,8 +154,12 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "download-klines":
+            symbol = args.symbol.upper()
+            if symbol not in config.allowed_symbols:
+                print(f"symbol not allowed: {symbol}. allowed: {', '.join(config.allowed_symbols)}")
+                return 1
             candles = fetch_klines(
-                symbol=args.symbol,
+                symbol=symbol,
                 interval=args.interval,
                 limit=args.limit,
                 start_time_ms=args.start_time_ms,
@@ -166,7 +170,11 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "backtest-ma":
-            candles = load_candles_csv(Path(args.csv), args.symbol)
+            symbol = args.symbol.upper()
+            if symbol not in config.allowed_symbols:
+                print(f"symbol not allowed: {symbol}. allowed: {', '.join(config.allowed_symbols)}")
+                return 1
+            candles = load_candles_csv(Path(args.csv), symbol)
             signals = moving_average_crossover_signals(
                 candles,
                 short_window=args.short_window,
@@ -174,7 +182,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             prices = {candle.opened_at: candle.close for candle in candles}
             result = run_spot_backtest(
-                symbol=args.symbol,
+                symbol=symbol,
                 signals=signals,
                 prices_by_timestamp=prices,
                 starting_cash=args.starting_cash,
@@ -249,7 +257,11 @@ def main(argv: list[str] | None = None) -> int:
                 RiskConfig(
                     daily_order_limit=args.daily_order_limit,
                     max_quote_order_qty=args.max_quote_order_qty,
-                    allowed_symbols=tuple(parse_csv_list(args.allowed_symbols)),
+                    allowed_symbols=(
+                        tuple(parse_csv_list(args.allowed_symbols))
+                        if args.allowed_symbols
+                        else config.allowed_symbols
+                    ),
                 )
             )
             decision = guard.check_order(intent, orders_today=args.orders_today)
@@ -279,6 +291,7 @@ def main(argv: list[str] | None = None) -> int:
                 conn,
                 executor=client,
                 allowed_user_ids=tuple(args.allowed_user_id),
+                allowed_market_symbols=config.allowed_symbols,
                 natural_language=build_natural_language_assistant(config),
             )
             feishu_adapter = FeishuEventAdapter(
