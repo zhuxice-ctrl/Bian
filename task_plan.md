@@ -32,6 +32,8 @@ Build a local-first, low-frequency crypto trading learning system that can:
 - [x] Local read-only dashboard with K-line replay.
 - [x] Phase 12 historical data center for BTCUSDT and ETHUSDT.
 - [x] Phase 13 professional backtest report view.
+- [x] Phase 14A experiment review draft API and Brain command.
+- [ ] Phase 14B dashboard experiment review card.
 
 ## Phase 1: Brain Review And Learning Commands
 
@@ -198,3 +200,40 @@ Acceptance criteria:
 - [x] The dashboard shows metrics, trade list, and visual report panels for an experiment.
 - [x] Clicking a trade row updates the replay detail and visible range.
 - [x] Tests cover report metric calculation, API payload shape, and static UI markers.
+
+## Phase 14A: Experiment Review Draft API And Brain Command
+
+Status: completed
+
+Scope:
+
+- Generate deterministic review drafts from stored backtest report payloads.
+- Persist one updatable review draft per strategy experiment.
+- Expose a local read-only API to inspect the review draft payload.
+- Add a Brain command that saves the draft and returns learning questions/tasks.
+- Keep all behavior local; no external model calls and no trading execution path.
+
+Acceptance criteria:
+
+- [x] Schema includes `experiment_review_drafts` with one draft per experiment.
+- [x] A deterministic builder creates summary, risk flags, review questions, focus trades, and learning tasks.
+- [x] Brain `/experiment-review experiment=...` persists/upserts a draft and audits the command.
+- [x] Dashboard `/api/experiment-review?experiment=...` returns a generated or stored read-only draft payload.
+- [x] Export includes experiment review drafts.
+- [x] Tests cover builder rules, storage, Brain command, dashboard API, and export payload.
+
+## Phase 14B: Dashboard Experiment Review Card
+
+Status: planned
+
+Scope:
+
+- Add a dashboard panel that displays the experiment review draft beside the backtest report.
+- Keep dashboard read-only: viewing drafts only, no trade execution controls.
+- Make the review questions and learning tasks usable during manual replay.
+
+Acceptance criteria:
+
+- [ ] The dashboard renders review summary, risk flags, focus trades, questions, and tasks for the selected experiment.
+- [ ] Empty/missing review draft states are clear.
+- [ ] Static UI tests and browser smoke tests cover the panel.

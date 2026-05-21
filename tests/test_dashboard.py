@@ -126,6 +126,56 @@ def test_dashboard_backtest_report_returns_metrics_and_equity_curve(tmp_path, mo
     assert report["trades"][0]["external_id"] == "trade-buy-1"
 
 
+def test_dashboard_experiment_review_returns_stored_or_generated_draft(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    csv_path = tmp_path / "data" / "local" / "BTCUSDT-1h.csv"
+    csv_path.parent.mkdir(parents=True)
+    csv_path.write_text(
+        "opened_at,open,high,low,close,volume\n"
+        "2026-05-21T00:00:00+00:00,100,110,90,100,10\n"
+        "2026-05-21T01:00:00+00:00,100,112,94,95,12\n",
+        encoding="utf-8",
+    )
+    with connect(tmp_path / "dashboard.sqlite3") as conn:
+        initialize_schema(conn)
+        conn.execute(
+            """
+            insert into strategy_experiments (
+              external_id, strategy_name, symbol, interval, source_csv, parameters, metrics
+            ) values ('exp-review', 'ma_cross', 'BTCUSDT', '1h', 'data/local/BTCUSDT-1h.csv', '{"starting_cash": 1000}', '{}')
+            """
+        )
+        conn.executemany(
+            """
+            insert into trades (external_id, symbol, side, quantity, price, fee, timestamp, reason, source)
+            values (?, 'BTCUSDT', ?, 1, ?, 0.5, ?, 'signal', 'exp-review')
+            """,
+            [
+                ("trade-buy-1", "BUY", 100, "2026-05-21T00:00:00+00:00"),
+                ("trade-sell-1", "SELL", 95, "2026-05-21T01:00:00+00:00"),
+            ],
+        )
+        conn.commit()
+
+        generated = DashboardData(conn).experiment_review("exp-review")
+        conn.execute(
+            """
+            insert into experiment_review_drafts (external_id, experiment_external_id, content)
+            values ('experiment-review-exp-review', 'exp-review', '{"summary": {"experiment_external_id": "exp-review"}, "risk_flags": []}')
+            """
+        )
+        conn.commit()
+        stored = DashboardData(conn).experiment_review("exp-review")
+
+    assert generated["status"] == "generated"
+    assert generated["persisted"] is False
+    assert generated["draft"]["summary"]["experiment_external_id"] == "exp-review"
+    assert generated["draft"]["risk_flags"][0]["code"] == "negative_pnl"
+    assert stored["status"] == "ok"
+    assert stored["persisted"] is True
+    assert stored["external_id"] == "experiment-review-exp-review"
+
+
 def test_dashboard_dataset_inventory_lists_local_market_data(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     csv_path = tmp_path / "data" / "local" / "market_data" / "BTCUSDT" / "BTCUSDT-1h.csv"
@@ -193,6 +243,8 @@ def test_dashboard_http_serves_api_and_static_page(tmp_path):
                     datasets = json.loads(response.read().decode("utf-8"))
                 with urlopen(f"http://127.0.0.1:{server.server_port}/api/backtest-report?experiment=missing", timeout=5) as response:
                     report = json.loads(response.read().decode("utf-8"))
+                with urlopen(f"http://127.0.0.1:{server.server_port}/api/experiment-review?experiment=missing", timeout=5) as response:
+                    review = json.loads(response.read().decode("utf-8"))
             finally:
                 os.chdir(original_cwd)
         finally:
@@ -206,6 +258,7 @@ def test_dashboard_http_serves_api_and_static_page(tmp_path):
         assert datasets["status"] == "ok"
         assert datasets["datasets"][0]["symbol"] == "BTCUSDT"
         assert report["status"] == "not_found"
+        assert review["status"] == "not_found"
 
 
 def test_dashboard_http_rejects_kline_paths_outside_data_local(tmp_path):

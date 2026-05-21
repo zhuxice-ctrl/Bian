@@ -86,6 +86,19 @@ def test_export_zip_contains_manifest_and_jsonl(tmp_path):
                 '{"summary": "follow the plan"}',
             ),
         )
+        conn.execute(
+            """
+            insert into experiment_review_drafts (
+              external_id, experiment_external_id, content, status
+            ) values (?, ?, ?, ?)
+            """,
+            (
+                "experiment-review-experiment-ma-BTCUSDT-1h",
+                "experiment-ma-BTCUSDT-1h",
+                '{"summary": {"experiment_external_id": "experiment-ma-BTCUSDT-1h"}}',
+                "draft",
+            ),
+        )
         export_zip(conn, export_path)
 
     with zipfile.ZipFile(export_path) as archive:
@@ -121,6 +134,12 @@ def test_export_zip_contains_manifest_and_jsonl(tmp_path):
             for line in learning_reports_text.splitlines()
             if line.strip()
         ]
+        experiment_review_drafts_text = archive.read("experiment_review_drafts.jsonl").decode("utf-8")
+        experiment_review_drafts = [
+            json.loads(line)
+            for line in experiment_review_drafts_text.splitlines()
+            if line.strip()
+        ]
         markdown = archive.read("markdown/daily_reviews.md").decode("utf-8")
 
     assert names == {
@@ -132,10 +151,11 @@ def test_export_zip_contains_manifest_and_jsonl(tmp_path):
         "strategy_experiments.jsonl",
         "review_experiment_links.jsonl",
         "learning_reports.jsonl",
+        "experiment_review_drafts.jsonl",
         "ai_drafts.jsonl",
         "markdown/daily_reviews.md",
     }
-    assert manifest["schema_version"] == "1.3.0"
+    assert manifest["schema_version"] == "1.4.0"
     assert manifest["source_system"] == "trading_learning"
     exported_at = datetime.fromisoformat(manifest["exported_at"])
     assert exported_at.tzinfo is not None
@@ -168,6 +188,10 @@ def test_export_zip_contains_manifest_and_jsonl(tmp_path):
     assert len(learning_reports) == 1
     assert learning_reports[0]["external_id"] == "learning-report-daily-2026-05-01"
     assert learning_reports[0]["report_type"] == "daily"
+
+    assert len(experiment_review_drafts) == 1
+    assert experiment_review_drafts[0]["external_id"] == "experiment-review-experiment-ma-BTCUSDT-1h"
+    assert experiment_review_drafts[0]["experiment_external_id"] == "experiment-ma-BTCUSDT-1h"
 
     assert "# Daily Reviews" in markdown
     assert "## 2026-05-01" in markdown

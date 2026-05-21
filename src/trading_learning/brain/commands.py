@@ -13,8 +13,10 @@ from trading_learning.backtest.engine import run_spot_backtest
 from trading_learning.backtest.report import summarize_backtest
 from trading_learning.brain.command_aliases import normalize_brain_command
 from trading_learning.config import DEFAULT_ALLOWED_SYMBOLS
+from trading_learning.dashboard.data import DashboardData
 from trading_learning.journal.repository import save_daily_review
 from trading_learning.journal.repository import save_trades
+from trading_learning.learning.experiment_review import build_experiment_review_draft
 from trading_learning.learning.repository import save_knowledge_card
 from trading_learning.market_data.binance_klines import fetch_klines, save_klines_csv
 from trading_learning.market_data.catalog import DEFAULT_MARKET_INTERVALS
@@ -173,6 +175,11 @@ class BrainCommandHandler:
 
         if command_text.startswith("/experiment-summary"):
             response = self._experiment_summary(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/experiment-review"):
+            response = self._experiment_review(command_text)
             self._audit(user_id, command_text, response)
             return response
 
@@ -1008,6 +1015,67 @@ class BrainCommandHandler:
             "requires_confirmation": False,
         }
 
+    def _experiment_review(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/experiment-review").strip())
+        experiment_id = fields.get("experiment", "").strip()
+        if not experiment_id:
+            return {
+                "status": "invalid",
+                "message": "missing fields: experiment",
+                "requires_confirmation": False,
+            }
+        try:
+            report = DashboardData(self.conn, allowed_symbols=self.allowed_market_symbols).backtest_report(experiment_id)
+        except FileNotFoundError as exc:
+            return {
+                "status": "not_found",
+                "message": str(exc),
+                "requires_confirmation": False,
+            }
+        except ValueError as exc:
+            return {
+                "status": "invalid",
+                "message": str(exc),
+                "requires_confirmation": False,
+            }
+        if report["status"] != "ok":
+            return {
+                "status": report["status"],
+                "message": report.get("message", "experiment report is unavailable"),
+                "requires_confirmation": False,
+            }
+        draft = build_experiment_review_draft(report)
+        external_id = self._save_experiment_review_draft(experiment_id, draft)
+        return {
+            "status": "saved",
+            "message": f"saved experiment review {external_id}",
+            "external_id": external_id,
+            "experiment_external_id": experiment_id,
+            "draft": draft,
+            "requires_confirmation": False,
+        }
+
+    def _save_experiment_review_draft(self, experiment_id: str, draft: dict[str, Any]) -> str:
+        external_id = f"experiment-review-{experiment_id}"
+        self.conn.execute(
+            """
+            insert into experiment_review_drafts (
+              external_id, experiment_external_id, content, status
+            ) values (?, ?, ?, 'draft')
+            on conflict(experiment_external_id) do update set
+              content = excluded.content,
+              status = 'draft',
+              updated_at = CURRENT_TIMESTAMP
+            """,
+            (
+                external_id,
+                experiment_id,
+                json.dumps(draft, ensure_ascii=False, sort_keys=True),
+            ),
+        )
+        self.conn.commit()
+        return external_id
+
     def _daily_report(self, command_text: str) -> dict[str, Any]:
         fields = self._parse_key_value_args(command_text.removeprefix("/daily-report").strip())
         report_date = fields.get("date", self._today())
@@ -1331,6 +1399,7 @@ class BrainCommandHandler:
                 "/market-refresh",
                 "/backtest-ma",
                 "/experiment-summary",
+                "/experiment-review",
                 "/daily-report",
                 "/weekly-report",
                 "/learning-next",

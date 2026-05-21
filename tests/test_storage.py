@@ -69,6 +69,7 @@ def test_initialize_schema_creates_core_tables(tmp_path):
         "strategy_experiments",
         "review_experiment_links",
         "learning_reports",
+        "experiment_review_drafts",
         "ai_drafts",
     }.issubset(table_names)
 

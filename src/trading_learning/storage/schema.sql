@@ -157,6 +157,16 @@ create table if not exists learning_reports (
   unique (report_type, period_start, period_end)
 );
 
+create table if not exists experiment_review_drafts (
+  id integer primary key autoincrement,
+  external_id text not null unique,
+  experiment_external_id text not null unique,
+  content text not null,
+  status text not null default 'draft',
+  created_at text not null default CURRENT_TIMESTAMP,
+  updated_at text not null default CURRENT_TIMESTAMP
+);
+
 create table if not exists brain_suggested_commands (
   id integer primary key autoincrement,
   external_id text not null unique,

@@ -8,6 +8,7 @@ from typing import Any
 
 from trading_learning.backtest.report import build_backtest_report
 from trading_learning.config import DEFAULT_ALLOWED_SYMBOLS
+from trading_learning.learning.experiment_review import build_experiment_review_draft
 from trading_learning.market_data.catalog import inventory_datasets
 from trading_learning.market_data.csv_loader import load_candles_csv
 from trading_learning.models import BacktestResult, Side, Trade
@@ -188,6 +189,39 @@ class DashboardData:
             "trades": replay["trades"],
             "round_trips": report["round_trips"],
             "equity_curve": report["equity_curve"],
+        }
+
+    def experiment_review(self, experiment_id: str) -> dict[str, Any]:
+        row = self.conn.execute(
+            """
+            select external_id, experiment_external_id, content, status, created_at, updated_at
+            from experiment_review_drafts
+            where experiment_external_id = ?
+            """,
+            (experiment_id,),
+        ).fetchone()
+        if row is not None:
+            return {
+                "status": "ok",
+                "persisted": True,
+                "external_id": row["external_id"],
+                "experiment_external_id": row["experiment_external_id"],
+                "draft_status": row["status"],
+                "draft": self._json(row["content"], {}),
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            }
+
+        report = self.backtest_report(experiment_id)
+        if report["status"] != "ok":
+            return report
+        return {
+            "status": "generated",
+            "persisted": False,
+            "external_id": f"experiment-review-{experiment_id}",
+            "experiment_external_id": experiment_id,
+            "draft_status": "draft",
+            "draft": build_experiment_review_draft(report),
         }
 
     def kline(self, *, csv_path: str, symbol: str, limit: int = 300) -> dict[str, Any]:

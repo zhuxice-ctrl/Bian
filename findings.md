@@ -31,3 +31,7 @@
 - Dashboard dataset loading is read-only and reuses the same K-line chart engine as experiment replay.
 - Phase 13 report metrics are deterministic from stored experiment trades. Equity curve currently advances on closed round trips, not mark-to-market on every candle; candle-by-candle equity can be added later if needed.
 - Trade-row clicks update the existing replay detail panel and visible K-line range without adding any trading action surface.
+- Phase 14A should stay deterministic and local. The review draft can be generated from stored report data without calling the local Codex API.
+- `ai_drafts` already exists, but experiment review drafts need a dedicated table because they are tied to one strategy experiment and should be upsertable.
+- `/api/experiment-review` is read-only from the dashboard perspective: it returns a stored draft when present, otherwise a generated unsaved preview.
+- Brain `/experiment-review experiment=...` is the persistence path for review drafts and still does not expose any trading action.

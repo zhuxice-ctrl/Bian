@@ -39,3 +39,7 @@
 - Added dashboard `/api/datasets` plus a historical data picker that loads selected local CSV data into the existing K-line chart.
 - Added Phase 13 backtest report payloads with round trips, equity curve, fees, win/loss counts, and max drawdown.
 - Added dashboard `/api/backtest-report` and report UI panels for metrics, equity curve, and clickable trade rows.
+- Started Phase 14A experiment review loop.
+- Added Phase 14A/14B sections to `task_plan.md` and created the Phase 14 implementation plan.
+- Added deterministic experiment review drafts with Brain `/experiment-review`, dashboard `/api/experiment-review`, storage, and export support.
+- Verified Phase 14A with targeted tests and full suite: `148 passed`.
