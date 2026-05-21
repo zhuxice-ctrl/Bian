@@ -1,4 +1,5 @@
 import json
+from importlib.resources import files
 from http.server import HTTPServer
 from threading import Thread
 from urllib.parse import quote
@@ -114,3 +115,36 @@ def test_dashboard_http_rejects_kline_paths_outside_data_local(tmp_path):
 
         assert body["status"] == "invalid"
         assert "data/local" in body["message"]
+
+
+def test_dashboard_static_page_exposes_interactive_replay_controls():
+    html = files("trading_learning.dashboard.static").joinpath("index.html").read_text(encoding="utf-8")
+
+    for marker in [
+        'id="playPause"',
+        'id="stepBack"',
+        'id="stepForward"',
+        'id="nextTrade"',
+        'id="toggleMa20"',
+        'id="toggleMa60"',
+        'id="ohlcPanel"',
+        'id="tradeDetail"',
+        'id="volumeCanvas"',
+    ]:
+        assert marker in html
+
+
+def test_dashboard_static_script_supports_chart_interactions():
+    script = files("trading_learning.dashboard.static").joinpath("app.js").read_text(encoding="utf-8")
+
+    for marker in [
+        "addEventListener(\"wheel\"",
+        "addEventListener(\"mousedown\"",
+        "addEventListener(\"mousemove\"",
+        "function renderCrosshair",
+        "function startPlayback",
+        "function stepReplay",
+        "function jumpToNextTrade",
+        "function movingAverage",
+    ]:
+        assert marker in script

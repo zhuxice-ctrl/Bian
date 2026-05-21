@@ -10,41 +10,65 @@
     <header class="topbar">
       <div>
         <h1>Trading Learning Dashboard</h1>
-        <p>本地只读驾驶舱：复盘、实验、知识库和 K 线回放。</p>
+        <p>&#26412;&#22320;&#21482;&#35835;&#22797;&#30424;&#24037;&#20316;&#21488;&#65306;&#22797;&#30424;&#12289;&#23454;&#39564;&#12289;&#30693;&#35782;&#24211;&#21644; K &#32447;&#22238;&#25918;&#12290;</p>
       </div>
-      <div class="status" id="connectionStatus">读取中</div>
+      <div class="status" id="connectionStatus">&#35835;&#21462;&#20013;</div>
     </header>
 
     <main class="layout">
       <section class="panel overview">
-        <h2>总览</h2>
+        <h2>&#24635;&#35272;</h2>
         <div class="metrics" id="metrics"></div>
       </section>
 
       <section class="panel replay">
-        <div class="panel-header">
-          <h2>K 线回放</h2>
+        <div class="panel-header replay-header">
+          <div>
+            <h2>K &#32447;&#22797;&#30424;&#21488;</h2>
+            <p class="hint">&#28378;&#36718;&#32553;&#25918;&#65292;&#25302;&#21160;&#27983;&#35272;&#65292;&#31227;&#21160;&#40736;&#26631;&#26597;&#30475;&#21313;&#23383;&#20809;&#26631;&#21644;&#24403;&#21069; OHLC&#12290;</p>
+          </div>
           <div class="controls">
             <select id="experimentSelect"></select>
-            <button id="loadReplay" type="button">载入</button>
+            <button id="loadReplay" type="button">&#36733;&#20837;</button>
           </div>
         </div>
-        <canvas id="klineCanvas" width="960" height="420"></canvas>
-        <input id="replayRange" type="range" min="20" max="300" value="120" />
+
+        <div class="replay-workspace">
+          <div class="chart-stack">
+            <canvas id="klineCanvas" width="1160" height="520"></canvas>
+            <canvas id="volumeCanvas" width="1160" height="120"></canvas>
+            <div class="timeline-row">
+              <input id="replayRange" type="range" min="0" max="0" value="0" />
+            </div>
+          </div>
+          <aside class="inspector">
+            <div id="ohlcPanel" class="info-box">&#31561;&#24453;&#36733;&#20837; K &#32447;</div>
+            <div id="tradeDetail" class="info-box">&#28857;&#20987;&#20080;&#21334;&#28857;&#26597;&#30475;&#20132;&#26131;&#32454;&#33410;</div>
+          </aside>
+        </div>
+
+        <div class="replay-toolbar">
+          <button id="stepBack" type="button">&#21518;&#36864;</button>
+          <button id="playPause" type="button">&#25773;&#25918;</button>
+          <button id="stepForward" type="button">&#21069;&#36827;</button>
+          <button id="nextTrade" type="button">&#19979;&#19968;&#31508;</button>
+          <label><input id="toggleMa20" type="checkbox" checked /> MA20</label>
+          <label><input id="toggleMa60" type="checkbox" checked /> MA60</label>
+        </div>
       </section>
 
       <section class="panel">
-        <h2>最近复盘</h2>
+        <h2>&#26368;&#36817;&#22797;&#30424;</h2>
         <div class="list" id="reviewList"></div>
       </section>
 
       <section class="panel">
-        <h2>策略实验</h2>
+        <h2>&#31574;&#30053;&#23454;&#39564;</h2>
         <div class="list" id="experimentList"></div>
       </section>
 
       <section class="panel knowledge">
-        <h2>知识卡片</h2>
+        <h2>&#30693;&#35782;&#21345;&#29255;</h2>
         <div class="list" id="knowledgeList"></div>
       </section>
     </main>
