@@ -1,7 +1,12 @@
 import hashlib
 import json
+from base64 import b64encode
 from http.server import HTTPServer
 from threading import Thread
+
+from cryptography.hazmat.primitives.ciphers import Cipher
+from cryptography.hazmat.primitives.ciphers import algorithms
+from cryptography.hazmat.primitives.ciphers import modes
 
 from trading_learning.brain.feishu import FeishuBotClient, FeishuEventAdapter, calculate_lark_signature
 from trading_learning.brain.service import build_handler
@@ -44,6 +49,17 @@ class FakeResponse:
         return json.dumps(self.payload).encode("utf-8")
 
 
+def encrypt_feishu_payload(payload, encrypt_key="encrypt-key"):
+    body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    padding_size = 16 - (len(body) % 16)
+    padded = body + bytes([padding_size]) * padding_size
+    iv = b"1234567890abcdef"
+    key = hashlib.sha256(encrypt_key.encode("utf-8")).digest()
+    encryptor = Cipher(algorithms.AES(key), modes.CBC(iv)).encryptor()
+    encrypted = iv + encryptor.update(padded) + encryptor.finalize()
+    return b64encode(encrypted).decode("ascii")
+
+
 def test_feishu_url_verification_returns_challenge():
     adapter = FeishuEventAdapter(FakeCommandHandler(), verification_token="verify-token")
 
@@ -81,6 +97,51 @@ def test_feishu_v2_url_verification_returns_event_challenge():
     )
 
     assert response == {"challenge": "abc-v2"}
+
+
+def test_feishu_encrypted_url_verification_returns_challenge():
+    adapter = FeishuEventAdapter(
+        FakeCommandHandler(),
+        verification_token="verify-token",
+        encrypt_key="encrypt-key",
+    )
+
+    encrypted = encrypt_feishu_payload(
+        {
+            "type": "url_verification",
+            "token": "verify-token",
+            "challenge": "abc-encrypted",
+        }
+    )
+
+    response = adapter.handle({"encrypt": encrypted})
+
+    assert response == {"challenge": "abc-encrypted"}
+
+
+def test_feishu_encrypted_v2_url_verification_returns_event_challenge():
+    adapter = FeishuEventAdapter(
+        FakeCommandHandler(),
+        verification_token="verify-token",
+        encrypt_key="encrypt-key",
+    )
+
+    encrypted = encrypt_feishu_payload(
+        {
+            "schema": "2.0",
+            "header": {
+                "event_type": "url_verification",
+                "token": "verify-token",
+            },
+            "event": {
+                "challenge": "abc-encrypted-v2",
+            },
+        }
+    )
+
+    response = adapter.handle({"encrypt": encrypted})
+
+    assert response == {"challenge": "abc-encrypted-v2"}
 
 
 def test_feishu_rejects_invalid_verification_token():

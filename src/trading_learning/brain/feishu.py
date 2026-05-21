@@ -4,8 +4,13 @@ import hashlib
 import hmac
 import json
 import urllib.request
+from base64 import b64decode
 from typing import Any
 from urllib.parse import urlencode
+
+from cryptography.hazmat.primitives.ciphers import Cipher
+from cryptography.hazmat.primitives.ciphers import algorithms
+from cryptography.hazmat.primitives.ciphers import modes
 
 
 def calculate_lark_signature(timestamp: str, nonce: str, encrypt_key: str, raw_body: bytes) -> str:
@@ -96,6 +101,14 @@ class FeishuEventAdapter:
         raw_body: bytes = b"",
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
+        if "encrypt" in payload:
+            if not self.encrypt_key:
+                return {"status": "forbidden", "message": "Feishu encrypt key is required"}
+            try:
+                payload = self._decrypt_payload(str(payload.get("encrypt", "")))
+            except (ValueError, json.JSONDecodeError):
+                return {"status": "invalid", "message": "invalid encrypted Feishu payload"}
+
         if payload.get("type") == "url_verification":
             if not self._valid_token(payload.get("token")):
                 return {"status": "forbidden", "message": "invalid Feishu verification token"}
@@ -163,6 +176,21 @@ class FeishuEventAdapter:
             return False
         expected = calculate_lark_signature(timestamp, nonce, self.encrypt_key or "", raw_body)
         return hmac.compare_digest(signature, expected)
+
+    def _decrypt_payload(self, encrypted_payload: str) -> dict[str, Any]:
+        encrypted = b64decode(encrypted_payload)
+        if len(encrypted) <= 16:
+            raise ValueError("encrypted Feishu payload is too short")
+        key = hashlib.sha256((self.encrypt_key or "").encode("utf-8")).digest()
+        iv = encrypted[:16]
+        ciphertext = encrypted[16:]
+        decryptor = Cipher(algorithms.AES(key), modes.CBC(iv)).decryptor()
+        padded = decryptor.update(ciphertext) + decryptor.finalize()
+        padding_size = padded[-1]
+        if padding_size < 1 or padding_size > 16:
+            raise ValueError("invalid Feishu payload padding")
+        plaintext = padded[:-padding_size]
+        return json.loads(plaintext.decode("utf-8"))
 
     @staticmethod
     def _extract_text(content: str) -> str:
