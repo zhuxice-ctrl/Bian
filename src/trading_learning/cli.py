@@ -9,6 +9,7 @@ from trading_learning.backtest.report import summarize_backtest
 from trading_learning.ai_assistant.local_codex import LocalCodexClient
 from trading_learning.ai_assistant.tasks import create_daily_review_draft
 from trading_learning.brain.commands import BrainCommandHandler
+from trading_learning.brain.feishu import FeishuBotClient
 from trading_learning.brain.feishu import FeishuEventAdapter
 from trading_learning.brain.natural_language import LocalCodexBrainAssistant
 from trading_learning.brain.service import build_handler
@@ -317,11 +318,15 @@ def main(argv: list[str] | None = None) -> int:
                 allowed_market_symbols=config.allowed_symbols,
                 natural_language=build_natural_language_assistant(config),
             )
+            feishu_messenger = None
+            if config.feishu_app_id and config.feishu_app_secret:
+                feishu_messenger = FeishuBotClient(config.feishu_app_id, config.feishu_app_secret)
             feishu_adapter = FeishuEventAdapter(
                 command_handler,
                 verification_token=config.feishu_verification_token,
                 encrypt_key=config.feishu_encrypt_key,
                 user_id_map=parse_key_value_map(config.feishu_user_map),
+                messenger=feishu_messenger,
             )
             server = HTTPServer(
                 (args.host, args.port),

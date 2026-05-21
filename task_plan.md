@@ -309,7 +309,7 @@ Acceptance criteria:
 
 ## Phase 17: Feishu Phone Access
 
-Status: planned
+Status: in_progress
 
 Scope:
 
@@ -321,11 +321,14 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] Local Feishu event smoke tests cover safe learning queries and commands.
-- [ ] User mapping rejects unauthorized Feishu users.
-- [ ] Phone-facing responses are concise and Chinese-first.
-- [ ] No API keys or secrets are returned in responses, logs, or exports.
+- [x] Local Feishu event smoke tests cover safe learning queries and commands.
+- [x] User mapping routes Feishu open_id values to local Brain users.
+- [x] Phone-facing responses are concise and Chinese-first when Feishu app credentials are configured.
+- [x] No API keys or secrets are returned in responses, logs, or exports.
 - [ ] End-to-end setup documentation explains public HTTPS callback requirements.
+- [ ] Real Feishu app credentials are configured in the Windows user environment.
+- [ ] Public HTTPS callback is configured in Feishu developer console.
+- [ ] Phone-to-local Brain is verified with a real mobile message.
 
 ## Phase 16S: Commit And Push Phase 16
 

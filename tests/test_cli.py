@@ -74,6 +74,8 @@ def test_build_binance_testnet_executor_allows_keyless_local_brain(tmp_path):
             feishu_verification_token=None,
             feishu_encrypt_key=None,
             feishu_user_map="",
+            feishu_app_id=None,
+            feishu_app_secret=None,
         )
     )
 

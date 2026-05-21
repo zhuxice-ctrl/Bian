@@ -88,6 +88,20 @@ def test_feishu_event_smoke_script_posts_verification_and_message_events():
     assert "FEISHU_VERIFICATION_TOKEN=" not in script
 
 
+def test_set_feishu_env_script_prompts_for_secrets():
+    script = _read_script("set-feishu-env.ps1")
+
+    assert "FEISHU_VERIFICATION_TOKEN" in script
+    assert "FEISHU_ENCRYPT_KEY" in script
+    assert "FEISHU_USER_MAP" in script
+    assert "FEISHU_APP_ID" in script
+    assert "FEISHU_APP_SECRET" in script
+    assert "Read-Host" in script
+    assert "-AsSecureString" in script
+    assert "SetEnvironmentVariable" in script
+    assert "FEISHU_APP_SECRET=" not in script
+
+
 def test_set_local_codex_env_script_prompts_for_secret():
     script = _read_script("set-local-codex-env.ps1")
 
@@ -111,3 +125,4 @@ def test_service_scripts_do_not_contain_known_secret_values():
     assert "LOCAL_CODEX_API_KEY=" not in combined
     assert "FEISHU_VERIFICATION_TOKEN=" not in combined
     assert "FEISHU_ENCRYPT_KEY=" not in combined
+    assert "FEISHU_APP_SECRET=" not in combined

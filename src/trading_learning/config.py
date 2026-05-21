@@ -19,6 +19,8 @@ class AppConfig:
     feishu_verification_token: str | None
     feishu_encrypt_key: str | None
     feishu_user_map: str
+    feishu_app_id: str | None
+    feishu_app_secret: str | None
     allowed_symbols: tuple[str, ...] = DEFAULT_ALLOWED_SYMBOLS
 
 
@@ -34,6 +36,8 @@ def load_config() -> AppConfig:
         feishu_verification_token=os.getenv("FEISHU_VERIFICATION_TOKEN"),
         feishu_encrypt_key=os.getenv("FEISHU_ENCRYPT_KEY"),
         feishu_user_map=os.getenv("FEISHU_USER_MAP", ""),
+        feishu_app_id=os.getenv("FEISHU_APP_ID"),
+        feishu_app_secret=os.getenv("FEISHU_APP_SECRET"),
         allowed_symbols=parse_symbols(os.getenv("TRADING_LEARNING_ALLOWED_SYMBOLS", ",".join(DEFAULT_ALLOWED_SYMBOLS))),
     )
 

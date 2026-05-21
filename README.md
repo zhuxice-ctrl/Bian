@@ -110,9 +110,11 @@ The local brain is the control layer for chat-style operation. It runs on your m
 $env:BINANCE_TESTNET_BASE_URL="https://testnet.binance.vision"
 $env:BINANCE_TESTNET_API_KEY="your-testnet-key"
 $env:BINANCE_TESTNET_API_SECRET="your-testnet-secret"
-$env:FEISHU_VERIFICATION_TOKEN="your-feishu-verification-token"
-$env:FEISHU_ENCRYPT_KEY="your-feishu-encrypt-key"
+$env:FEISHU_VERIFICATION_TOKEN="your-feishu-verification-token-or-empty"
+$env:FEISHU_ENCRYPT_KEY="your-feishu-encrypt-key-or-empty"
 $env:FEISHU_USER_MAP="your-feishu-open-id:owner"
+$env:FEISHU_APP_ID="your-feishu-app-id"
+$env:FEISHU_APP_SECRET="your-feishu-app-secret"
 trading-learning brain-serve --host 127.0.0.1 --port 8765 --allowed-user-id owner
 ```
 
@@ -222,11 +224,31 @@ The same local service also exposes `POST http://127.0.0.1:8765/feishu/events` f
 
 - URL verification challenge.
 - `im.message.receive_v1` text messages.
-- Verification token checks.
+- Optional verification token checks when Feishu provides a token.
 - Optional `X-Lark-Signature` verification when `FEISHU_ENCRYPT_KEY` is set.
 - Open ID to local user mapping through `FEISHU_USER_MAP`.
+- Optional Feishu bot replies when `FEISHU_APP_ID` and `FEISHU_APP_SECRET` are set.
 
-For remote phone access, put a tunnel or reverse proxy in front of this local endpoint and point Feishu event subscription to that public HTTPS URL. Keep Binance keys and Feishu secrets in local environment variables only.
+Configure local Feishu values once with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/set-feishu-env.ps1
+powershell -ExecutionPolicy Bypass -File scripts/restart-brain.ps1
+```
+
+For remote phone access, put a tunnel or reverse proxy in front of this local endpoint and point Feishu event subscription to that public HTTPS URL. In the Feishu developer console:
+
+- Set the event subscription Request URL to `https://YOUR_PUBLIC_HOST/feishu/events`.
+- Use the same Verification Token and Encrypt Key that you stored locally if Feishu shows those fields; otherwise leave them empty locally.
+- Subscribe to message receive events for text messages.
+- Grant the bot permission to send messages, then publish or install the app to your tenant.
+
+Official Feishu references:
+
+- Event subscription Request URL configuration: `https://open.feishu.cn/document/server-docs/event-subscription-guide/event-subscription-configure-/request-url-configuration-case`
+- Send message API: `https://open.feishu.cn/document/server-docs/im-v1/message/create`
+
+Keep Binance keys and Feishu secrets in local environment variables only.
 
 Before connecting the real Feishu app, run the local callback smoke test:
 

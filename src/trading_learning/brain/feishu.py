@@ -3,12 +3,74 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import urllib.request
 from typing import Any
+from urllib.parse import urlencode
 
 
 def calculate_lark_signature(timestamp: str, nonce: str, encrypt_key: str, raw_body: bytes) -> str:
     base = timestamp.encode("utf-8") + nonce.encode("utf-8") + encrypt_key.encode("utf-8")
     return hashlib.sha256(base + raw_body).hexdigest()
+
+
+class FeishuBotClient:
+    def __init__(
+        self,
+        app_id: str,
+        app_secret: str,
+        *,
+        base_url: str = "https://open.feishu.cn/open-apis",
+        opener: Any = urllib.request.urlopen,
+        timeout: int = 10,
+    ) -> None:
+        self.app_id = app_id
+        self.app_secret = app_secret
+        self.base_url = base_url.rstrip("/")
+        self.opener = opener
+        self.timeout = timeout
+        self._tenant_access_token: str | None = None
+
+    def send_text(self, chat_id: str, text: str) -> dict[str, Any]:
+        token = self._tenant_token()
+        query = urlencode({"receive_id_type": "chat_id"})
+        response = self._post_json(
+            f"{self.base_url}/im/v1/messages?{query}",
+            {
+                "receive_id": chat_id,
+                "msg_type": "text",
+                "content": json.dumps({"text": text}, ensure_ascii=False),
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        data = response.get("data", {})
+        return {"message_id": data.get("message_id", "")}
+
+    def _tenant_token(self) -> str:
+        if self._tenant_access_token:
+            return self._tenant_access_token
+        response = self._post_json(
+            f"{self.base_url}/auth/v3/tenant_access_token/internal",
+            {"app_id": self.app_id, "app_secret": self.app_secret},
+        )
+        token = str(response.get("tenant_access_token", ""))
+        if not token:
+            raise RuntimeError("Feishu tenant_access_token missing from response")
+        self._tenant_access_token = token
+        return token
+
+    def _post_json(self, url: str, payload: dict[str, Any], *, headers: dict[str, str] | None = None) -> dict[str, Any]:
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        request = urllib.request.Request(
+            url,
+            data=body,
+            headers={"Content-Type": "application/json; charset=utf-8", **(headers or {})},
+            method="POST",
+        )
+        with self.opener(request, timeout=self.timeout) as response:
+            result = json.loads(response.read().decode("utf-8"))
+        if int(result.get("code", 0) or 0) != 0:
+            raise RuntimeError(str(result.get("msg", "Feishu API request failed")))
+        return result
 
 
 class FeishuEventAdapter:
@@ -19,11 +81,13 @@ class FeishuEventAdapter:
         verification_token: str | None = None,
         encrypt_key: str | None = None,
         user_id_map: dict[str, str] | None = None,
+        messenger: Any | None = None,
     ) -> None:
         self.command_handler = command_handler
         self.verification_token = verification_token
         self.encrypt_key = encrypt_key
         self.user_id_map = user_id_map or {}
+        self.messenger = messenger
 
     def handle(
         self,
@@ -60,11 +124,25 @@ class FeishuEventAdapter:
         )
         user_id = self.user_id_map.get(sender_open_id, sender_open_id)
         brain_response = self.command_handler.handle(text, user_id=user_id)
-        return {
+        response = {
             "status": "ok",
             "brain": brain_response,
             "chat_id": message.get("chat_id", ""),
         }
+        chat_id = response["chat_id"]
+        if self.messenger is not None and chat_id:
+            try:
+                response["reply"] = self.messenger.send_text(chat_id, self._format_brain_reply(brain_response))
+            except Exception as exc:  # Keep Feishu event acknowledgement independent from reply delivery.
+                response["reply_error"] = str(exc)
+        return response
+
+    @staticmethod
+    def _format_brain_reply(brain_response: dict[str, Any]) -> str:
+        message = str(brain_response.get("message", "") or "")
+        if message:
+            return f"Brain：{message}"
+        return f"Brain：{brain_response.get('status', 'ok')}"
 
     def _valid_token(self, token: Any) -> bool:
         if not self.verification_token:

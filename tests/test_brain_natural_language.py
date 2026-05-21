@@ -114,6 +114,8 @@ def test_build_natural_language_assistant_requires_local_key(tmp_path):
         feishu_verification_token=None,
         feishu_encrypt_key=None,
         feishu_user_map="",
+        feishu_app_id=None,
+        feishu_app_secret=None,
     )
 
     assert build_natural_language_assistant(config) is None
@@ -131,6 +133,8 @@ def test_build_natural_language_assistant_rejects_non_loopback_base_url(tmp_path
         feishu_verification_token=None,
         feishu_encrypt_key=None,
         feishu_user_map="",
+        feishu_app_id=None,
+        feishu_app_secret=None,
     )
 
     assert build_natural_language_assistant(config) is None

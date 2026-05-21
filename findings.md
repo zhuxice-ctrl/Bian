@@ -46,3 +46,6 @@
 - Phase 16 v1 keeps filtering client-side for visible trade rows. Stored experiment, trade, review, and knowledge records remain read-only from the dashboard.
 - Round-trip result annotations are attached to both entry and exit trades so side/result filters can work on the existing trade table without adding a new storage table.
 - Experiment comparison is read-only and uses stored `strategy_experiments` metrics/parameters; it does not recompute backtests.
+- Feishu inbound callback alone is not enough for mobile use; the local service also needs a Feishu app id/secret so it can call the message API and reply to the chat.
+- Feishu app credentials should stay in Windows user environment variables through `scripts/set-feishu-env.ps1`; the repository only stores prompts and variable names.
+- Real phone verification still requires external setup: public HTTPS tunnel/reverse proxy, Feishu event subscription Request URL, bot message permissions, and app installation/publish in the tenant.

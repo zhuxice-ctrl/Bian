@@ -60,3 +60,7 @@
 - Browser-verified `http://127.0.0.1:8782/` on desktop and mobile: filters and comparison render, interactions update visible rows, and console logs are clean.
 - Verified Phase 16 with `pytest -q` (`155 passed`) and dashboard JavaScript syntax check.
 - Verified Phase 16S with `pytest -q` (`155 passed`), dashboard JavaScript syntax check, and current-diff sensitive information scan before commit.
+- Started Phase 17 Feishu phone access configuration.
+- Added Feishu bot reply client and Windows user-environment setup script for Feishu app configuration.
+- Local Feishu callback smoke passed for URL verification and `/status` text event.
+- Verified Phase 17 local changes with `pytest -q` (`158 passed`).
