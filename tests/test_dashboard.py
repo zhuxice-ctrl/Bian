@@ -472,7 +472,7 @@ def test_dashboard_http_serves_api_and_static_page(tmp_path):
             thread.join()
 
         assert overview["status"] == "ok"
-        assert "Trading Learning Dashboard" in html
+        assert "Bian Local Quant Workstation" in html
         assert "lightweight-charts.standalone.production.js" in html
         assert vendor_status == 200
         assert datasets["status"] == "ok"
@@ -554,6 +554,24 @@ def test_dashboard_static_page_exposes_interactive_replay_controls():
         'id="productionGatePanel"',
         'id="klineChart"',
         'id="volumeChart"',
+        'id="workstationShell"',
+        'id="pageToday"',
+        'id="pageChart"',
+        'id="pageData"',
+        'id="pageStrategy"',
+        'id="pageBacktests"',
+        'id="pageExperiments"',
+        'id="pageReview"',
+        'id="pageKnowledge"',
+        'id="pageTestnet"',
+        'id="pageSafety"',
+        'id="pageSettings"',
+        'id="coachPanel"',
+        'id="coachToggle"',
+        'id="coachTitle"',
+        'id="coachBody"',
+        'data-route="chart"',
+        'data-page="chart"',
         "lightweight-charts.standalone.production.js",
     ]:
         assert marker in html
@@ -600,6 +618,13 @@ def test_dashboard_static_script_uses_lightweight_charts_engine():
         "function renderRiskFlags",
         "function renderFocusTrades",
         "function focusTrade",
+        "const routes =",
+        "function navigateTo",
+        "function setActiveRoute",
+        "function renderCoachPanel",
+        "function toggleCoach",
+        "function renderTopStatus",
+        "window.addEventListener(\"hashchange\"",
         "/api/backtest-report",
         "/api/experiment-comparison",
         "/api/experiment-review",

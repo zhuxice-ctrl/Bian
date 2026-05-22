@@ -66,6 +66,20 @@ const text = {
   empty: "\u6682\u65e0\u8bb0\u5f55",
 };
 
+const routes = {
+  today: { title: "\u4eca\u65e5\u5de5\u4f5c", coach: "\u5148\u68c0\u67e5\u6570\u636e\u3001\u672a\u590d\u76d8\u5b9e\u9a8c\u548c\u4e0b\u4e00\u6b65\u7814\u7a76\u4efb\u52a1\u3002" },
+  chart: { title: "\u56fe\u8868\u6559\u7ec3", coach: "\u5728\u771f\u5b9e K \u7ebf\u4e0a\u5207\u6362\u5468\u671f\u3001\u8f85\u52a9\u7ebf\u548c\u4ea4\u6613\u70b9\uff0c\u5148\u5206\u6790\u7ed3\u6784\u518d\u770b\u56de\u6d4b\u6536\u76ca\u3002" },
+  data: { title: "\u6570\u636e\u6559\u7ec3", coach: "\u4f18\u5148\u4fdd\u8bc1\u6570\u636e\u65b0\u9c9c\u3001\u5b8c\u6574\u3001\u6765\u6e90\u6e05\u695a\uff0c\u7f3a\u53e3\u6570\u636e\u5148\u4fee\u590d\u518d\u56de\u6d4b\u3002" },
+  strategy: { title: "\u7b56\u7565\u6559\u7ec3", coach: "\u6bcf\u4e2a\u7b56\u7565\u90fd\u8981\u5199\u6e05\u5047\u8bbe\u3001\u53c2\u6570\u548c\u5931\u6548\u6761\u4ef6\u3002" },
+  backtests: { title: "\u56de\u6d4b\u6559\u7ec3", coach: "\u5173\u6ce8\u56de\u64a4\u3001\u4ea4\u6613\u8d28\u91cf\u3001\u8d39\u7528\u6ed1\u70b9\u548c\u662f\u5426\u8fc7\u62df\u5408\u3002" },
+  experiments: { title: "\u5b9e\u9a8c\u6559\u7ec3", coach: "\u6bd4\u8f83\u5b9e\u9a8c\u65f6\u5148\u770b\u7a33\u5b9a\u6027\uff0c\u518d\u51b3\u5b9a\u7ee7\u7eed\u3001\u6dd8\u6c70\u6216\u8fdb\u5165\u6d4b\u8bd5\u7f51\u5019\u9009\u3002" },
+  review: { title: "\u590d\u76d8\u6559\u7ec3", coach: "\u91cd\u70b9\u590d\u76d8\u4e8f\u635f\u4ea4\u6613\u3001\u8fdd\u53cd\u89c4\u5219\u548c\u7b56\u7565\u5931\u6548\u6761\u4ef6\u3002" },
+  knowledge: { title: "\u5b66\u4e60\u6559\u7ec3", coach: "\u628a\u91cd\u590d\u9519\u8bef\u6c89\u6dc0\u6210\u77e5\u8bc6\u5361\u7247\u548c\u4e0b\u6b21\u6d4b\u8bd5\u524d\u7684\u68c0\u67e5\u9879\u3002" },
+  testnet: { title: "\u6d4b\u8bd5\u7f51\u6559\u7ec3", coach: "\u6d4b\u8bd5\u7f51\u53ea\u9a8c\u8bc1\u6d41\u7a0b\uff0c\u4e0d\u4ee3\u8868\u53ef\u4ee5\u8fdb\u5165\u5b9e\u76d8\u3002" },
+  safety: { title: "\u5b89\u5168\u6559\u7ec3", coach: "\u5b9e\u76d8\u9ed8\u8ba4\u5173\u95ed\uff0c\u4efb\u4f55\u6267\u884c\u90fd\u4e0d\u80fd\u7ed5\u8fc7\u95e8\u7981\u548c kill-switch\u3002" },
+  settings: { title: "\u8bbe\u7f6e\u6559\u7ec3", coach: "\u53ea\u663e\u793a\u914d\u7f6e\u72b6\u6001\uff0c\u4e0d\u6253\u5370\u5bc6\u94a5\u3001token \u6216\u5bc6\u7801\u3002" },
+};
+
 const fmt = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 });
 const timeFmt = new Intl.DateTimeFormat("zh-CN", {
   month: "2-digit",
@@ -116,6 +130,59 @@ function renderOverview() {
     metric(text.knowledge, totals.knowledge_count),
   ].join("");
   renderEmptyState(workspace);
+}
+
+function currentRoute() {
+  const route = window.location.hash.replace("#", "");
+  return routes[route] ? route : "today";
+}
+
+function setActiveRoute(route) {
+  document.querySelectorAll("[data-page]").forEach((page) => {
+    page.classList.toggle("active", page.dataset.page === route);
+  });
+  document.querySelectorAll("[data-route]").forEach((link) => {
+    link.classList.toggle("active", link.dataset.route === route);
+  });
+}
+
+function renderCoachPanel(route) {
+  const config = routes[route] || routes.today;
+  const dailyPlan = state.controlConsole?.coach?.daily_plan;
+  const planHtml =
+    route === "today" && dailyPlan
+      ? `<div class="coach-card"><strong>${escapeHtml(dailyPlan.stage || "AI Coach")}</strong><p>${escapeHtml(dailyPlan.summary || "")}</p></div>`
+      : "";
+  document.querySelector("#coachTitle").textContent = config.title;
+  document.querySelector("#coachBody").innerHTML = `
+    <div class="coach-card">
+      <strong>${escapeHtml(config.title)}</strong>
+      <p>${escapeHtml(config.coach)}</p>
+    </div>
+    ${planHtml}
+  `;
+}
+
+function navigateTo(route = currentRoute()) {
+  setActiveRoute(route);
+  renderCoachPanel(route);
+  requestAnimationFrame(resizeCharts);
+}
+
+function toggleCoach() {
+  const panel = document.querySelector("#coachPanel");
+  const collapsed = panel.classList.toggle("collapsed");
+  const button = document.querySelector("#coachToggle");
+  button.textContent = collapsed ? "\u5c55\u5f00" : "\u6536\u8d77";
+  button.setAttribute("aria-expanded", String(!collapsed));
+  requestAnimationFrame(resizeCharts);
+}
+
+function renderTopStatus() {
+  const gate = state.controlConsole?.production_gate || {};
+  const safetyText = gate.real_trading_enabled ? "\u5b9e\u76d8\u5f00\u542f" : "\u5b9e\u76d8\u5173\u95ed";
+  document.querySelector("#connectionStatus").textContent = text.online;
+  document.querySelector("#topSafetyStatus").textContent = safetyText;
 }
 
 function renderEmptyState(workspace) {
@@ -238,6 +305,9 @@ function renderControlConsole() {
   renderStrategyLab(data.strategy_lab || {});
   renderTestnetOrders(data.testnet?.orders || []);
   renderProductionGate(data.production_gate || {});
+  renderReferenceList(data.references || []);
+  renderTopStatus();
+  renderCoachPanel(currentRoute());
 }
 
 function renderWorkspaceStatus(workspace) {
@@ -349,13 +419,31 @@ function renderProductionGate(gate) {
   `;
 }
 
+function renderReferenceList(references) {
+  const target = document.querySelector("#referenceList");
+  if (!target) return;
+  target.innerHTML = references.length
+    ? references
+        .map(
+          (reference) => `
+            <article class="item">
+              <span>${escapeHtml(reference.role || "\u53c2\u8003")}</span>
+              <strong>${escapeHtml(reference.project || "-")}</strong>
+              <p>${escapeHtml(reference.lesson || reference.note || "")}</p>
+            </article>
+          `,
+        )
+        .join("")
+    : `<p class="empty-note">${text.empty}</p>`;
+}
+
 function createCharts() {
   const chartOptions = {
-    layout: { background: { color: "#ffffff" }, textColor: "#334155", fontSize: 12 },
-    grid: { vertLines: { color: "#edf2f7" }, horzLines: { color: "#edf2f7" } },
+    layout: { background: { color: "#05080d" }, textColor: "#94a3b8", fontSize: 12 },
+    grid: { vertLines: { color: "#111827" }, horzLines: { color: "#111827" } },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-    timeScale: { timeVisible: true, secondsVisible: false, borderColor: "#d9e1ea" },
-    rightPriceScale: { borderColor: "#d9e1ea" },
+    timeScale: { timeVisible: true, secondsVisible: false, borderColor: "#243244" },
+    rightPriceScale: { borderColor: "#243244" },
     handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
     handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
   };
@@ -368,37 +456,37 @@ function createCharts() {
   state.chart.klineChart = LightweightCharts.createChart(document.querySelector("#klineChart"), chartOptions);
   state.chart.volumeChart = LightweightCharts.createChart(document.querySelector("#volumeChart"), volumeOptions);
   state.chart.candleSeries = state.chart.klineChart.addSeries(LightweightCharts.CandlestickSeries, {
-    upColor: "#0f8b5f",
-    downColor: "#b42318",
-    borderUpColor: "#0f8b5f",
-    borderDownColor: "#b42318",
-    wickUpColor: "#0f8b5f",
-    wickDownColor: "#b42318",
+    upColor: "#2dd4bf",
+    downColor: "#ef4444",
+    borderUpColor: "#2dd4bf",
+    borderDownColor: "#ef4444",
+    wickUpColor: "#2dd4bf",
+    wickDownColor: "#ef4444",
   });
   state.chart.volumeSeries = state.chart.volumeChart.addSeries(LightweightCharts.HistogramSeries, {
     priceFormat: { type: "volume" },
     priceScaleId: "",
   });
   state.chart.ma20Series = state.chart.klineChart.addSeries(LightweightCharts.LineSeries, {
-    color: "#245a92",
+    color: "#60a5fa",
     lineWidth: 2,
     priceLineVisible: false,
     lastValueVisible: false,
   });
   state.chart.ma60Series = state.chart.klineChart.addSeries(LightweightCharts.LineSeries, {
-    color: "#8a5a00",
+    color: "#facc15",
     lineWidth: 2,
     priceLineVisible: false,
     lastValueVisible: false,
   });
   state.chart.equityChart = LightweightCharts.createChart(document.querySelector("#equityChart"), {
-    layout: { background: { color: "#ffffff" }, textColor: "#334155", fontSize: 12 },
-    grid: { vertLines: { color: "#edf2f7" }, horzLines: { color: "#edf2f7" } },
-    timeScale: { timeVisible: true, secondsVisible: false, borderColor: "#d9e1ea" },
-    rightPriceScale: { borderColor: "#d9e1ea" },
+    layout: { background: { color: "#05080d" }, textColor: "#94a3b8", fontSize: 12 },
+    grid: { vertLines: { color: "#111827" }, horzLines: { color: "#111827" } },
+    timeScale: { timeVisible: true, secondsVisible: false, borderColor: "#243244" },
+    rightPriceScale: { borderColor: "#243244" },
   });
   state.chart.equitySeries = state.chart.equityChart.addSeries(LightweightCharts.LineSeries, {
-    color: "#176b87",
+    color: "#4f8cff",
     lineWidth: 2,
     priceLineVisible: false,
   });
@@ -454,7 +542,7 @@ function chartDataFromReplay(replay) {
     volumeData: candles.map((candle) => ({
       time: toChartTime(candle.opened_at),
       value: candle.volume,
-      color: candle.close >= candle.open ? "rgba(15,139,95,0.45)" : "rgba(180,35,24,0.45)",
+      color: candle.close >= candle.open ? "rgba(45,212,191,0.45)" : "rgba(239,68,68,0.45)",
     })),
     ma20Data: movingAverage(candles, 20),
     ma60Data: movingAverage(candles, 60),
@@ -999,6 +1087,7 @@ async function boot() {
     renderDatasets();
     renderKnowledge();
     renderControlConsole();
+    navigateTo();
     if (state.experiments.length) {
       await loadReplay();
     } else if (state.datasets.some((dataset) => dataset.exists)) {
@@ -1007,13 +1096,15 @@ async function boot() {
       renderBacktestReport(null);
       renderExperimentReview(null);
     }
-    document.querySelector("#connectionStatus").textContent = text.online;
+    renderTopStatus();
   } catch (error) {
     document.querySelector("#connectionStatus").textContent = text.failed;
     console.error(error);
   }
 }
 
+window.addEventListener("hashchange", () => navigateTo());
+document.querySelector("#coachToggle").addEventListener("click", toggleCoach);
 document.querySelector("#loadReplay").addEventListener("click", loadReplay);
 document.querySelector("#loadDataset").addEventListener("click", loadDataset);
 document.querySelector("#replayRange").addEventListener("input", (event) => {

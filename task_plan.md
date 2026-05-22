@@ -776,7 +776,7 @@ Acceptance criteria:
 
 ## Phase 40: Professional Local Quant Workstation UI
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -787,10 +787,10 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] The app no longer feels like a simple prototype dashboard.
-- [ ] Data, backtest, experiments, review, knowledge, tasks, safety, and settings are reachable as clear work areas.
-- [ ] Controls do not overlap or resize unpredictably on desktop or mobile.
-- [ ] Browser smoke tests verify the main workflows render cleanly.
+- [x] The app no longer feels like a simple prototype dashboard.
+- [x] Data, backtest, experiments, review, knowledge, tasks, safety, and settings are reachable as clear work areas.
+- [x] Controls do not overlap or resize unpredictably on desktop or mobile.
+- [x] Browser smoke tests verify the main workflows render cleanly.
 
 ## Phase 41: Market Data Pipeline Hardening
 

@@ -78,3 +78,5 @@
 - Stable-profit research requires broad experimentation, but the safe sequence is research, validation, testnet, readiness gates, then small-capital pilot. Unrestricted autonomous real trading remains out of scope.
 - The preferred UI direction is not a single crowded dashboard. It should be a navigable workstation with separate pages for Today, Chart Lab, Data Center, Strategy Lab, Backtests, Experiments, Review, Knowledge, Testnet, Safety, and Settings.
 - The real Chart Lab must use existing Lightweight Charts with real local data, not hand-drawn placeholder candles.
+- Phase 40 can be done safely without a frontend framework migration because the existing vanilla dashboard already has stable API and chart integration points.
+- The current local market cache only has a few 1h candles after workspace cleanup, so a browser screenshot may look visually sparse even though it is using the real Lightweight Charts surface and real local data. Data refresh belongs to Phase 41.
