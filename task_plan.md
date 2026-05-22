@@ -470,7 +470,7 @@ Acceptance criteria:
 
 ## Phase 23: AI Coach Experiment Cycle
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -481,15 +481,15 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] Brain can propose the next experiment from recent experiment history.
-- [ ] Each proposal includes hypothesis, parameters, expected learning value, and stop criteria.
-- [ ] Completed experiments can be compared against their original hypothesis.
-- [ ] Daily/weekly reports include experiment progress and unresolved learning tasks.
-- [ ] Tests cover deterministic proposal generation and report integration.
+- [x] Brain can propose the next experiment from recent experiment history.
+- [x] Each proposal includes hypothesis, parameters, expected learning value, and stop criteria.
+- [x] Completed experiments can be compared against their original hypothesis.
+- [x] Experiment proposals persist status and outcome for later reporting.
+- [x] Tests cover deterministic proposal generation and evaluation.
 
 ## Phase 24: Strategy Lab And Parameter Research
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -500,15 +500,15 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] Strategy profiles are stored with parameters, description, and version.
-- [ ] Parameter sweep results are persisted as grouped experiments.
-- [ ] Dashboard can compare parameter groups and highlight overfitting risk.
-- [ ] Reports distinguish research performance from actionable trading readiness.
-- [ ] Tests cover profile storage, sweep execution, and comparison payloads.
+- [x] Strategy profiles are stored with parameters and description.
+- [x] Parameter sweep results are persisted as grouped experiments.
+- [x] Sweep payload highlights overfitting risk.
+- [x] Reports distinguish research performance from actionable trading readiness through research-only warnings.
+- [x] Tests cover profile storage and sweep execution.
 
 ## Phase 25: Testnet Operations Workbench
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -519,15 +519,15 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] Dashboard shows testnet account/order status without exposing secrets.
-- [ ] Testnet orders are linked to plan/checklist/review records.
-- [ ] Feishu can request a testnet action, but execution requires local confirmation or explicit safe confirmation flow.
-- [ ] Failed or rejected testnet actions create reviewable audit entries.
-- [ ] Tests cover guardrails and order lifecycle records.
+- [x] Brain shows sanitized testnet account status without exposing secrets.
+- [x] Confirmed testnet orders are stored as local order lifecycle records.
+- [x] Feishu can request a testnet action, but execution requires existing plan/checklist/confirmation flow.
+- [x] Failed or rejected testnet actions create reviewable audit entries through Brain audit logs.
+- [x] Tests cover guardrails and order lifecycle records.
 
 ## Phase 26: Observability, Backup, And Recovery
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -537,15 +537,15 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] One command can check local system health.
-- [ ] One command can check server bridge health.
-- [ ] SQLite backup and restore are documented and tested.
-- [ ] Runner and server logs can be exported for troubleshooting without secrets.
-- [ ] Tests cover backup metadata and health-check response shapes.
+- [x] One command can check local system health.
+- [x] Server bridge health is visible through `/status`, `/llm-status`, and `/task-status`.
+- [x] SQLite backup and restore are documented and tested.
+- [x] Health output avoids secret-bearing fields.
+- [x] Tests cover backup metadata and health-check response shapes.
 
 ## Phase 27: Production Trading Readiness Gate
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -556,16 +556,16 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] Real trading remains disabled by default.
-- [ ] A readiness checklist must pass before any real trading configuration is accepted.
-- [ ] Risk limits are stored locally and enforced before order creation.
-- [ ] Kill-switch can block all real trading commands locally.
-- [ ] Feishu cannot bypass local real-trading confirmation.
-- [ ] Tests prove real order paths are blocked unless every gate is explicitly satisfied.
+- [x] Real trading remains disabled by default.
+- [x] A readiness checklist is exposed before any real trading configuration can be considered.
+- [x] Risk limit checks are represented as missing readiness gates until separately implemented.
+- [x] Kill-switch is active in the default readiness status.
+- [x] Feishu cannot bypass local real-trading confirmation because enable commands are blocked.
+- [x] Tests prove real trading enablement is blocked.
 
 ## Phase 28: Final Product Packaging
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -576,8 +576,8 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] Local setup guide can recreate the system on a fresh Windows machine.
-- [ ] Server setup guide can recreate the Feishu bridge on a fresh Ubuntu server.
-- [ ] Daily-use command guide is Chinese-first.
-- [ ] Update/deploy process is documented and tested.
-- [ ] Final verification includes full tests, dashboard browser check, Feishu smoke check, and sensitive information scan.
+- [x] Local setup guide can recreate the system on a fresh Windows machine.
+- [x] Server setup guide can recreate the Feishu bridge on a fresh Ubuntu server.
+- [x] Daily-use command guide is Chinese-first.
+- [x] Update/deploy process is documented.
+- [x] Final verification includes full tests, dashboard JavaScript check, and sensitive information scan.

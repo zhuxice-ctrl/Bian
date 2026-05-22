@@ -79,3 +79,9 @@
 - Added Windows scripts for starting the local quant runner and opening the server-to-local LLM reverse tunnel.
 - Added Chinese `远程回测 ...` alias that queues a local runner backtest instead of executing on the server.
 - Verified the Phase 18-22 target tests with `37 passed`.
+- Added Phase 23 deterministic AI coach commands `/coach-next` and `/coach-evaluate`.
+- Added Phase 24 strategy profiles and MA parameter sweep persistence.
+- Added Phase 25 sanitized testnet status and local testnet order lifecycle records.
+- Added Phase 26 local health check, SQLite backup, and restore support.
+- Added Phase 27 production readiness gate commands that keep real trading disabled.
+- Added Phase 28 Chinese operation docs for local setup, server setup, and daily use.

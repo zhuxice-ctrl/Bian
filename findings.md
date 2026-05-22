@@ -63,3 +63,6 @@
 - Phase 18-22 MVP uses a pull model: the server stores `remote_tasks`, and the Windows `quant-runner` claims tasks through token-protected `/runner/claim` and reports through `/runner/complete`.
 - The first remote task types are intentionally narrow: `local_status` and `backtest_ma`. Real trading and arbitrary shell/Codex execution are not task types.
 - The server-side LLM bridge still enforces loopback-only local Codex URLs. The SSH reverse tunnel maps server loopback to local loopback and avoids publishing the local Codex API.
+- Phase 23-28 complete the first final-product skeleton: deterministic AI coach proposals, strategy profiles, parameter sweeps, sanitized testnet workbench, health/backup commands, production gate, and Chinese operation docs.
+- The strategy lab deliberately labels parameter sweeps as research-only because best-parameter selection on one sample is an overfitting risk.
+- The production gate is a blocker, not an enablement path. Real trading still has no executable order route.

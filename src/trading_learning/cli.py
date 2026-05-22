@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from http.server import HTTPServer
 from pathlib import Path
 import os
@@ -27,6 +28,9 @@ from trading_learning.market_data.binance_klines import fetch_klines, save_kline
 from trading_learning.market_data.catalog import DEFAULT_MARKET_INTERVALS
 from trading_learning.market_data.catalog import refresh_market_data
 from trading_learning.market_data.csv_loader import load_candles_csv
+from trading_learning.ops import backup_database
+from trading_learning.ops import build_local_health
+from trading_learning.ops import restore_database
 from trading_learning.risk.execution_guard import ExecutionRiskGuard, OrderIntent, RiskConfig
 from trading_learning.runner import RunnerClient
 from trading_learning.runner import run_runner_loop
@@ -167,6 +171,15 @@ def build_parser() -> argparse.ArgumentParser:
     quant_runner.add_argument("--interval-seconds", type=float, default=10.0)
     quant_runner.add_argument("--once", action="store_true")
 
+    subparsers.add_parser("health-check", help="print local health summary without secrets")
+
+    backup = subparsers.add_parser("backup-db", help="copy SQLite database to a backup directory")
+    backup.add_argument("--output-dir", default="backups")
+
+    restore = subparsers.add_parser("restore-db", help="restore SQLite database from a backup file")
+    restore.add_argument("--backup", required=True)
+    restore.add_argument("--target")
+
     return parser
 
 
@@ -207,6 +220,19 @@ def main(argv: list[str] | None = None) -> int:
                 interval_seconds=args.interval_seconds,
                 once=args.once,
             )
+        return 0
+
+    if args.command == "health-check":
+        print(json.dumps(build_local_health(config.db_path), ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "backup-db":
+        print(json.dumps(backup_database(config.db_path, Path(args.output_dir)), ensure_ascii=False, sort_keys=True))
+        return 0
+
+    if args.command == "restore-db":
+        target = Path(args.target) if args.target else config.db_path
+        print(json.dumps(restore_database(args.backup, target), ensure_ascii=False, sort_keys=True))
         return 0
 
     with connect(config.db_path) as conn:

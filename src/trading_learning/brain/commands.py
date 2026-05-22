@@ -19,12 +19,19 @@ from trading_learning.dashboard.data import DashboardData
 from trading_learning.journal.repository import save_daily_review
 from trading_learning.journal.repository import save_trades
 from trading_learning.learning.experiment_review import build_experiment_review_draft
+from trading_learning.learning.coach import build_next_experiment_proposal
+from trading_learning.learning.coach import evaluate_experiment_proposal
+from trading_learning.learning.coach import save_experiment_proposal
 from trading_learning.learning.repository import save_knowledge_card
 from trading_learning.market_data.binance_klines import fetch_klines, save_klines_csv
 from trading_learning.market_data.catalog import DEFAULT_MARKET_INTERVALS
 from trading_learning.market_data.catalog import refresh_market_data
 from trading_learning.market_data.csv_loader import load_candles_csv
+from trading_learning.production_gate import production_readiness_status
 from trading_learning.strategy.moving_average import moving_average_crossover_signals
+from trading_learning.strategy.lab import list_strategy_profiles
+from trading_learning.strategy.lab import run_ma_parameter_sweep
+from trading_learning.strategy.lab import save_strategy_profile
 
 
 @dataclass(frozen=True)
@@ -99,6 +106,25 @@ class BrainCommandHandler:
 
         if command_text.startswith("/testnet-order "):
             response = self._testnet_order(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/testnet-status"):
+            response = self._testnet_status()
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/real-trading-status"):
+            response = self._real_trading_status()
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/real-trading-enable"):
+            response = {
+                "status": "blocked",
+                "message": "Real trading can only be considered after the local production readiness gate is completed.",
+                "requires_confirmation": False,
+            }
             self._audit(user_id, command_text, response)
             return response
 
@@ -224,6 +250,31 @@ class BrainCommandHandler:
 
         if command_text.startswith("/learning-next"):
             response = self._learning_next(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/coach-next"):
+            response = self._coach_next(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/coach-evaluate "):
+            response = self._coach_evaluate(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/strategy-profile-set "):
+            response = self._strategy_profile_set(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/strategy-profile-list"):
+            response = self._strategy_profile_list(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/sweep-ma "):
+            response = self._sweep_ma(command_text)
             self._audit(user_id, command_text, response)
             return response
 
@@ -425,23 +476,24 @@ class BrainCommandHandler:
             }
 
         payload = json.loads(row["payload"])
+        result: dict[str, Any] = {}
         try:
             if payload["action"] == "test_order":
-                self.executor.test_order(
+                result = self.executor.test_order(
                     symbol=payload["symbol"],
                     side=payload["side"],
                     order_type=payload["order_type"],
                     quote_order_qty=payload["quote_order_qty"],
                 )
             elif payload["action"] == "create_order":
-                self.executor.create_order(
+                result = self.executor.create_order(
                     symbol=payload["symbol"],
                     side=payload["side"],
                     order_type=payload["order_type"],
                     quote_order_qty=payload["quote_order_qty"],
                 )
             elif payload["action"] == "cancel_order":
-                self.executor.cancel_order(
+                result = self.executor.cancel_order(
                     symbol=payload["symbol"],
                     order_id=payload["order_id"],
                 )
@@ -453,11 +505,71 @@ class BrainCommandHandler:
                 "message": str(exc),
                 "requires_confirmation": False,
             }
+        self._record_testnet_order(user_id=user_id, payload=payload, response=result)
         self.conn.execute("delete from brain_pending_confirmations where id = ?", (row["id"],))
         self.conn.commit()
         return {
             "status": "executed",
             "message": "Spot Testnet test order executed.",
+            "requires_confirmation": False,
+        }
+
+    def _testnet_status(self) -> dict[str, Any]:
+        try:
+            account = self.executor.account()
+        except Exception as exc:
+            return {
+                "status": "failed",
+                "message": str(exc),
+                "requires_confirmation": False,
+            }
+        balances = [
+            {
+                "asset": str(item.get("asset", "")),
+                "free": str(item.get("free", "0")),
+                "locked": str(item.get("locked", "0")),
+            }
+            for item in account.get("balances", [])
+            if float(item.get("free", "0") or 0) != 0 or float(item.get("locked", "0") or 0) != 0
+        ]
+        return {
+            "status": "ok",
+            "account": {
+                "account_type": account.get("accountType", ""),
+                "balances": balances,
+            },
+            "requires_confirmation": False,
+        }
+
+    def _record_testnet_order(self, *, user_id: str, payload: dict[str, Any], response: dict[str, Any]) -> None:
+        if payload.get("action") not in {"create_order", "cancel_order"}:
+            return
+        self.conn.execute(
+            """
+            insert into testnet_order_records (
+              external_id, user_id, action, symbol, side, order_type, quote_order_qty,
+              order_id, status, request_payload, response_payload
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                f"testnet-order-{uuid4()}",
+                user_id,
+                payload.get("action", ""),
+                payload.get("symbol", ""),
+                payload.get("side", ""),
+                payload.get("order_type", ""),
+                payload.get("quote_order_qty"),
+                str(response.get("orderId", "")),
+                str(response.get("status", "")),
+                json.dumps(payload, ensure_ascii=False, sort_keys=True),
+                json.dumps(response, ensure_ascii=False, sort_keys=True),
+            ),
+        )
+
+    def _real_trading_status(self) -> dict[str, Any]:
+        return {
+            "status": "blocked",
+            "gate": production_readiness_status(),
             "requires_confirmation": False,
         }
 
@@ -1483,6 +1595,154 @@ class BrainCommandHandler:
             "status": "ok",
             "date": report_date,
             "tasks": self._next_learning_actions(context),
+            "requires_confirmation": False,
+        }
+
+    def _coach_next(self, command_text: str) -> dict[str, Any]:
+        proposal = build_next_experiment_proposal(self.conn)
+        if not proposal["source_experiment_external_id"]:
+            return {
+                "status": "ok",
+                "message": "baseline experiment proposal is ready",
+                "proposal": proposal,
+                "requires_confirmation": False,
+            }
+        saved = save_experiment_proposal(self.conn, proposal)
+        return {
+            "status": "saved",
+            "message": f"saved experiment proposal {saved['external_id']}",
+            "proposal": saved,
+            "requires_confirmation": False,
+        }
+
+    def _coach_evaluate(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/coach-evaluate "))
+        missing = sorted({"proposal", "experiment"} - fields.keys())
+        if missing:
+            return {
+                "status": "invalid",
+                "message": f"missing fields: {', '.join(missing)}",
+                "requires_confirmation": False,
+            }
+        try:
+            outcome = evaluate_experiment_proposal(
+                self.conn,
+                proposal_id=fields["proposal"],
+                experiment_id=fields["experiment"],
+            )
+        except ValueError as exc:
+            return {
+                "status": "not_found",
+                "message": str(exc),
+                "requires_confirmation": False,
+            }
+        return {
+            "status": "saved",
+            "message": f"evaluated proposal {fields['proposal']}",
+            "outcome": outcome,
+            "requires_confirmation": False,
+        }
+
+    def _strategy_profile_set(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/strategy-profile-set "))
+        required = {"name", "symbol", "interval", "csv", "short", "long"}
+        missing = sorted(required - fields.keys())
+        if missing:
+            return {
+                "status": "invalid",
+                "message": f"missing fields: {', '.join(missing)}",
+                "requires_confirmation": False,
+            }
+        symbol = fields["symbol"].upper()
+        if symbol not in self.allowed_market_symbols:
+            return self._symbol_not_allowed(symbol)
+        try:
+            parameters = {
+                "short_window": int(fields["short"]),
+                "long_window": int(fields["long"]),
+                "quote_amount": float(fields.get("quote_amount", "100")),
+            }
+        except ValueError:
+            return {
+                "status": "invalid",
+                "message": "numeric strategy profile fields are invalid",
+                "requires_confirmation": False,
+            }
+        profile = save_strategy_profile(
+            self.conn,
+            name=fields["name"],
+            symbol=symbol,
+            interval=fields["interval"],
+            source_csv=fields["csv"],
+            parameters=parameters,
+            description=self._display_value(fields.get("description", "")),
+        )
+        return {
+            "status": "saved",
+            "message": f"saved strategy profile {profile['name']}",
+            "profile": profile,
+            "requires_confirmation": False,
+        }
+
+    def _strategy_profile_list(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/strategy-profile-list").strip())
+        try:
+            limit = int(fields.get("limit", "20"))
+        except ValueError:
+            return {
+                "status": "invalid",
+                "message": "limit must be an integer",
+                "requires_confirmation": False,
+            }
+        return {
+            "status": "ok",
+            "profiles": list_strategy_profiles(self.conn, limit=limit),
+            "requires_confirmation": False,
+        }
+
+    def _sweep_ma(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/sweep-ma "))
+        required = {"csv", "symbol", "shorts", "longs"}
+        missing = sorted(required - fields.keys())
+        if missing:
+            return {
+                "status": "invalid",
+                "message": f"missing fields: {', '.join(missing)}",
+                "requires_confirmation": False,
+            }
+        symbol = fields["symbol"].upper()
+        if symbol not in self.allowed_market_symbols:
+            return self._symbol_not_allowed(symbol)
+        try:
+            sweep = run_ma_parameter_sweep(
+                self.conn,
+                symbol=symbol,
+                interval=fields.get("interval", ""),
+                source_csv=self._safe_data_local_path(fields["csv"]),
+                source_csv_text=fields["csv"],
+                shorts=[int(value) for value in self._csv_values(fields["shorts"])],
+                longs=[int(value) for value in self._csv_values(fields["longs"])],
+                starting_cash=float(fields.get("starting_cash", "1000")),
+                quote_amount=float(fields.get("quote_amount", "100")),
+                fee_rate=float(fields.get("fee", "0.001")),
+                daily_limit=int(fields.get("daily_limit", "5")),
+            )
+        except ValueError as exc:
+            return {
+                "status": "invalid",
+                "message": str(exc),
+                "requires_confirmation": False,
+            }
+        except Exception as exc:
+            return {
+                "status": "failed",
+                "message": str(exc),
+                "requires_confirmation": False,
+            }
+        return {
+            "status": "saved",
+            "message": f"saved parameter sweep {sweep['external_id']}",
+            "sweep": sweep,
             "requires_confirmation": False,
         }
 

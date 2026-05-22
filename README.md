@@ -186,6 +186,14 @@ Supported commands:
 - `/queue-backtest-ma csv=data/local/BTCUSDT-1h.csv symbol=BTCUSDT interval=1h short=20 long=60`: queues a local-runner backtest task on the server.
 - `/queue-status`: queues a local-runner status check.
 - `/task-status limit=5`: lists recent server-side remote tasks.
+- `/coach-next`: creates the next deterministic experiment proposal from recent experiment results.
+- `/coach-evaluate proposal=proposal-id experiment=experiment-id`: compares a follow-up experiment with its proposal source.
+- `/strategy-profile-set name=ma_baseline symbol=BTCUSDT interval=1h csv=data/local/BTCUSDT-1h.csv short=20 long=60 quote_amount=100`: stores or updates a strategy profile.
+- `/strategy-profile-list`: lists saved strategy profiles.
+- `/sweep-ma symbol=BTCUSDT interval=1h csv=data/local/BTCUSDT-1h.csv shorts=10,20 longs=40,60`: runs a local MA parameter sweep and stores grouped experiments.
+- `/testnet-status`: returns a sanitized Binance Spot Testnet account summary.
+- `/real-trading-status`: returns the production readiness gate; real trading remains disabled.
+- `/real-trading-enable`: always blocked until a separate local production readiness gate is completed.
 - `/experiment-summary limit=5`: returns recent strategy experiment summaries.
 - `/experiment-review experiment=experiment-id`: generates and stores a deterministic experiment review draft.
 - `/experiment-review-commit experiment=experiment-id date=2026-05-20`: commits an experiment review draft into the learning loop by writing a daily review, knowledge cards, review links, and the daily learning report.
@@ -280,6 +288,34 @@ powershell -ExecutionPolicy Bypass -File scripts/connect-server-llm.ps1
 ```
 
 The default tunnel maps server `127.0.0.1:61771` to local `127.0.0.1:61771`. Do not expose the local Codex API as a public URL.
+
+### AI Coach, Strategy Lab, And Safety Gate
+
+The AI coach layer is deterministic in the first version:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/brain-chat.ps1 -Command "/coach-next"
+```
+
+After running the proposed experiment:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/brain-chat.ps1 -Command "/coach-evaluate proposal=proposal-id experiment=experiment-id"
+```
+
+The strategy lab can store profiles and run local parameter sweeps. Sweep results are research-only and include overfitting warnings.
+
+Real trading remains disabled by design:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/brain-chat.ps1 -Command "/real-trading-status"
+```
+
+Operational docs:
+
+- `docs/operations/local-setup-zh.md`
+- `docs/operations/server-setup-zh.md`
+- `docs/operations/daily-use-zh.md`
 
 Before connecting the real Feishu app, run the local callback smoke test:
 

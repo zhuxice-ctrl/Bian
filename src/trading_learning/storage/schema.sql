@@ -197,3 +197,58 @@ create table if not exists remote_tasks (
   completed_at text,
   updated_at text not null default CURRENT_TIMESTAMP
 );
+
+create table if not exists experiment_proposals (
+  id integer primary key autoincrement,
+  external_id text not null unique,
+  hypothesis_external_id text not null,
+  source_experiment_external_id text not null default '',
+  content text not null,
+  status text not null default 'proposed',
+  outcome text not null default '{}',
+  created_at text not null default CURRENT_TIMESTAMP,
+  updated_at text not null default CURRENT_TIMESTAMP
+);
+
+create table if not exists strategy_profiles (
+  id integer primary key autoincrement,
+  external_id text not null unique,
+  name text not null unique,
+  strategy_name text not null,
+  symbol text not null,
+  interval text not null,
+  source_csv text not null,
+  parameters text not null default '{}',
+  description text not null default '',
+  created_at text not null default CURRENT_TIMESTAMP,
+  updated_at text not null default CURRENT_TIMESTAMP
+);
+
+create table if not exists parameter_sweeps (
+  id integer primary key autoincrement,
+  external_id text not null unique,
+  strategy_name text not null,
+  symbol text not null,
+  interval text not null,
+  source_csv text not null,
+  grid text not null default '{}',
+  result text not null default '{}',
+  created_at text not null default CURRENT_TIMESTAMP,
+  updated_at text not null default CURRENT_TIMESTAMP
+);
+
+create table if not exists testnet_order_records (
+  id integer primary key autoincrement,
+  external_id text not null unique,
+  user_id text not null,
+  action text not null,
+  symbol text not null,
+  side text not null default '',
+  order_type text not null default '',
+  quote_order_qty real,
+  order_id text not null default '',
+  status text not null default '',
+  request_payload text not null default '{}',
+  response_payload text not null default '{}',
+  created_at text not null default CURRENT_TIMESTAMP
+);
