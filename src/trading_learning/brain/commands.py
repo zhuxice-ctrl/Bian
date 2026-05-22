@@ -9,8 +9,12 @@ from pathlib import Path
 from typing import Any, Callable
 from uuid import uuid4
 
+import pandas as pd
+
 from trading_learning.backtest.engine import run_spot_backtest
 from trading_learning.backtest.report import summarize_backtest
+from trading_learning.backtest.walk_forward import WalkForwardConfig
+from trading_learning.backtest.walk_forward import run_walk_forward
 from trading_learning.brain.command_aliases import normalize_brain_command
 from trading_learning.brain.natural_language import mock_mode_guidance
 from trading_learning.brain.remote_tasks import TaskQueue
@@ -34,7 +38,9 @@ from trading_learning.market_data.csv_loader import load_candles_csv
 from trading_learning.production_gate import RealOrderIntent
 from trading_learning.production_gate import build_real_order_dry_run
 from trading_learning.production_gate import production_readiness_status
+from trading_learning.research.hypothesis_log import HypothesisLog
 from trading_learning.strategy.moving_average import moving_average_crossover_signals
+from trading_learning.strategy.mtf_trend import mtf_trend_strategy_factory
 from trading_learning.strategy.lab import list_strategy_profiles
 from trading_learning.strategy.lab import run_ma_parameter_sweep
 from trading_learning.strategy.lab import save_strategy_profile
@@ -357,6 +363,41 @@ class BrainCommandHandler:
 
         if command_text.startswith("/experiment-decision "):
             response = self._experiment_decision(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/hypothesis-create "):
+            response = self._hypothesis_create(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/hypothesis-resolve "):
+            response = self._hypothesis_resolve(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/hypothesis-list"):
+            response = self._hypothesis_list()
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/research-status"):
+            response = self._research_status()
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/research-baseline"):
+            response = self._research_baseline(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/research-test"):
+            response = self._research_test(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/research-ablation"):
+            response = self._research_ablation(command_text)
             self._audit(user_id, command_text, response)
             return response
 
@@ -2129,6 +2170,157 @@ class BrainCommandHandler:
             "requires_confirmation": False,
         }
 
+    def _hypothesis_create(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/hypothesis-create ").strip())
+        try:
+            card = HypothesisLog(self.conn).create(
+                title=self._display_value(fields.get("title", "Untitled_hypothesis")),
+                description=self._display_value(fields.get("description", "")),
+                parent_iteration=fields.get("parent_iteration", "baseline"),
+                change_summary=self._display_value(fields.get("change_summary", "")),
+                predicted=self._json_field(fields.get("predicted", "{}"), "predicted"),
+                decision_rule=self._display_value(fields.get("decision_rule", "Keep_only_if_preregistered_rule_passes")),
+            )
+        except ValueError as exc:
+            return {"status": "invalid", "message": str(exc), "requires_confirmation": False}
+        return {
+            "status": "saved",
+            "message": f"saved hypothesis {card.hypothesis_id}",
+            "hypothesis": self._hypothesis_payload(card),
+            "requires_confirmation": False,
+        }
+
+    def _hypothesis_resolve(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/hypothesis-resolve ").strip())
+        hypothesis_id = fields.get("hypothesis", fields.get("id", "")).strip()
+        if not hypothesis_id:
+            return {"status": "invalid", "message": "hypothesis is required", "requires_confirmation": False}
+        try:
+            card = HypothesisLog(self.conn).resolve(
+                hypothesis_id,
+                actual=self._json_field(fields.get("actual", "{}"), "actual"),
+                decision=fields.get("decision", ""),
+                reason=self._display_value(fields.get("reason", "")),
+                hindsight_notes=self._display_value(fields.get("hindsight_notes", "")),
+                code_commit=fields.get("code_commit", ""),
+                backtest_run_id=fields.get("backtest_run_id", ""),
+            )
+        except ValueError as exc:
+            return {"status": "invalid", "message": str(exc), "requires_confirmation": False}
+        return {
+            "status": "saved",
+            "message": f"resolved hypothesis {card.hypothesis_id} as {card.decision}",
+            "hypothesis": self._hypothesis_payload(card),
+            "requires_confirmation": False,
+        }
+
+    def _hypothesis_list(self) -> dict[str, Any]:
+        cards = HypothesisLog(self.conn).list()
+        return {
+            "status": "ok",
+            "hypotheses": [self._hypothesis_payload(card) for card in cards],
+            "requires_confirmation": False,
+        }
+
+    def _research_status(self) -> dict[str, Any]:
+        cards = HypothesisLog(self.conn).list()
+        decisions = {key: 0 for key in ("kept", "rejected", "inconclusive", "risk_reduction_kept")}
+        unresolved = 0
+        for card in cards:
+            if card.decision in decisions:
+                decisions[card.decision] += 1
+            else:
+                unresolved += 1
+        return {
+            "status": "ok",
+            "total": len(cards),
+            "unresolved": unresolved,
+            "decisions": decisions,
+            "requires_confirmation": False,
+        }
+
+    def _research_baseline(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/research-baseline").strip())
+        return self._research_run_phase(fields, phase="6.1", hypothesis_id="H-100")
+
+    def _research_test(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/research-test").strip())
+        hypothesis_id = fields.get("hypothesis", "H-101")
+        phase = fields.get("phase", _phase_for_hypothesis(hypothesis_id))
+        return self._research_run_phase(fields, phase=phase, hypothesis_id=hypothesis_id)
+
+    def _research_ablation(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/research-ablation").strip())
+        runs = []
+        for hypothesis_id, phase in (
+            ("H-100", "6.1"),
+            ("H-101", "6.2"),
+            ("H-102", "6.3"),
+            ("H-103", "6.4"),
+            ("H-104", "6.5"),
+            ("H-105", "6.6"),
+        ):
+            result = self._research_run_phase(fields, phase=phase, hypothesis_id=hypothesis_id)
+            if result["status"] != "ok":
+                return result
+            runs.append(result["run"])
+        return {"status": "ok", "runs": runs, "requires_confirmation": False}
+
+    def _research_run_phase(self, fields: dict[str, str], *, phase: str, hypothesis_id: str) -> dict[str, Any]:
+        csv_value = fields.get("csv", "data/local/market_data/BTCUSDT/BTCUSDT-1h.csv")
+        try:
+            csv_path = self._safe_data_local_path(csv_value)
+            frame = pd.read_csv(csv_path)
+            config = WalkForwardConfig(
+                train_window_days=int(fields.get("train_days", "7")),
+                test_window_days=int(fields.get("test_days", "5")),
+                step_days=int(fields.get("step_days", "5")),
+                purge_days=int(fields.get("purge_days", "1")),
+            )
+            result = run_walk_forward(
+                mtf_trend_strategy_factory,
+                frame,
+                config,
+                param_grid={
+                    "phase": [phase],
+                    "ema_short": [int(fields.get("ema_short", "20"))],
+                    "ema_long": [int(fields.get("ema_long", "200"))],
+                },
+            )
+        except (ValueError, FileNotFoundError) as exc:
+            return {"status": "invalid", "message": str(exc), "requires_confirmation": False}
+        metrics = dict(result.aggregate_metrics)
+        metrics["windows"] = len(result.windows)
+        metrics["consistency_score"] = result.consistency_score
+        return {
+            "status": "ok",
+            "run": {
+                "hypothesis_id": hypothesis_id,
+                "phase": phase,
+                "source_csv": csv_value,
+                "metrics": metrics,
+            },
+            "requires_confirmation": False,
+        }
+
+    @staticmethod
+    def _hypothesis_payload(card) -> dict[str, Any]:
+        return {
+            "hypothesis_id": card.hypothesis_id,
+            "title": card.title,
+            "predicted": card.predicted,
+            "actual": card.actual,
+            "decision": card.decision,
+            "reason": card.reason,
+        }
+
+    @staticmethod
+    def _json_field(value: str, label: str) -> dict[str, Any]:
+        parsed = json.loads(value)
+        if not isinstance(parsed, dict) or not parsed:
+            raise ValueError(f"{label} must be a non-empty JSON object")
+        return parsed
+
     def _save_learning_report(
         self,
         report_type: str,
@@ -2612,3 +2804,14 @@ class BrainCommandHandler:
     @staticmethod
     def _today() -> str:
         return date.today().isoformat()
+
+
+def _phase_for_hypothesis(hypothesis_id: str) -> str:
+    return {
+        "H-100": "6.1",
+        "H-101": "6.2",
+        "H-102": "6.3",
+        "H-103": "6.4",
+        "H-104": "6.5",
+        "H-105": "6.6",
+    }.get(hypothesis_id, "6.1")

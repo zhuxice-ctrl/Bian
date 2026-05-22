@@ -99,3 +99,12 @@
 - The default real-trading risk config intentionally fails closed; unset max order size, loss limit, position limit, or cooldown all block the simulated path.
 - The daily startup path should assume Windows network authentication happens first; after that, one local script can start Brain, runner, dashboard, and health checks without storing secrets.
 - Secret scans over docs can find placeholder assignment examples, so the higher-signal scan for committed source/scripts should distinguish placeholder docs from executable secret-bearing files.
+
+## 2026-05-23
+
+- Indicator correctness should be locked to a repository-owned golden fixture, not TA-Lib or pandas-ta runtime comparisons; this prevents a hidden TA dependency from entering tests.
+- Strategy research decisions need four states, not two: `kept`, `rejected`, `inconclusive`, and `risk_reduction_kept`. The fourth state matters when Sharpe is not better but drawdown/volatility materially improves.
+- Hypothesis cards are only useful if they include preregistered predicted metrics before the run and actual metrics after the run; actual-only cards destroy the research method.
+- The current local BTCUSDT 1h cache is sufficient for a research smoke walk-forward with 7d train / 5d test / 1d purge, but it is too short for production-grade conclusions.
+- H-101 currently looks like a risk-control variant, not an alpha improvement: the EMA200 filter reduced exposure/drawdown in the short local sample but did not prove Sharpe improvement.
+- H-103 to H-105 need a stronger multi-timeframe walk-forward runner before conclusions are meaningful; the current vectorized runner does not yet simulate synchronized 15m/5m entries or intrabar stop/take-profit exits.

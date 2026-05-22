@@ -23,6 +23,10 @@ def test_cli_has_expected_commands():
         "review-add",
         "ai-review-draft",
         "spot-test-order",
+        "hypothesis-create",
+        "hypothesis-list",
+        "hypothesis-resolve",
+        "hypothesis-tree",
         "brain-serve",
         "dashboard-serve",
         "export",
@@ -250,6 +254,55 @@ def test_review_add_persists_daily_review(tmp_path, monkeypatch):
     assert row["symbols_watched"] == '["BTCUSDT", "ETHUSDT"]'
     assert row["plan_followed"] == 1
     assert row["mistake_tags"] == '["late_entry", "chasing"]'
+
+
+def test_hypothesis_cli_creates_and_resolves_four_level_card(tmp_path, monkeypatch, capsys):
+    db_path = tmp_path / "test.sqlite3"
+    cards_dir = tmp_path / "cards"
+    monkeypatch.setenv("TRADING_LEARNING_DB_PATH", str(db_path))
+
+    create_code = main(
+        [
+            "hypothesis-create",
+            "--title",
+            "Add EMA200 trend filter",
+            "--description",
+            "Only keep long entries above EMA200.",
+            "--parent-iteration",
+            "H-100",
+            "--change-summary",
+            "+EMA200",
+            "--predicted",
+            '{"sharpe": 0.85, "trade_count": 80}',
+            "--decision-rule",
+            "Keep on better OOS Sharpe or material drawdown reduction.",
+            "--cards-dir",
+            str(cards_dir),
+        ]
+    )
+    create_output = capsys.readouterr().out
+    resolve_code = main(
+        [
+            "hypothesis-resolve",
+            "H-001",
+            "--actual",
+            '{"sharpe": 0.8, "trade_count": 72, "max_drawdown": -0.11}',
+            "--decision",
+            "risk_reduction_kept",
+            "--reason",
+            "Drawdown improved while Sharpe remained acceptable.",
+            "--cards-dir",
+            str(cards_dir),
+        ]
+    )
+
+    markdown = (cards_dir / "H-001-add-ema200-trend-filter.md").read_text(encoding="utf-8")
+    assert create_code == 0
+    assert "H-001" in create_output
+    assert resolve_code == 0
+    assert "Predicted" in markdown
+    assert "Actual" in markdown
+    assert "risk_reduction_kept" in markdown
 
 
 class DraftHandler(BaseHTTPRequestHandler):

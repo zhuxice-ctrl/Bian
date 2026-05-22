@@ -166,3 +166,15 @@
 - Rewrote daily-use operations doc with current daily startup, Feishu queue, coach, backup, and real-trading dry-run boundaries.
 - Added release notes for Phase 45-50 and kept Phase 49 explicitly blocked.
 - Verified Phase 50 with documentation/script tests, full suite (`240 passed`), dashboard JavaScript syntax check, in-app Browser smoke for `http://127.0.0.1:8780/#safety`, and source/script secret scan.
+
+## 2026-05-23
+
+- Accepted the strategy-research direction with three hard constraints: 4 research decision levels, golden fixture indicator tests, and non-empty hypothesis cards with predicted/actual/decision/reason.
+- Added fixed indicator fixture `tests/fixtures/indicators_golden.json` and pure pandas/numpy indicators for EMA, RSI, ATR, and rolling regression slope.
+- Added `hypothesis_log` storage, `HypothesisLog`, CLI `hypothesis-create/list/resolve/tree`, and Chinese Brain hypothesis commands.
+- Added `risk_reduction_kept` as a first-class decision alongside kept, rejected, and inconclusive.
+- Added significance utilities, walk-forward runner, OOS reuse guardrails, and ablation report support.
+- Added MTF Trend strategy scaffold with H-100 through H-105 staged variables.
+- Wrote documented H-100 to H-105 hypothesis cards with predicted, actual, decision, and reason fields.
+- Added `docs/strategies/mtf_trend.md` and `exports/ablation-2026-05-23.md`.
+- Verified research-core targeted tests (`12 passed`) and full suite (`252 passed`).

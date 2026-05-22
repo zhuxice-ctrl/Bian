@@ -963,3 +963,24 @@ Acceptance criteria:
 - [x] Server bridge deploy/update steps are documented and repeatable.
 - [x] Backups and restores are verified against the current schema.
 - [x] Final verification includes tests, dashboard browser QA, JavaScript syntax check, and secret scan.
+
+## Phase 51: Scientific Strategy Research Core
+
+Status: completed
+
+Scope:
+
+- Add pure local indicators with fixed golden-fixture tests instead of TA-Lib runtime comparisons.
+- Add a durable hypothesis log with four research decisions: kept, rejected, inconclusive, and risk_reduction_kept.
+- Add significance, walk-forward, ablation, and guardrail utilities for falsifiable strategy research.
+- Add the first staged MTF Trend strategy and document H-100 through H-105 with predicted, actual, decision, and reason fields.
+- Expose hypothesis and research status commands through CLI and Chinese Brain commands.
+
+Acceptance criteria:
+
+- [x] Indicator tests use `tests/fixtures/indicators_golden.json` and do not depend on TA-Lib or pandas-ta.
+- [x] Hypothesis cards require predicted, actual, one of the four decisions, and a reason before resolution.
+- [x] Walk-forward windows enforce train/test separation with purge days.
+- [x] Guardrails enforce minimum OOS evidence and block reusing the same OOS range for repeated decisions.
+- [x] MTF Trend phases are represented as H-100 through H-105 and documented with current local OOS results.
+- [x] Full test suite passes after the research-core integration.

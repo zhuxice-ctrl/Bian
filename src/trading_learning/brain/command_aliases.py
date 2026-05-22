@@ -34,6 +34,16 @@ _KEY_ALIASES = {
     _u(r"\u77ed\u7ebf"): "short",
     _u(r"\u957f\u7ebf"): "long",
     _u(r"\u6587\u4ef6"): "csv",
+    _u(r"\u6807\u9898"): "title",
+    _u(r"\u9884\u6d4b"): "predicted",
+    _u(r"\u63cf\u8ff0"): "description",
+    _u(r"\u7236\u7248\u672c"): "parent_iteration",
+    _u(r"\u53d8\u66f4"): "change_summary",
+    _u(r"\u89c4\u5219"): "decision_rule",
+    _u(r"\u5047\u8bbe"): "hypothesis",
+    _u(r"\u51b3\u7b56"): "decision",
+    _u(r"\u5b9e\u9645"): "actual",
+    _u(r"\u7406\u7531"): "reason",
 }
 
 _YES_VALUES = {_u(r"\u662f"), _u(r"\u5bf9"), _u(r"\u597d"), _u(r"\u901a\u8fc7"), "yes", "true", "1", "ok"}
@@ -66,6 +76,12 @@ _REMOTE_MARKET_REFRESH = _u(r"\u8fdc\u7a0b\u5237\u65b0\u6570\u636e")
 _COMMIT_EXPERIMENT_REVIEW = _u(r"\u6c89\u6dc0\u5b9e\u9a8c\u590d\u76d8")
 _TESTNET_BUY = _u(r"\u6d4b\u8bd5\u7f51\u4e70\u5165")
 _TEST_BUY = _u(r"\u6d4b\u8bd5\u4e70\u5165")
+_RESEARCH_HYPOTHESIS = _u(r"\u7814\u7a76\u5047\u8bbe")
+_RESEARCH_DECISION = _u(r"\u7814\u7a76\u51b3\u7b56")
+_RESEARCH_STATUS = _u(r"\u7814\u7a76\u72b6\u6001")
+_RESEARCH_BASELINE = _u(r"\u7814\u7a76\u57fa\u7ebf")
+_RESEARCH_TEST = _u(r"\u7814\u7a76\u6d4b\u8bd5")
+_RESEARCH_ABLATION = _u(r"\u7814\u7a76\u5bf9\u6bd4")
 
 
 def normalize_brain_command(text: str) -> str:
@@ -94,6 +110,12 @@ def normalize_brain_command(text: str) -> str:
         return "/coach-daily"
     if compact in _RUN_SUGGESTED_ALIASES:
         return "/run suggested"
+    if compact == _RESEARCH_STATUS:
+        return "/research-status"
+    if compact == _RESEARCH_BASELINE:
+        return "/research-baseline"
+    if compact == _RESEARCH_ABLATION:
+        return "/research-ablation"
 
     confirm = re.fullmatch(_u(r"\u786e\u8ba4") + r"[-\s]*([A-Za-z0-9]+)", command)
     if confirm:
@@ -127,6 +149,16 @@ def normalize_brain_command(text: str) -> str:
             "/experiment-review-commit",
             command.removeprefix(_COMMIT_EXPERIMENT_REVIEW + " "),
         )
+    if command.startswith(_RESEARCH_HYPOTHESIS + " "):
+        return _rewrite_keyed_command("/hypothesis-create", command.removeprefix(_RESEARCH_HYPOTHESIS + " "))
+    if command.startswith(_RESEARCH_DECISION + " "):
+        return _rewrite_keyed_command("/hypothesis-resolve", command.removeprefix(_RESEARCH_DECISION + " "))
+    if command.startswith(_RESEARCH_BASELINE + " "):
+        return _rewrite_keyed_command("/research-baseline", command.removeprefix(_RESEARCH_BASELINE + " "))
+    if command.startswith(_RESEARCH_TEST + " "):
+        return _rewrite_keyed_command("/research-test", command.removeprefix(_RESEARCH_TEST + " "))
+    if command.startswith(_RESEARCH_ABLATION + " "):
+        return _rewrite_keyed_command("/research-ablation", command.removeprefix(_RESEARCH_ABLATION + " "))
 
     return command
 
