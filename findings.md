@@ -92,3 +92,6 @@
 - The dashboard had a latent JavaScript scope bug where experiment decisions were rendered from `renderReferenceList` using a local variable from another function. Moving that rendering into `renderStrategyLab` keeps runtime behavior consistent with the data payload.
 - Feishu remains safest when long-running work becomes a `remote_tasks` record and the local runner pulls it; adding `market_refresh` preserves that queue boundary instead of letting Feishu call local data downloads directly.
 - Chinese Feishu shortcuts should map only to known Brain commands. Unknown plain text can still go to the non-executing chat fallback, but common study workflows now avoid that dependency.
+- Testnet strategy execution should be tied to an explicit `testnet_candidate` research decision, not to raw backtest performance alone.
+- Testnet order records need context links because the useful learning object is the full chain: experiment, signal, daily plan, checklist, order result, and later review.
+- A helper named `_experiment_decision` collided with the existing Brain command handler of the same name; command handlers and read helpers should use distinct names to avoid runtime routing bugs.

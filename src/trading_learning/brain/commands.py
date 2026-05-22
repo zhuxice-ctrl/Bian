@@ -110,6 +110,11 @@ class BrainCommandHandler:
             self._audit(user_id, command_text, response)
             return response
 
+        if command_text.startswith("/testnet-signal-buy "):
+            response = self._prepare_testnet_signal_buy(command_text, user_id)
+            self._audit(user_id, command_text, response)
+            return response
+
         if command_text.startswith("/testnet-cancel "):
             response = self._prepare_testnet_cancel(command_text, user_id)
             self._audit(user_id, command_text, response)
@@ -485,6 +490,57 @@ class BrainCommandHandler:
         }
         return self._save_pending_confirmation(user_id, command_text, payload)
 
+    def _prepare_testnet_signal_buy(self, command_text: str, user_id: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/testnet-signal-buy "))
+        required = {"experiment", "signal", "quote"}
+        missing = sorted(required - fields.keys())
+        if missing:
+            return {
+                "status": "invalid",
+                "message": f"missing fields: {', '.join(missing)}",
+                "requires_confirmation": False,
+            }
+        experiment_id = fields["experiment"].strip()
+        experiment = self._experiment_row(experiment_id)
+        if experiment is None:
+            return {
+                "status": "not_found",
+                "message": f"experiment not found: {experiment_id}",
+                "requires_confirmation": False,
+            }
+        decision = self._experiment_decision_value(experiment_id)
+        if decision != "testnet_candidate":
+            return {
+                "status": "blocked",
+                "message": "experiment must be marked testnet_candidate before testnet signal execution",
+                "requires_confirmation": False,
+            }
+        try:
+            quote_order_qty = float(fields["quote"])
+        except ValueError:
+            return {
+                "status": "invalid",
+                "message": "quote must be a number",
+                "requires_confirmation": False,
+            }
+        symbol = str(experiment["symbol"]).upper()
+        context = self._execution_context(symbol)
+        if "block" in context:
+            return context["block"]
+        payload = {
+            "action": "create_order",
+            "symbol": symbol,
+            "side": "BUY",
+            "order_type": "MARKET",
+            "quote_order_qty": quote_order_qty,
+            "experiment_external_id": experiment_id,
+            "signal_id": fields["signal"].strip(),
+            "plan_external_id": context["plan_external_id"],
+            "checklist_external_id": context["checklist_external_id"],
+            "review_external_id": fields.get("review", "").strip(),
+        }
+        return self._save_pending_confirmation(user_id, command_text, payload)
+
     def _prepare_testnet_cancel(self, command_text: str, user_id: str) -> dict[str, Any]:
         fields = self._parse_key_value_args(command_text.removeprefix("/testnet-cancel "))
         if "symbol" not in fields or "order_id" not in fields:
@@ -633,8 +689,9 @@ class BrainCommandHandler:
             """
             insert into testnet_order_records (
               external_id, user_id, action, symbol, side, order_type, quote_order_qty,
-              order_id, status, request_payload, response_payload
-            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              order_id, status, experiment_external_id, signal_id, plan_external_id,
+              checklist_external_id, review_external_id, request_payload, response_payload
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 f"testnet-order-{uuid4()}",
@@ -646,6 +703,11 @@ class BrainCommandHandler:
                 payload.get("quote_order_qty"),
                 str(response.get("orderId", "")),
                 str(response.get("status", "")),
+                payload.get("experiment_external_id", ""),
+                payload.get("signal_id", ""),
+                payload.get("plan_external_id", ""),
+                payload.get("checklist_external_id", ""),
+                payload.get("review_external_id", ""),
                 json.dumps(payload, ensure_ascii=False, sort_keys=True),
                 json.dumps(response, ensure_ascii=False, sort_keys=True),
             ),
@@ -2236,22 +2298,26 @@ class BrainCommandHandler:
         }
 
     def _execution_block(self, symbol: str) -> dict[str, Any] | None:
+        context = self._execution_context(symbol)
+        return context.get("block")
+
+    def _execution_context(self, symbol: str) -> dict[str, Any]:
         plan = self._plan_for_date(self._today())
         if plan is None:
-            return {
-                "status": "blocked",
-                "message": "today's trading plan is missing",
-                "requires_confirmation": False,
-            }
+            return {"block": {
+                    "status": "blocked",
+                    "message": "today's trading plan is missing",
+                    "requires_confirmation": False,
+                }}
         if symbol not in plan["symbols"]:
-            return {
-                "status": "blocked",
-                "message": f"{symbol} is not in today's plan",
-                "requires_confirmation": False,
-            }
+            return {"block": {
+                    "status": "blocked",
+                    "message": f"{symbol} is not in today's plan",
+                    "requires_confirmation": False,
+                }}
         row = self.conn.execute(
             """
-            select plan_ok, setup_ok, risk_ok, emotion_ok
+            select external_id, plan_ok, setup_ok, risk_ok, emotion_ok
             from pre_trade_checklists
             where checklist_date = ? and symbol = ?
             order by id desc
@@ -2260,18 +2326,28 @@ class BrainCommandHandler:
             (self._today(), symbol),
         ).fetchone()
         if row is None:
-            return {
-                "status": "blocked",
-                "message": f"pre-trade checklist is missing for {symbol}",
-                "requires_confirmation": False,
-            }
+            return {"block": {
+                    "status": "blocked",
+                    "message": f"pre-trade checklist is missing for {symbol}",
+                    "requires_confirmation": False,
+                }}
         if not all(bool(row[key]) for key in ("plan_ok", "setup_ok", "risk_ok", "emotion_ok")):
-            return {
-                "status": "blocked",
-                "message": f"pre-trade checklist is not fully approved for {symbol}",
-                "requires_confirmation": False,
-            }
-        return None
+            return {"block": {
+                    "status": "blocked",
+                    "message": f"pre-trade checklist is not fully approved for {symbol}",
+                    "requires_confirmation": False,
+                }}
+        return {
+            "plan_external_id": plan["external_id"],
+            "checklist_external_id": row["external_id"],
+        }
+
+    def _experiment_decision_value(self, experiment_id: str) -> str:
+        row = self.conn.execute(
+            "select decision from experiment_decisions where experiment_external_id = ?",
+            (experiment_id,),
+        ).fetchone()
+        return str(row["decision"]) if row is not None else ""
 
     def _plan_for_date(self, plan_date: str) -> dict[str, Any] | None:
         row = self.conn.execute(
@@ -2354,7 +2430,7 @@ class BrainCommandHandler:
     def _experiment_row(self, external_id: str) -> sqlite3.Row | None:
         return self.conn.execute(
             """
-            select external_id
+            select external_id, strategy_name, symbol, interval
             from strategy_experiments
             where external_id = ?
             """,

@@ -150,3 +150,9 @@
 - Added runner capability `market_refresh`; the local runner executes it by calling the existing Brain `/market-refresh` path with the same allowed-symbol boundary.
 - Added Chinese study aliases for learning queue, task status, daily coach, and remote data refresh.
 - Verified Phase 46 with Feishu bridge, remote task, runner service, and full test suite (`234 passed`).
+- Started Phase 47 Testnet strategy execution loop.
+- Added `/testnet-signal-buy` for promoted `testnet_candidate` experiments only.
+- Extended `testnet_order_records` with experiment, signal, plan, checklist, and review link fields, plus lightweight schema migration for existing local databases.
+- Preserved the existing manual confirmation and plan/checklist risk guard before any Spot Testnet order is sent.
+- Fixed a helper naming conflict with the existing `/experiment-decision` command during full-suite verification.
+- Verified Phase 47 with testnet lifecycle tests and full test suite (`236 passed`).

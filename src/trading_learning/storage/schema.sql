@@ -257,6 +257,11 @@ create table if not exists testnet_order_records (
   quote_order_qty real,
   order_id text not null default '',
   status text not null default '',
+  experiment_external_id text not null default '',
+  signal_id text not null default '',
+  plan_external_id text not null default '',
+  checklist_external_id text not null default '',
+  review_external_id text not null default '',
   request_payload text not null default '{}',
   response_payload text not null default '{}',
   created_at text not null default CURRENT_TIMESTAMP

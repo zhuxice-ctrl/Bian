@@ -898,7 +898,7 @@ Acceptance criteria:
 
 ## Phase 47: Testnet Strategy Execution Loop
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -908,10 +908,10 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] A research experiment can be explicitly promoted to a testnet candidate.
-- [ ] Testnet execution records link back to strategy, signal, plan, checklist, and review records.
-- [ ] Kill-switch and risk guards block execution when unsafe.
-- [ ] Tests cover the full testnet lifecycle without touching real trading.
+- [x] A research experiment can be explicitly promoted to a testnet candidate.
+- [x] Testnet execution records link back to strategy, signal, plan, checklist, and review records.
+- [x] Kill-switch and risk guards block execution when unsafe.
+- [x] Tests cover the full testnet lifecycle without touching real trading.
 
 ## Phase 48: Real Trading Readiness Implementation
 
