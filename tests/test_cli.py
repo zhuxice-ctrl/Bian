@@ -18,6 +18,7 @@ def test_cli_has_expected_commands():
         "init-db",
         "download-klines",
         "refresh-market-data",
+        "import-market-csv",
         "backtest-ma",
         "review-add",
         "ai-review-draft",
@@ -174,6 +175,22 @@ def test_refresh_market_data_rejects_symbols_outside_learning_scope(tmp_path, mo
     exit_code = main(["refresh-market-data", "--symbols", "SOLUSDT", "--intervals", "1h"])
 
     assert exit_code == 1
+
+
+def test_import_market_csv_cli_imports_manual_dataset(tmp_path, monkeypatch):
+    source = tmp_path / "spy.csv"
+    source.write_text(
+        "opened_at,open,high,low,close,volume\n"
+        "2026-05-21T00:00:00+00:00,500,505,499,504,1200\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TRADING_LEARNING_DB_PATH", str(tmp_path / "test.sqlite3"))
+
+    exit_code = main(["import-market-csv", "--symbol", "SPY", "--interval", "1d", "--input", str(source)])
+
+    assert exit_code == 0
+    assert (tmp_path / "data" / "local" / "market_data" / "SPY" / "SPY-1d.csv").exists()
 
 
 def test_backtest_ma_rejects_symbols_outside_learning_scope(tmp_path, monkeypatch):

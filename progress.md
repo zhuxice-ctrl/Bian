@@ -113,3 +113,11 @@
 - Added a collapsible page-aware AI Coach panel and top safety/status strip.
 - Restyled the dashboard as a dark professional local quant workstation while preserving existing Lightweight Charts, action endpoints, and safety boundaries.
 - Verified Phase 40 with dashboard tests (`16 passed`), full suite (`209 passed`), dashboard JavaScript syntax check, and Chrome headless desktop smoke screenshot.
+- Started Phase 41 market data pipeline hardening.
+- Initially tried to read `src/trading_learning/binance/klines.py`; the correct module is `src/trading_learning/market_data/binance_klines.py`.
+- Added incremental market-data refresh: existing and fetched candles are merged by `opened_at`, sorted, and written without duplicate rows.
+- Added interval gap detection, `gap_count`, `has_gaps`, and `next_expected_opened_at` to dataset inventory.
+- Added Brain `/market-status` gap summaries and dashboard dataset gap/next-candle display.
+- Added manual `import-market-csv` support for ETF/stock/manual datasets into the local market cache.
+- Verified Phase 41 with targeted tests (`39 passed`), full suite (`214 passed`), and dashboard JavaScript syntax check.
+- Repeated the PowerShell `&&` mistake while checking diff/status; no repository changes were made by that failed command, and subsequent git checks are run as separate commands.

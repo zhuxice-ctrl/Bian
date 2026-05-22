@@ -1122,12 +1122,14 @@ class BrainCommandHandler:
         datasets = inventory_datasets(allowed_symbols=symbols, intervals=intervals)
         cached = [dataset for dataset in datasets if dataset["exists"]]
         missing = [dataset for dataset in datasets if not dataset["exists"]]
+        gap_count = sum(int(dataset.get("gap_count", 0)) for dataset in datasets)
         return {
             "status": "ok",
             "cached_count": len(cached),
             "missing_count": len(missing),
+            "gap_count": gap_count,
             "datasets": datasets,
-            "message": f"Market data cache: cached={len(cached)} missing={len(missing)}",
+            "message": f"Market data cache: cached={len(cached)} missing={len(missing)} gaps={gap_count}",
             "requires_confirmation": False,
         }
 

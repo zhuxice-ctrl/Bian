@@ -27,6 +27,7 @@ from trading_learning.journal.repository import save_trades
 from trading_learning.market_data.binance_klines import fetch_klines, save_klines_csv
 from trading_learning.market_data.catalog import DEFAULT_MARKET_INTERVALS
 from trading_learning.market_data.catalog import refresh_market_data
+from trading_learning.market_data.catalog import import_market_csv
 from trading_learning.market_data.csv_loader import load_candles_csv
 from trading_learning.ops import backup_database
 from trading_learning.ops import build_local_health
@@ -116,6 +117,11 @@ def build_parser() -> argparse.ArgumentParser:
     refresh_market.add_argument("--symbols", default="")
     refresh_market.add_argument("--intervals", default="")
     refresh_market.add_argument("--limit", type=int, default=500)
+
+    import_market = subparsers.add_parser("import-market-csv", help="import a manual market CSV into local cache")
+    import_market.add_argument("--symbol", required=True)
+    import_market.add_argument("--interval", required=True)
+    import_market.add_argument("--input", required=True)
 
     backtest = subparsers.add_parser("backtest-ma", help="run a moving-average backtest")
     backtest.add_argument("--csv", required=True)
@@ -288,6 +294,16 @@ def main(argv: list[str] | None = None) -> int:
                 limit=args.limit,
             )
             print(f"refreshed {len(result['datasets'])} datasets")
+            return 0
+
+        if args.command == "import-market-csv":
+            result = import_market_csv(
+                source_csv=Path(args.input),
+                symbol=args.symbol,
+                interval=args.interval,
+            )
+            dataset = result["dataset"]
+            print(f"imported {dataset['symbol']} {dataset['interval']} rows={dataset['row_count']} path={dataset['path']}")
             return 0
 
         if args.command == "backtest-ma":

@@ -794,7 +794,7 @@ Acceptance criteria:
 
 ## Phase 41: Market Data Pipeline Hardening
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -805,10 +805,10 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] BTC/ETH cache refresh can update only new candles without duplicating rows.
-- [ ] The app can report missing ranges and stale datasets.
-- [ ] ETF/stock import path is supported through a configured provider or manual CSV import.
-- [ ] Tests cover incremental refresh, gap detection, and provider boundaries.
+- [x] BTC/ETH cache refresh can update only new candles without duplicating rows.
+- [x] The app can report missing ranges and stale datasets.
+- [x] ETF/stock import path is supported through a configured provider or manual CSV import.
+- [x] Tests cover incremental refresh, gap detection, and provider boundaries.
 
 ## Phase 42: Strategy Engine Expansion
 

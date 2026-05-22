@@ -265,7 +265,7 @@ function renderDatasets() {
         <article class="item">
           <span>${escapeHtml(dataset.symbol)} &middot; ${escapeHtml(dataset.interval)} &middot; ${dataset.exists ? `${dataset.row_count} bars` : "\u672a\u7f13\u5b58"}</span>
           <strong>${escapeHtml(dataset.path)}</strong>
-          <p>${escapeHtml(dataset.first_opened_at || "-")} \u2192 ${escapeHtml(dataset.last_opened_at || "-")} &middot; ${escapeHtml(dataset.source || "-")}</p>
+          <p>${escapeHtml(dataset.first_opened_at || "-")} \u2192 ${escapeHtml(dataset.last_opened_at || "-")} &middot; gaps=${dataset.gap_count ?? 0} &middot; next=${escapeHtml(dataset.next_expected_opened_at || "-")} &middot; ${escapeHtml(dataset.source || "-")}</p>
         </article>
       `,
     )
