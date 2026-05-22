@@ -949,7 +949,7 @@ Acceptance criteria:
 
 ## Phase 50: Operations, Packaging, And Maintenance
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -959,7 +959,7 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] A normal daily startup flow works after Windows reboot and network verification.
-- [ ] Server bridge deploy/update steps are documented and repeatable.
-- [ ] Backups and restores are verified against the current schema.
-- [ ] Final verification includes tests, dashboard browser QA, JavaScript syntax check, and secret scan.
+- [x] A normal daily startup flow works after Windows reboot and network verification.
+- [x] Server bridge deploy/update steps are documented and repeatable.
+- [x] Backups and restores are verified against the current schema.
+- [x] Final verification includes tests, dashboard browser QA, JavaScript syntax check, and secret scan.

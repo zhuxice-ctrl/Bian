@@ -161,3 +161,8 @@
 - Expanded production readiness status with daily loss, position limit, cooldown, and dry-run verification gates.
 - Added Brain `/real-dry-run-buy` for local simulation only and `/real-create-buy` as an explicit blocked route.
 - Verified that dry-run does not call the executor and that real order commands remain blocked; full suite passed with `239 passed`.
+- Started Phase 50 operations, packaging, and maintenance.
+- Added `scripts/start-local-workstation.ps1` to start Brain, optional Quant Runner, dashboard, and health check after Windows reboot/network verification.
+- Rewrote daily-use operations doc with current daily startup, Feishu queue, coach, backup, and real-trading dry-run boundaries.
+- Added release notes for Phase 45-50 and kept Phase 49 explicitly blocked.
+- Verified Phase 50 with documentation/script tests, full suite (`240 passed`), dashboard JavaScript syntax check, in-app Browser smoke for `http://127.0.0.1:8780/#safety`, and source/script secret scan.
