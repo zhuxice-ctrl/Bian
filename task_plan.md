@@ -581,3 +581,22 @@ Acceptance criteria:
 - [x] Daily-use command guide is Chinese-first.
 - [x] Update/deploy process is documented.
 - [x] Final verification includes full tests, dashboard JavaScript check, and sensitive information scan.
+
+## Phase 29: Local Application Console
+
+Status: completed
+
+Scope:
+
+- Reference mature quant application structures without copying external project code.
+- Add a unified local console to the existing dashboard for system status, task queue, AI Coach, strategy lab, Testnet records, and production gate.
+- Keep the console read-only and local-first.
+- Preserve the existing replay/report workspace.
+
+Acceptance criteria:
+
+- [x] Dashboard exposes `/api/control-console`.
+- [x] Control console payload includes health, remote tasks, coach proposals, strategy profiles, parameter sweeps, testnet records, production gate, and reference notes.
+- [x] Static dashboard shows console panels for tasks, coach proposals, strategy lab, sweeps, testnet orders, and real-trading gate.
+- [x] Tests cover dashboard data payload, HTTP route, and static UI markers.
+- [x] Documentation records the Freqtrade/Jesse/vectorbt reference direction.

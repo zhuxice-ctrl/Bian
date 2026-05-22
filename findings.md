@@ -66,3 +66,5 @@
 - Phase 23-28 complete the first final-product skeleton: deterministic AI coach proposals, strategy profiles, parameter sweeps, sanitized testnet workbench, health/backup commands, production gate, and Chinese operation docs.
 - The strategy lab deliberately labels parameter sweeps as research-only because best-parameter selection on one sample is an overfitting risk.
 - The production gate is a blocker, not an enablement path. Real trading still has no executable order route.
+- Phase 29 should not replace Bian with Freqtrade/Jesse/vectorbt. The useful reference is application structure: status surfaces, research workflow separation, parameter-grid visibility, and explicit risk state.
+- The local application console can remain read-only while still becoming the user's main application shell.

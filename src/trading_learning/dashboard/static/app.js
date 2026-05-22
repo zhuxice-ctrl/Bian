@@ -4,6 +4,7 @@ const state = {
   datasets: [],
   reviews: [],
   knowledge: [],
+  controlConsole: null,
   replay: null,
   report: null,
   reviewDraft: null,
@@ -62,6 +63,7 @@ const text = {
   savedReview: "\u5df2\u4fdd\u5b58\u8349\u7a3f",
   noRiskFlags: "\u6682\u65e0\u98ce\u9669\u6807\u8bb0",
   noFocusTrades: "\u6682\u65e0\u91cd\u70b9\u4e8f\u635f\u4ea4\u6613",
+  empty: "\u6682\u65e0\u8bb0\u5f55",
 };
 
 const fmt = new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 });
@@ -178,6 +180,114 @@ function renderKnowledge() {
       `,
     )
     .join("");
+}
+
+function renderControlConsole() {
+  const data = state.controlConsole;
+  if (!data) return;
+  const counts = data.health?.counts || {};
+  document.querySelector("#consoleMetrics").innerHTML = [
+    metric("\u26412\u5730\u5065\u5eb7", data.health?.status || "-"),
+    metric("\u961f\u5217\u4efb\u52a1", data.tasks?.length ?? 0),
+    metric("AI Coach", data.coach?.proposals?.length ?? 0),
+    metric("\u7b56\u7565 Profile", data.strategy_lab?.profiles?.length ?? 0),
+    metric("\u53c2\u6570\u626b\u63cf", data.strategy_lab?.sweeps?.length ?? 0),
+    metric("\u5b9e\u76d8", data.production_gate?.real_trading_enabled ? "\u5df2\u542f\u7528" : "\u7981\u7528"),
+  ].join("");
+  renderTaskQueue(data.tasks || []);
+  renderCoachProposals(data.coach?.proposals || []);
+  renderStrategyLab(data.strategy_lab || {});
+  renderTestnetOrders(data.testnet?.orders || []);
+  renderProductionGate(data.production_gate || {});
+}
+
+function renderTaskQueue(tasks) {
+  document.querySelector("#taskQueueList").innerHTML = tasks.length
+    ? tasks
+        .map(
+          (task) => `
+            <article class="item">
+              <span>${escapeHtml(task.task_type)} &middot; ${escapeHtml(task.state)} &middot; ${escapeHtml(task.risk_level)}</span>
+              <strong>${escapeHtml(task.external_id)}</strong>
+              <p>${escapeHtml(task.result_summary || task.command_text || "-")}</p>
+            </article>
+          `,
+        )
+        .join("")
+    : `<p class="empty-note">${text.empty}</p>`;
+}
+
+function renderCoachProposals(proposals) {
+  document.querySelector("#coachProposalList").innerHTML = proposals.length
+    ? proposals
+        .map(
+          (proposal) => `
+            <article class="item">
+              <span>${escapeHtml(proposal.status)} &middot; ${escapeHtml(proposal.source_experiment_external_id || "\u57fa\u7ebf")}</span>
+              <strong>${escapeHtml(proposal.hypothesis?.title || proposal.external_id)}</strong>
+              <p>${escapeHtml(proposal.suggested_command || "-")}</p>
+            </article>
+          `,
+        )
+        .join("")
+    : `<p class="empty-note">${text.empty}</p>`;
+}
+
+function renderStrategyLab(strategyLab) {
+  const profiles = strategyLab.profiles || [];
+  const sweeps = strategyLab.sweeps || [];
+  document.querySelector("#strategyProfileList").innerHTML = profiles.length
+    ? profiles
+        .map(
+          (profile) => `
+            <article class="item">
+              <span>${escapeHtml(profile.symbol)} ${escapeHtml(profile.interval)} &middot; ${escapeHtml(profile.strategy_name)}</span>
+              <strong>${escapeHtml(profile.name)}</strong>
+              <p>${escapeHtml(JSON.stringify(profile.parameters || {}))}</p>
+            </article>
+          `,
+        )
+        .join("")
+    : `<p class="empty-note">${text.empty}</p>`;
+  document.querySelector("#sweepList").innerHTML = sweeps.length
+    ? sweeps
+        .map(
+          (sweep) => `
+            <article class="item">
+              <span>${escapeHtml(sweep.symbol)} ${escapeHtml(sweep.interval)} &middot; ${sweep.run_count} runs</span>
+              <strong>${escapeHtml(sweep.best_experiment || sweep.external_id)}</strong>
+              <p>${escapeHtml(sweep.overfitting_warning || "-")}</p>
+            </article>
+          `,
+        )
+        .join("")
+    : `<p class="empty-note">${text.empty}</p>`;
+}
+
+function renderTestnetOrders(orders) {
+  document.querySelector("#testnetOrderList").innerHTML = orders.length
+    ? orders
+        .map(
+          (order) => `
+            <article class="item">
+              <span>${escapeHtml(order.action)} &middot; ${escapeHtml(order.status || "-")}</span>
+              <strong>${escapeHtml(order.symbol)} ${escapeHtml(order.side)} ${escapeHtml(order.order_type)}</strong>
+              <p>order_id=${escapeHtml(order.order_id || "-")}</p>
+            </article>
+          `,
+        )
+        .join("")
+    : `<p class="empty-note">${text.empty}</p>`;
+}
+
+function renderProductionGate(gate) {
+  const missing = gate.missing || [];
+  document.querySelector("#productionGatePanel").innerHTML = `
+    <strong>${gate.real_trading_enabled ? "\u5b9e\u76d8\u5df2\u542f\u7528" : "\u5b9e\u76d8\u7981\u7528"}</strong>
+    <span>kill_switch=${gate.kill_switch_active ? "on" : "off"}</span>
+    <p>${escapeHtml(gate.message || "")}</p>
+    <p>${missing.length ? escapeHtml(missing.join(", ")) : "\u65e0\u7f3a\u5931\u9879"}</p>
+  `;
 }
 
 function createCharts() {
@@ -758,23 +868,26 @@ async function loadDataset() {
 async function boot() {
   try {
     createCharts();
-    const [overview, reviews, experiments, knowledge, datasets] = await Promise.all([
+    const [overview, reviews, experiments, knowledge, datasets, controlConsole] = await Promise.all([
       getJson("/api/overview"),
       getJson("/api/reviews?limit=8"),
       getJson("/api/experiments?limit=12"),
       getJson("/api/knowledge?limit=12"),
       getJson("/api/datasets"),
+      getJson("/api/control-console"),
     ]);
     state.overview = overview;
     state.reviews = reviews.reviews;
     state.experiments = experiments.experiments;
     state.knowledge = knowledge.cards;
     state.datasets = datasets.datasets;
+    state.controlConsole = controlConsole;
     renderOverview();
     renderReviews();
     renderExperiments();
     renderDatasets();
     renderKnowledge();
+    renderControlConsole();
     if (state.experiments.length) {
       await loadReplay();
     } else if (state.datasets.length) {

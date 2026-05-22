@@ -85,7 +85,8 @@ h3 {
 
 .overview,
 .replay,
-.knowledge {
+.knowledge,
+.local-console {
   grid-column: 1 / -1;
 }
 
@@ -236,6 +237,30 @@ button {
   margin-top: 16px;
   border-top: 1px solid var(--line);
   padding-top: 16px;
+}
+
+.console-metrics {
+  grid-template-columns: repeat(6, minmax(110px, 1fr));
+}
+
+.console-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.console-box {
+  min-width: 0;
+}
+
+.compact-list {
+  max-height: 300px;
+  overflow: auto;
+}
+
+.compact-list .item p {
+  overflow-wrap: anywhere;
 }
 
 #comparisonSelect {
@@ -511,7 +536,8 @@ button {
   }
 
   .review-summary,
-  .review-grid {
+  .review-grid,
+  .console-grid {
     grid-template-columns: 1fr;
   }
 

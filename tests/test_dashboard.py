@@ -231,6 +231,72 @@ def test_dashboard_experiment_comparison_returns_metrics_and_parameters(tmp_path
     assert comparison["parameter_keys"] == ["long_window", "short_window"]
 
 
+def test_dashboard_control_console_aggregates_product_state(tmp_path):
+    with connect(tmp_path / "dashboard.sqlite3") as conn:
+        initialize_schema(conn)
+        conn.execute(
+            """
+            insert into remote_tasks (
+              external_id, requester_user_id, command_text, task_type, risk_level, payload, state
+            ) values ('task-1', 'owner', '/queue-status', 'local_status', 'query', '{}', 'queued')
+            """
+        )
+        conn.execute(
+            """
+            insert into experiment_proposals (
+              external_id, hypothesis_external_id, source_experiment_external_id, content
+            ) values (
+              'proposal-1',
+              'hypothesis-1',
+              'experiment-1',
+              '{"external_id": "proposal-1", "hypothesis": {"title": "Next MA test"}, "suggested_command": "/queue-backtest-ma symbol=BTCUSDT"}'
+            )
+            """
+        )
+        conn.execute(
+            """
+            insert into strategy_profiles (
+              external_id, name, strategy_name, symbol, interval, source_csv, parameters
+            ) values ('profile-1', 'ma_baseline', 'moving_average_crossover', 'BTCUSDT', '1h', 'data/local/BTCUSDT-1h.csv', '{"short_window": 20}')
+            """
+        )
+        conn.execute(
+            """
+            insert into parameter_sweeps (
+              external_id, strategy_name, symbol, interval, source_csv, grid, result
+            ) values (
+              'sweep-1',
+              'moving_average_crossover',
+              'BTCUSDT',
+              '1h',
+              'data/local/BTCUSDT-1h.csv',
+              '{"shorts": [10], "longs": [40]}',
+              '{"external_id": "sweep-1", "run_count": 1, "best_experiment": "experiment-2", "overfitting_warning": "research only"}'
+            )
+            """
+        )
+        conn.execute(
+            """
+            insert into testnet_order_records (
+              external_id, user_id, action, symbol, side, order_type, order_id, status
+            ) values ('testnet-order-1', 'owner', 'create_order', 'BTCUSDT', 'BUY', 'MARKET', '123', 'FILLED')
+            """
+        )
+        conn.commit()
+
+        console = DashboardData(conn).control_console()
+
+    assert console["status"] == "ok"
+    assert console["health"]["status"] == "ok"
+    assert console["tasks"][0]["external_id"] == "task-1"
+    assert console["coach"]["proposals"][0]["external_id"] == "proposal-1"
+    assert console["strategy_lab"]["profiles"][0]["name"] == "ma_baseline"
+    assert console["strategy_lab"]["sweeps"][0]["best_experiment"] == "experiment-2"
+    assert console["testnet"]["orders"][0]["order_id"] == "123"
+    assert console["production_gate"]["real_trading_enabled"] is False
+    assert [item["project"] for item in console["references"]] == ["Freqtrade", "Jesse", "vectorbt"]
+
+
 def test_dashboard_experiment_review_returns_stored_or_generated_draft(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     csv_path = tmp_path / "data" / "local" / "BTCUSDT-1h.csv"
@@ -394,6 +460,8 @@ def test_dashboard_http_serves_api_and_static_page(tmp_path):
                     timeout=5,
                 ) as response:
                     comparison = json.loads(response.read().decode("utf-8"))
+                with urlopen(f"http://127.0.0.1:{server.server_port}/api/control-console", timeout=5) as response:
+                    console = json.loads(response.read().decode("utf-8"))
             finally:
                 os.chdir(original_cwd)
         finally:
@@ -410,6 +478,7 @@ def test_dashboard_http_serves_api_and_static_page(tmp_path):
         assert review["status"] == "not_found"
         assert comparison["status"] == "ok"
         assert comparison["experiments"] == []
+        assert console["status"] == "ok"
 
 
 def test_dashboard_http_rejects_kline_paths_outside_data_local(tmp_path):
@@ -464,6 +533,13 @@ def test_dashboard_static_page_exposes_interactive_replay_controls():
         'id="reviewFocusTrades"',
         'id="reviewQuestions"',
         'id="reviewLearningTasks"',
+        'id="consoleMetrics"',
+        'id="taskQueueList"',
+        'id="coachProposalList"',
+        'id="strategyProfileList"',
+        'id="sweepList"',
+        'id="testnetOrderList"',
+        'id="productionGatePanel"',
         'id="klineChart"',
         'id="volumeChart"',
         "lightweight-charts.standalone.production.js",
@@ -487,6 +563,11 @@ def test_dashboard_static_script_uses_lightweight_charts_engine():
         "function jumpToNextTrade",
         "function movingAverage",
         "function renderDatasets",
+        "function renderControlConsole",
+        "function renderTaskQueue",
+        "function renderCoachProposals",
+        "function renderStrategyLab",
+        "function renderProductionGate",
         "function loadDataset",
         "function loadBacktestReport",
         "function renderBacktestReport",
@@ -504,5 +585,6 @@ def test_dashboard_static_script_uses_lightweight_charts_engine():
         "/api/experiment-comparison",
         "/api/experiment-review",
         "/api/datasets",
+        "/api/control-console",
     ]:
         assert marker in script

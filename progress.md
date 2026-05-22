@@ -85,3 +85,6 @@
 - Added Phase 26 local health check, SQLite backup, and restore support.
 - Added Phase 27 production readiness gate commands that keep real trading disabled.
 - Added Phase 28 Chinese operation docs for local setup, server setup, and daily use.
+- Added Phase 29 local application console API `/api/control-console`.
+- Added dashboard console panels for task queue, AI Coach proposals, strategy profiles, parameter sweeps, Testnet orders, and production gate.
+- Added `docs/operations/app-framework-references-zh.md` to record how Freqtrade, Jesse, and vectorbt are being used as structural references.

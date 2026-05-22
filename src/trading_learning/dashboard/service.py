@@ -51,6 +51,9 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             if parsed.path == "/api/datasets":
                 self._write_json(self.data.datasets(), HTTPStatus.OK)
                 return
+            if parsed.path == "/api/control-console":
+                self._write_json(self.data.control_console(), HTTPStatus.OK)
+                return
             if parsed.path == "/api/backtest-report":
                 query = parse_qs(parsed.query)
                 self._write_json(

@@ -316,6 +316,23 @@ Operational docs:
 - `docs/operations/local-setup-zh.md`
 - `docs/operations/server-setup-zh.md`
 - `docs/operations/daily-use-zh.md`
+- `docs/operations/app-framework-references-zh.md`
+
+### Local Application Console
+
+The dashboard now includes a local application console inspired by mature quant tools while keeping Bian's local-first boundary:
+
+- Task queue and runner state
+- AI Coach experiment proposals
+- Strategy profiles and parameter sweeps
+- Testnet order records
+- Production trading gate
+
+The aggregate API is read-only:
+
+```text
+GET /api/control-console
+```
 
 Before connecting the real Feishu app, run the local callback smoke test:
 

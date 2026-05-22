@@ -12,6 +12,8 @@ from trading_learning.learning.experiment_review import build_experiment_review_
 from trading_learning.market_data.catalog import inventory_datasets
 from trading_learning.market_data.csv_loader import load_candles_csv
 from trading_learning.models import BacktestResult, Side, Trade
+from trading_learning.ops import build_local_health
+from trading_learning.production_gate import production_readiness_status
 
 
 class DashboardData:
@@ -157,11 +159,164 @@ class DashboardData:
             ],
         }
 
+    def control_console(self) -> dict[str, Any]:
+        return {
+            "status": "ok",
+            "health": build_local_health(self._database_path()),
+            "tasks": self._recent_remote_tasks(limit=8),
+            "coach": {
+                "proposals": self._recent_experiment_proposals(limit=5),
+            },
+            "strategy_lab": {
+                "profiles": self._strategy_profiles(limit=5),
+                "sweeps": self._parameter_sweeps(limit=5),
+            },
+            "testnet": {
+                "orders": self._testnet_orders(limit=5),
+            },
+            "production_gate": production_readiness_status(),
+            "references": [
+                {
+                    "project": "Freqtrade",
+                    "lesson": "Use explicit REST-like status, task, and control surfaces instead of hiding state in logs.",
+                },
+                {
+                    "project": "Jesse",
+                    "lesson": "Keep strategy research, backtesting, and execution workflows separated.",
+                },
+                {
+                    "project": "vectorbt",
+                    "lesson": "Treat parameter sweeps as research data and surface overfitting warnings.",
+                },
+            ],
+        }
+
     def datasets(self) -> dict[str, Any]:
         return {
             "status": "ok",
             "datasets": inventory_datasets(allowed_symbols=self.allowed_symbols),
         }
+
+    def _recent_remote_tasks(self, *, limit: int) -> list[dict[str, Any]]:
+        try:
+            rows = self.conn.execute(
+                """
+                select external_id, requester_user_id, command_text, task_type, risk_level,
+                       state, runner_id, result_summary, error_message, created_at, updated_at
+                from remote_tasks
+                order by id desc
+                limit ?
+                """,
+                (limit,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+        return [dict(row) for row in rows]
+
+    def _recent_experiment_proposals(self, *, limit: int) -> list[dict[str, Any]]:
+        try:
+            rows = self.conn.execute(
+                """
+                select external_id, source_experiment_external_id, content, status, outcome, created_at, updated_at
+                from experiment_proposals
+                order by id desc
+                limit ?
+                """,
+                (limit,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+        proposals = []
+        for row in rows:
+            content = self._json(row["content"], {})
+            proposals.append(
+                {
+                    "external_id": row["external_id"],
+                    "source_experiment_external_id": row["source_experiment_external_id"],
+                    "status": row["status"],
+                    "hypothesis": content.get("hypothesis", {}),
+                    "suggested_command": content.get("suggested_command", ""),
+                    "outcome": self._json(row["outcome"], {}),
+                    "created_at": row["created_at"],
+                    "updated_at": row["updated_at"],
+                }
+            )
+        return proposals
+
+    def _strategy_profiles(self, *, limit: int) -> list[dict[str, Any]]:
+        try:
+            rows = self.conn.execute(
+                """
+                select external_id, name, strategy_name, symbol, interval, source_csv, parameters, description, updated_at
+                from strategy_profiles
+                order by id desc
+                limit ?
+                """,
+                (limit,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+        return [
+            {
+                "external_id": row["external_id"],
+                "name": row["name"],
+                "strategy_name": row["strategy_name"],
+                "symbol": row["symbol"],
+                "interval": row["interval"],
+                "source_csv": row["source_csv"],
+                "parameters": self._json(row["parameters"], {}),
+                "description": row["description"],
+                "updated_at": row["updated_at"],
+            }
+            for row in rows
+        ]
+
+    def _parameter_sweeps(self, *, limit: int) -> list[dict[str, Any]]:
+        try:
+            rows = self.conn.execute(
+                """
+                select external_id, strategy_name, symbol, interval, source_csv, grid, result, created_at
+                from parameter_sweeps
+                order by id desc
+                limit ?
+                """,
+                (limit,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+        sweeps = []
+        for row in rows:
+            result = self._json(row["result"], {})
+            sweeps.append(
+                {
+                    "external_id": row["external_id"],
+                    "strategy_name": row["strategy_name"],
+                    "symbol": row["symbol"],
+                    "interval": row["interval"],
+                    "source_csv": row["source_csv"],
+                    "grid": self._json(row["grid"], {}),
+                    "run_count": result.get("run_count", 0),
+                    "best_experiment": result.get("best_experiment", ""),
+                    "overfitting_warning": result.get("overfitting_warning", ""),
+                    "created_at": row["created_at"],
+                }
+            )
+        return sweeps
+
+    def _testnet_orders(self, *, limit: int) -> list[dict[str, Any]]:
+        try:
+            rows = self.conn.execute(
+                """
+                select external_id, user_id, action, symbol, side, order_type, order_id, status, created_at
+                from testnet_order_records
+                order by id desc
+                limit ?
+                """,
+                (limit,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+        return [dict(row) for row in rows]
 
     def backtest_report(self, experiment_id: str) -> dict[str, Any]:
         replay = self.kline_replay(experiment_id, limit=5000)
@@ -447,6 +602,12 @@ class DashboardData:
             return json.loads(value)
         except json.JSONDecodeError:
             return fallback
+
+    def _database_path(self) -> Path:
+        row = self.conn.execute("pragma database_list").fetchone()
+        if row is None or not row["file"]:
+            return Path(":memory:")
+        return Path(row["file"])
 
     @staticmethod
     def _safe_data_local_path(value: str) -> Path:
