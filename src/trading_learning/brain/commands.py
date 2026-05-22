@@ -1778,7 +1778,7 @@ class BrainCommandHandler:
 
     def _strategy_profile_set(self, command_text: str) -> dict[str, Any]:
         fields = self._parse_key_value_args(command_text.removeprefix("/strategy-profile-set "))
-        required = {"name", "symbol", "interval", "csv", "short", "long"}
+        required = {"name", "symbol", "interval", "csv"}
         missing = sorted(required - fields.keys())
         if missing:
             return {
@@ -1789,12 +1789,9 @@ class BrainCommandHandler:
         symbol = fields["symbol"].upper()
         if symbol not in self.allowed_market_symbols:
             return self._symbol_not_allowed(symbol)
+        strategy_name = fields.get("strategy", "moving_average_crossover")
         try:
-            parameters = {
-                "short_window": int(fields["short"]),
-                "long_window": int(fields["long"]),
-                "quote_amount": float(fields.get("quote_amount", "100")),
-            }
+            parameters = self._strategy_parameters(strategy_name, fields)
         except ValueError:
             return {
                 "status": "invalid",
@@ -1808,6 +1805,7 @@ class BrainCommandHandler:
             interval=fields["interval"],
             source_csv=fields["csv"],
             parameters=parameters,
+            strategy_name=strategy_name,
             description=self._display_value(fields.get("description", "")),
         )
         return {
@@ -1816,6 +1814,36 @@ class BrainCommandHandler:
             "profile": profile,
             "requires_confirmation": False,
         }
+
+    def _strategy_parameters(self, strategy_name: str, fields: dict[str, str]) -> dict[str, Any]:
+        normalized = strategy_name.strip().lower()
+        if normalized in {"moving_average_crossover", "ma_cross", "ma"}:
+            if "short" not in fields or "long" not in fields:
+                raise ValueError("missing moving average windows")
+            return {
+                "short_window": int(fields["short"]),
+                "long_window": int(fields["long"]),
+                "quote_amount": float(fields.get("quote_amount", "100")),
+            }
+        if normalized == "breakout":
+            return {
+                "lookback": int(fields.get("lookback", "20")),
+                "quote_amount": float(fields.get("quote_amount", "100")),
+            }
+        if normalized == "mean_reversion":
+            return {
+                "window": int(fields.get("window", "20")),
+                "threshold_pct": float(fields.get("threshold_pct", "0.03")),
+                "quote_amount": float(fields.get("quote_amount", "100")),
+            }
+        if normalized == "volatility_filter":
+            return {
+                "short_window": int(fields.get("short", fields.get("short_window", "20"))),
+                "long_window": int(fields.get("long", fields.get("long_window", "60"))),
+                "min_range_pct": float(fields.get("min_range_pct", "0.01")),
+                "quote_amount": float(fields.get("quote_amount", "100")),
+            }
+        raise ValueError("unknown strategy")
 
     def _strategy_profile_list(self, command_text: str) -> dict[str, Any]:
         fields = self._parse_key_value_args(command_text.removeprefix("/strategy-profile-list").strip())

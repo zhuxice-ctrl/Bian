@@ -13,7 +13,7 @@ from trading_learning.brain.commands import BrainCommandHandler
 from trading_learning.config import DEFAULT_ALLOWED_SYMBOLS
 from trading_learning.journal.repository import save_trades
 from trading_learning.market_data.csv_loader import load_candles_csv
-from trading_learning.strategy.moving_average import moving_average_crossover_signals
+from trading_learning.strategy.library import generate_strategy_signals
 
 
 def run_local_ma_backtest_action(
@@ -26,8 +26,7 @@ def run_local_ma_backtest_action(
         symbol = str(payload.get("symbol", "")).upper()
         interval = str(payload.get("interval", "")).strip()
         csv_path = _safe_data_local_path(str(payload.get("csv", "")))
-        short_window = int(payload.get("short", payload.get("short_window", 20)))
-        long_window = int(payload.get("long", payload.get("long_window", 60)))
+        strategy_name = str(payload.get("strategy", "moving_average_crossover")).strip() or "moving_average_crossover"
         starting_cash = float(payload.get("starting_cash", 1000.0))
         quote_amount = float(payload.get("quote_amount", 100.0))
         fee_rate = float(payload.get("fee", payload.get("fee_rate", 0.001)))
@@ -43,12 +42,14 @@ def run_local_ma_backtest_action(
             "message": f"symbol not allowed: {symbol}. allowed: {', '.join(allowed_symbols)}",
             "requires_confirmation": False,
         }
-    if short_window <= 0 or long_window <= 0 or short_window >= long_window:
-        return {"status": "invalid", "message": "short window must be positive and smaller than long window", "requires_confirmation": False}
+    try:
+        strategy_parameters = _strategy_parameters_from_payload(strategy_name, payload)
+    except ValueError as exc:
+        return {"status": "invalid", "message": str(exc), "requires_confirmation": False}
 
     try:
         candles = load_candles_csv(csv_path, symbol)
-        signals = moving_average_crossover_signals(candles, short_window=short_window, long_window=long_window)
+        signals = generate_strategy_signals(strategy_name, candles, strategy_parameters)
         prices = {candle.opened_at: candle.close for candle in candles}
         result = run_spot_backtest(
             symbol=symbol,
@@ -69,8 +70,7 @@ def run_local_ma_backtest_action(
         for index, trade in enumerate(result.trades, start=1)
     ]
     parameters = {
-        "short_window": short_window,
-        "long_window": long_window,
+        **strategy_parameters,
         "starting_cash": starting_cash,
         "quote_amount": quote_amount,
         "fee_rate": fee_rate,
@@ -98,7 +98,7 @@ def run_local_ma_backtest_action(
                 """,
                 (
                     external_id,
-                    "moving_average_crossover",
+                    strategy_name,
                     symbol,
                     interval,
                     str(csv_path),
@@ -113,7 +113,7 @@ def run_local_ma_backtest_action(
         "status": "saved",
         "message": f"saved local backtest {external_id}",
         "external_id": external_id,
-        "strategy_name": "moving_average_crossover",
+        "strategy_name": strategy_name,
         "symbol": symbol,
         "interval": interval,
         "source_csv": str(csv_path),
@@ -164,3 +164,32 @@ def _safe_data_local_path(value: str) -> Path:
     except ValueError as exc:
         raise ValueError("path must be under data/local") from exc
     return path
+
+
+def _strategy_parameters_from_payload(strategy_name: str, payload: dict[str, Any]) -> dict[str, Any]:
+    normalized = strategy_name.strip().lower()
+    if normalized in {"moving_average_crossover", "ma_cross", "ma"}:
+        short_window = int(payload.get("short", payload.get("short_window", 20)))
+        long_window = int(payload.get("long", payload.get("long_window", 60)))
+        if short_window <= 0 or long_window <= 0 or short_window >= long_window:
+            raise ValueError("short window must be positive and smaller than long window")
+        return {"short_window": short_window, "long_window": long_window}
+    if normalized == "breakout":
+        lookback = int(payload.get("lookback", 20))
+        if lookback < 2:
+            raise ValueError("lookback must be at least 2")
+        return {"lookback": lookback}
+    if normalized == "mean_reversion":
+        window = int(payload.get("window", 20))
+        threshold_pct = float(payload.get("threshold_pct", 0.03))
+        if window < 2 or threshold_pct <= 0:
+            raise ValueError("mean reversion window must be at least 2 and threshold_pct must be positive")
+        return {"window": window, "threshold_pct": threshold_pct}
+    if normalized == "volatility_filter":
+        short_window = int(payload.get("short", payload.get("short_window", 20)))
+        long_window = int(payload.get("long", payload.get("long_window", 60)))
+        min_range_pct = float(payload.get("min_range_pct", 0.01))
+        if short_window <= 0 or long_window <= 0 or short_window >= long_window or min_range_pct <= 0:
+            raise ValueError("volatility filter parameters are invalid")
+        return {"short_window": short_window, "long_window": long_window, "min_range_pct": min_range_pct}
+    raise ValueError(f"unknown strategy: {strategy_name}")

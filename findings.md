@@ -82,3 +82,5 @@
 - The current local market cache only has a few 1h candles after workspace cleanup, so a browser screenshot may look visually sparse even though it is using the real Lightweight Charts surface and real local data. Data refresh belongs to Phase 41.
 - Market data refresh now starts from the next expected candle after the existing local cache, then merges by `opened_at`; this avoids duplicate rows and preserves older local history.
 - Manual ETF/stock support is best handled first as CSV import into the same cache layout, before adding live third-party providers.
+- Strategy expansion should stay research-only at this stage: adding signal families is safe, but promotion to testnet or real trading still requires later validation and safety phases.
+- A generic strategy signal dispatcher lets the dashboard and Brain share strategy families without adding one endpoint per strategy.

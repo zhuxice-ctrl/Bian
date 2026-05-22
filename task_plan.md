@@ -812,7 +812,7 @@ Acceptance criteria:
 
 ## Phase 42: Strategy Engine Expansion
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -823,10 +823,10 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] Strategy profiles can choose from multiple strategy families.
-- [ ] Each strategy records parameters, data range, version, fees, and slippage assumptions.
-- [ ] Backtest reports clearly show which strategy and assumptions produced the result.
-- [ ] Tests cover strategy selection and parameter validation.
+- [x] Strategy profiles can choose from multiple strategy families.
+- [x] Each strategy records parameters, data range, version, fees, and slippage assumptions.
+- [x] Backtest reports clearly show which strategy and assumptions produced the result.
+- [x] Tests cover strategy selection and parameter validation.
 
 ## Phase 43: Robust Backtesting And Validation
 

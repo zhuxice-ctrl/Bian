@@ -30,6 +30,22 @@ def test_strategy_profile_set_and_list(tmp_path):
     assert saved["status"] == "saved"
     assert saved["profile"]["name"] == "ma_baseline"
     assert listed["profiles"][0]["name"] == "ma_baseline"
+    assert listed["profiles"][0]["strategy_name"] == "moving_average_crossover"
+
+
+def test_strategy_profile_set_supports_breakout_family(tmp_path):
+    with connect(tmp_path / "lab.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor())
+
+        saved = handler.handle(
+            "/strategy-profile-set name=breakout_base strategy=breakout symbol=BTCUSDT interval=1h csv=data/local/BTCUSDT-1h.csv lookback=20 quote_amount=100",
+            user_id="owner",
+        )
+
+    assert saved["status"] == "saved"
+    assert saved["profile"]["strategy_name"] == "breakout"
+    assert saved["profile"]["parameters"]["lookback"] == 20
 
 
 def test_sweep_ma_runs_parameter_grid_and_stores_group(tmp_path, monkeypatch):

@@ -160,6 +160,15 @@
               </div>
             </div>
             <form id="backtestForm" class="backtest-form">
+              <label>
+                <span>策略</span>
+                <select id="backtestStrategy">
+                  <option value="moving_average_crossover">MA 交叉</option>
+                  <option value="breakout">突破</option>
+                  <option value="mean_reversion">均值回归</option>
+                  <option value="volatility_filter">波动过滤 MA</option>
+                </select>
+              </label>
               <label><span>交易对</span><input id="backtestSymbol" value="BTCUSDT" /></label>
               <label><span>周期</span><input id="backtestInterval" value="1h" /></label>
               <label><span>数据 CSV</span><input id="backtestCsv" value="data/local/market_data/BTCUSDT/BTCUSDT-1h.csv" /></label>

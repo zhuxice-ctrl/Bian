@@ -93,6 +93,31 @@ def test_dashboard_backtest_action_rejects_path_outside_data_local(tmp_path):
     assert "data/local" in response["message"]
 
 
+def test_dashboard_backtest_action_supports_breakout_strategy(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    csv_path = tmp_path / "data" / "local" / "market_data" / "BTCUSDT" / "BTCUSDT-1h.csv"
+    _write_prices(csv_path)
+    with connect(tmp_path / "dashboard.sqlite3") as conn:
+        initialize_schema(conn)
+        data = DashboardData(conn)
+
+        response = data.run_backtest_ma_action(
+            {
+                "strategy": "breakout",
+                "symbol": "BTCUSDT",
+                "interval": "1h",
+                "csv": "data/local/market_data/BTCUSDT/BTCUSDT-1h.csv",
+                "lookback": 2,
+            }
+        )
+        experiment = conn.execute("select strategy_name, parameters from strategy_experiments").fetchone()
+
+    assert response["status"] == "saved"
+    assert response["strategy_name"] == "breakout"
+    assert experiment["strategy_name"] == "breakout"
+    assert '"lookback": 2' in experiment["parameters"]
+
+
 def test_dashboard_review_actions_persist_and_commit(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     csv_path = tmp_path / "data" / "local" / "market_data" / "BTCUSDT" / "BTCUSDT-1h.csv"

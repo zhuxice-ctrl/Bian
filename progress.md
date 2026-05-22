@@ -121,3 +121,9 @@
 - Added manual `import-market-csv` support for ETF/stock/manual datasets into the local market cache.
 - Verified Phase 41 with targeted tests (`39 passed`), full suite (`214 passed`), and dashboard JavaScript syntax check.
 - Repeated the PowerShell `&&` mistake while checking diff/status; no repository changes were made by that failed command, and subsequent git checks are run as separate commands.
+- Started Phase 42 strategy engine expansion.
+- Added `trading_learning.strategy.library` with strategy-family signal generation for moving average crossover, breakout, mean reversion, and volatility-filtered MA signals.
+- Extended strategy profiles so Brain `/strategy-profile-set` can save non-MA strategy families such as `strategy=breakout`.
+- Extended the local dashboard backtest action so it can run selected strategy families while preserving the existing safe local endpoint.
+- Added a strategy selector to the Backtests page.
+- Verified Phase 42 with targeted tests (`12 passed`), full suite (`219 passed`), and dashboard JavaScript syntax check.

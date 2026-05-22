@@ -915,6 +915,7 @@ async function runDashboardBacktest(event) {
   const status = document.querySelector("#backtestActionStatus");
   status.textContent = "\u8fd0\u884c\u4e2d...";
   const result = await postJson("/api/actions/backtest-ma", {
+    strategy: document.querySelector("#backtestStrategy").value,
     symbol: document.querySelector("#backtestSymbol").value,
     interval: document.querySelector("#backtestInterval").value,
     csv: document.querySelector("#backtestCsv").value,

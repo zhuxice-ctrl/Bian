@@ -542,6 +542,7 @@ def test_dashboard_static_page_exposes_interactive_replay_controls():
         'id="workspaceStatus"',
         'id="dailyCoachPlan"',
         'id="backtestForm"',
+        'id="backtestStrategy"',
         'id="runBacktestAction"',
         'id="backtestActionStatus"',
         'id="saveReviewDraftAction"',
