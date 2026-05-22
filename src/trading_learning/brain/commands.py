@@ -12,6 +12,8 @@ from uuid import uuid4
 from trading_learning.backtest.engine import run_spot_backtest
 from trading_learning.backtest.report import summarize_backtest
 from trading_learning.brain.command_aliases import normalize_brain_command
+from trading_learning.brain.natural_language import mock_mode_guidance
+from trading_learning.brain.remote_tasks import TaskQueue
 from trading_learning.config import DEFAULT_ALLOWED_SYMBOLS
 from trading_learning.dashboard.data import DashboardData
 from trading_learning.journal.repository import save_daily_review
@@ -43,6 +45,7 @@ class BrainCommandHandler:
         allowed_market_symbols: tuple[str, ...] = DEFAULT_ALLOWED_SYMBOLS,
         confirmation_code: Callable[[], str] | None = None,
         natural_language: Any | None = None,
+        llm_status_provider: Callable[[], dict[str, Any]] | None = None,
         kline_fetcher: Callable[..., Any] | None = None,
     ) -> None:
         self.conn = conn
@@ -51,6 +54,7 @@ class BrainCommandHandler:
         self.allowed_market_symbols = tuple(symbol.upper() for symbol in allowed_market_symbols)
         self.confirmation_code = confirmation_code or self._default_confirmation_code
         self.natural_language = natural_language
+        self.llm_status_provider = llm_status_provider or self._default_llm_status
         self.kline_fetcher = kline_fetcher or fetch_klines
 
     def handle(self, text: str, *, user_id: str) -> dict[str, Any]:
@@ -70,6 +74,11 @@ class BrainCommandHandler:
                 "message": "Binance Spot Testnet brain is online. Risky actions require confirmation.",
                 "requires_confirmation": False,
             }
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text == "/llm-status":
+            response = self._llm_status()
             self._audit(user_id, command_text, response)
             return response
 
@@ -168,6 +177,21 @@ class BrainCommandHandler:
             self._audit(user_id, command_text, response)
             return response
 
+        if command_text.startswith("/queue-backtest-ma "):
+            response = self._queue_backtest_ma(command_text, user_id)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/queue-status"):
+            response = self._queue_status(command_text, user_id)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/task-status"):
+            response = self._task_status(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
         if command_text.startswith("/backtest-ma "):
             response = self._backtest_ma(command_text)
             self._audit(user_id, command_text, response)
@@ -214,11 +238,7 @@ class BrainCommandHandler:
             return response
 
         if not command_text.startswith("/"):
-            response = {
-                "status": "chat_unavailable",
-                "message": "Natural language chat requires LOCAL_CODEX_API_KEY in the local environment.",
-                "requires_confirmation": False,
-            }
+            response = mock_mode_guidance()
             self._audit(user_id, command_text, response)
             return response
 
@@ -229,6 +249,30 @@ class BrainCommandHandler:
         }
         self._audit(user_id, command_text, response)
         return response
+
+    def _llm_status(self) -> dict[str, Any]:
+        llm = self.llm_status_provider()
+        return {
+            "status": "ok",
+            "llm": llm,
+            "message": (
+                f"LLM: {llm.get('mode', 'unknown')} | "
+                f"reachable={bool(llm.get('reachable'))} | "
+                f"base_url={llm.get('base_url', '')}"
+            ),
+            "requires_confirmation": False,
+        }
+
+    @staticmethod
+    def _default_llm_status() -> dict[str, Any]:
+        return {
+            "mode": "mock",
+            "configured": False,
+            "reachable": False,
+            "base_url": "",
+            "model": "",
+            "message": "Local Codex/LLM is not configured for this Brain process.",
+        }
 
     def _prepare_test_buy(self, command_text: str, user_id: str) -> dict[str, Any]:
         parts = command_text.split()
@@ -980,6 +1024,83 @@ class BrainCommandHandler:
             "strategy_name": "moving_average_crossover",
             "symbol": symbol,
             "metrics": metrics_payload,
+            "requires_confirmation": False,
+        }
+
+    def _queue_backtest_ma(self, command_text: str, user_id: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/queue-backtest-ma "))
+        required = {"csv", "symbol", "short", "long"}
+        missing = sorted(required - fields.keys())
+        if missing:
+            return {
+                "status": "invalid",
+                "message": f"missing fields: {', '.join(missing)}",
+                "requires_confirmation": False,
+            }
+        symbol = fields["symbol"].upper()
+        if symbol not in self.allowed_market_symbols:
+            return self._symbol_not_allowed(symbol)
+        try:
+            payload = {
+                "symbol": symbol,
+                "interval": fields.get("interval", ""),
+                "csv": fields["csv"],
+                "short": int(fields["short"]),
+                "long": int(fields["long"]),
+                "starting_cash": float(fields.get("starting_cash", "1000")),
+                "quote_amount": float(fields.get("quote_amount", "100")),
+                "fee": float(fields.get("fee", "0.001")),
+                "daily_limit": int(fields.get("daily_limit", "5")),
+            }
+        except ValueError:
+            return {
+                "status": "invalid",
+                "message": "numeric backtest fields are invalid",
+                "requires_confirmation": False,
+            }
+        task = TaskQueue(self.conn).create_task(
+            requester_user_id=user_id,
+            command_text=command_text,
+            task_type="backtest_ma",
+            risk_level="backtest",
+            payload=payload,
+        )
+        return {
+            "status": "queued",
+            "message": f"queued local backtest task {task.external_id}",
+            "task": task.to_dict(),
+            "requires_confirmation": False,
+        }
+
+    def _queue_status(self, command_text: str, user_id: str) -> dict[str, Any]:
+        task = TaskQueue(self.conn).create_task(
+            requester_user_id=user_id,
+            command_text=command_text,
+            task_type="local_status",
+            risk_level="query",
+            payload={},
+        )
+        return {
+            "status": "queued",
+            "message": f"queued local status task {task.external_id}",
+            "task": task.to_dict(),
+            "requires_confirmation": False,
+        }
+
+    def _task_status(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/task-status").strip())
+        try:
+            limit = int(fields.get("limit", "5"))
+        except ValueError:
+            return {
+                "status": "invalid",
+                "message": "limit must be an integer",
+                "requires_confirmation": False,
+            }
+        tasks = TaskQueue(self.conn).list_recent(limit=limit)
+        return {
+            "status": "ok",
+            "tasks": [task.to_dict() for task in tasks],
             "requires_confirmation": False,
         }
 

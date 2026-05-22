@@ -64,3 +64,18 @@
 - Added Feishu bot reply client and Windows user-environment setup script for Feishu app configuration.
 - Local Feishu callback smoke passed for URL verification and `/status` text event.
 - Verified Phase 17 local changes with `pytest -q` (`158 passed`).
+
+## 2026-05-22
+
+- Reframed the final product goal as an AI-led, local-first quant workstation.
+- Confirmed the product boundary: assistant as brain, local program as hands, user as student/final risk authority, server as Feishu bridge/task queue.
+- Updated `task_plan.md` to mark Phase 17 as completed based on the working server Feishu bridge and phone verification.
+- Added Phase 18 through Phase 28 to `task_plan.md` as the remaining roadmap toward the final product.
+- Recorded Phase 18-22 as the immediate next development block: local-first architecture, server task queue, local Quant Runner, Feishu remote backtest execution, and local Codex/LLM bridge with mock mode.
+- Created the Phase 18-22 implementation plan at `docs/superpowers/plans/2026-05-22-phase-18-22-remote-runner.md`.
+- Added `/llm-status`, Chinese link-check aliases, and deterministic mock-mode guidance when local Codex/LLM is unavailable.
+- Added server-side `remote_tasks` queue storage, Brain queue commands, and token-protected runner HTTP endpoints.
+- Added local `quant-runner` execution path with whitelisted `local_status` and `backtest_ma` tasks.
+- Added Windows scripts for starting the local quant runner and opening the server-to-local LLM reverse tunnel.
+- Added Chinese `远程回测 ...` alias that queues a local runner backtest instead of executing on the server.
+- Verified the Phase 18-22 target tests with `37 passed`.

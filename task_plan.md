@@ -34,6 +34,10 @@ Build a local-first, low-frequency crypto trading learning system that can:
 - [x] Phase 13 professional backtest report view.
 - [x] Phase 14A experiment review draft API and Brain command.
 - [x] Phase 14B dashboard experiment review card.
+- [x] Phase 15 experiment review learning loop.
+- [x] Phase 16 professional backtest software experience.
+- [x] Phase 17 Feishu phone access through the server Brain.
+- [ ] Phase 18+ final product roadmap: AI-led local quant workstation.
 
 ## Phase 1: Brain Review And Learning Commands
 
@@ -309,7 +313,7 @@ Acceptance criteria:
 
 ## Phase 17: Feishu Phone Access
 
-Status: in_progress
+Status: completed
 
 Scope:
 
@@ -318,6 +322,7 @@ Scope:
 - Allow safe learning commands from phone, including experiment review commit.
 - Keep Binance keys, local Codex keys, and Feishu secrets in the local environment only.
 - Keep all trading execution commands behind existing plan, checklist, and confirmation guards.
+- Support the deployed server path where Feishu reaches the server Brain and the server keeps only Feishu bridge secrets.
 
 Acceptance criteria:
 
@@ -325,10 +330,10 @@ Acceptance criteria:
 - [x] User mapping routes Feishu open_id values to local Brain users.
 - [x] Phone-facing responses are concise and Chinese-first when Feishu app credentials are configured.
 - [x] No API keys or secrets are returned in responses, logs, or exports.
-- [ ] End-to-end setup documentation explains public HTTPS callback requirements.
-- [ ] Real Feishu app credentials are configured in the Windows user environment.
-- [ ] Public HTTPS callback is configured in Feishu developer console.
-- [ ] Phone-to-local Brain is verified with a real mobile message.
+- [x] End-to-end setup supports public HTTPS callback requirements.
+- [x] Real Feishu app credentials are configured outside the repository.
+- [x] Public HTTPS callback is configured in Feishu developer console.
+- [x] Phone-to-Brain is verified with a real mobile message.
 
 ## Phase 16S: Commit And Push Phase 16
 
@@ -347,3 +352,232 @@ Acceptance criteria:
 - [x] Sensitive information scan shows no newly committed credentials.
 - [x] Commit is created with a clear Phase 16 message.
 - [x] Commit is pushed to GitHub `main`.
+
+## Final Product Target
+
+Status: active planning
+
+Build an AI-led, local-first crypto quant learning and execution workstation:
+
+- The assistant acts as the brain, coach, research lead, and system designer.
+- The local quant program acts as the hands: data, backtests, Binance access, dashboard, execution, logs, and recovery.
+- The user remains the student and final authority for risk-bearing decisions.
+- The server acts as a stable Feishu bridge and task queue, not as the holder of exchange keys or the primary trading engine.
+- Feishu acts as a light remote command and learning interface, not as the main trading workstation.
+
+Core boundaries:
+
+- Binance keys and real trading authority stay on the local machine.
+- Server-side Brain can record learning state and queue tasks, but should not directly place exchange orders.
+- Local Quant Runner pulls tasks from the server; the server does not directly control the local PC.
+- Real trading remains disabled until a separate production-readiness gate is explicitly completed.
+
+## Phase 18: Local-First Quant Architecture And Capability Boundary
+
+Status: completed
+
+Scope:
+
+- Formalize the split between server Brain, local Brain, local Quant Runner, dashboard, Codex/LLM, and Binance clients.
+- Define command permission levels: query, learning write, backtest, testnet, and real trading.
+- Add product-level documentation that explains what runs on the server and what must remain local.
+- Add status commands for Feishu and local chat: `检查链接`, `检查LLM连接`, `电脑状态`, and `/llm-status`.
+
+Acceptance criteria:
+
+- [x] Architecture document explains server/local responsibilities.
+- [x] Capability matrix lists every command class and its allowed runtime.
+- [x] Feishu can report server status, local runner status, and LLM status separately.
+- [x] Missing local LLM returns useful mock-mode guidance instead of a dead-end error.
+- [x] Tests cover the new status commands and mock/unavailable states.
+
+## Phase 19: Server Task Queue And Feishu Remote Intake
+
+Status: completed
+
+Scope:
+
+- Add a durable server-side task queue for remote requests from Feishu.
+- Convert eligible Feishu commands into structured queued tasks instead of direct local execution.
+- Add task states: queued, claimed, running, succeeded, failed, rejected, expired.
+- Add audit logs for who requested each task and how it was resolved.
+
+Acceptance criteria:
+
+- [x] Feishu can create a task for safe query, backtest, sync, or learning actions.
+- [x] Task records include requester, command text, parsed task type, risk level, state, timestamps, and result summary.
+- [x] Feishu can query recent task status.
+- [x] Invalid or high-risk requests are rejected with a clear reason.
+- [x] Tests cover task creation, state transitions, and Feishu response text.
+
+## Phase 20: Local Quant Runner MVP
+
+Status: completed
+
+Scope:
+
+- Build a Windows-friendly local runner that periodically pulls queued tasks from the server.
+- Execute only whitelisted local quant operations.
+- Return structured results to the server for Feishu replies and learning records.
+- Provide startup scripts for manual run and long-running mode.
+
+Acceptance criteria:
+
+- [x] `quant-runner` can authenticate to the server without storing secrets in the repository.
+- [x] Runner can claim one task at a time and prevent duplicate execution.
+- [x] Runner can execute safe local tasks: status and backtest replay.
+- [x] Runner executes through the existing local Brain handler so normal audit logs are written for backtest commands.
+- [x] Runner returns success/failure summaries to the server.
+- [x] Tests cover claim/execute/report behavior without calling real Binance.
+
+## Phase 21: Remote Backtest Execution From Feishu
+
+Status: completed
+
+Scope:
+
+- Allow Feishu to request local backtests through the server queue and local runner.
+- Support structured Chinese commands for symbol, interval, strategy, date range, and parameters.
+- Store generated experiments in the local database and send concise summaries back to Feishu.
+- Keep full charts and detailed analysis in the local dashboard.
+
+Acceptance criteria:
+
+- [x] Feishu command can queue a local backtest request.
+- [x] Local runner executes the backtest using local data and stores the experiment.
+- [x] Feishu can query task status and see completion summary after runner reports it.
+- [x] Dashboard can open the resulting experiment normally from the local database.
+- [x] Tests cover parsing, queueing, execution, and result serialization.
+
+## Phase 22: Local Codex/LLM Bridge And Mock Mode
+
+Status: completed
+
+Scope:
+
+- Keep default server mode deterministic and useful without local LLM access.
+- Add a Windows script that opens an SSH reverse tunnel from server loopback to local Codex-compatible API.
+- Keep `LocalCodexClient` loopback-only and never expose the local LLM publicly.
+- Let Brain check LLM health at request time instead of requiring a service restart.
+
+Acceptance criteria:
+
+- [x] `scripts/connect-server-llm.ps1` creates a reverse tunnel to the server loopback address.
+- [x] `/llm-status` reports configured, reachable, unavailable, or mock mode.
+- [x] Natural-language requests degrade to deterministic command suggestions when LLM is unavailable.
+- [x] No arbitrary remote LLM URL is accepted unless it is explicitly loopback-safe.
+- [x] Tests cover LLM status and fallback behavior.
+
+## Phase 23: AI Coach Experiment Cycle
+
+Status: planned
+
+Scope:
+
+- Turn stored experiments and review drafts into an AI-led study loop.
+- Generate the next experiment proposal from recent performance, risk flags, and learning gaps.
+- Track assignments, hypotheses, outcomes, and follow-up tasks.
+- Keep the first version deterministic; add LLM enhancement only after the deterministic flow is stable.
+
+Acceptance criteria:
+
+- [ ] Brain can propose the next experiment from recent experiment history.
+- [ ] Each proposal includes hypothesis, parameters, expected learning value, and stop criteria.
+- [ ] Completed experiments can be compared against their original hypothesis.
+- [ ] Daily/weekly reports include experiment progress and unresolved learning tasks.
+- [ ] Tests cover deterministic proposal generation and report integration.
+
+## Phase 24: Strategy Lab And Parameter Research
+
+Status: planned
+
+Scope:
+
+- Improve the strategy research layer beyond a single moving-average replay.
+- Add parameter sweeps, saved strategy profiles, and multi-experiment comparison groups.
+- Consider mature open-source quant projects as references, but keep Bian as the product shell.
+- Keep strategy execution local and reproducible.
+
+Acceptance criteria:
+
+- [ ] Strategy profiles are stored with parameters, description, and version.
+- [ ] Parameter sweep results are persisted as grouped experiments.
+- [ ] Dashboard can compare parameter groups and highlight overfitting risk.
+- [ ] Reports distinguish research performance from actionable trading readiness.
+- [ ] Tests cover profile storage, sweep execution, and comparison payloads.
+
+## Phase 25: Testnet Operations Workbench
+
+Status: planned
+
+Scope:
+
+- Build a local-only testnet operations surface for Binance Spot Testnet.
+- Connect testnet orders to plans, checklists, reviews, and strategy experiments.
+- Support Feishu only as a request/notification layer with confirmation controls.
+- Keep execution guarded by plan, checklist, confirmation, and audit logs.
+
+Acceptance criteria:
+
+- [ ] Dashboard shows testnet account/order status without exposing secrets.
+- [ ] Testnet orders are linked to plan/checklist/review records.
+- [ ] Feishu can request a testnet action, but execution requires local confirmation or explicit safe confirmation flow.
+- [ ] Failed or rejected testnet actions create reviewable audit entries.
+- [ ] Tests cover guardrails and order lifecycle records.
+
+## Phase 26: Observability, Backup, And Recovery
+
+Status: planned
+
+Scope:
+
+- Make the system reliable enough for daily use.
+- Add health checks, backup scripts, restore scripts, and server/local sync diagnostics.
+- Add clear startup checks for local dashboard, local runner, Brain, database, Feishu, and LLM tunnel.
+
+Acceptance criteria:
+
+- [ ] One command can check local system health.
+- [ ] One command can check server bridge health.
+- [ ] SQLite backup and restore are documented and tested.
+- [ ] Runner and server logs can be exported for troubleshooting without secrets.
+- [ ] Tests cover backup metadata and health-check response shapes.
+
+## Phase 27: Production Trading Readiness Gate
+
+Status: planned
+
+Scope:
+
+- Define the requirements before any real Binance trading is enabled.
+- Add dry-run enforcement, daily loss limits, symbol allowlists, position limits, cooldowns, and kill-switch controls.
+- Require local manual approval before enabling any real trading mode.
+- Keep this phase as a gate, not an automatic activation.
+
+Acceptance criteria:
+
+- [ ] Real trading remains disabled by default.
+- [ ] A readiness checklist must pass before any real trading configuration is accepted.
+- [ ] Risk limits are stored locally and enforced before order creation.
+- [ ] Kill-switch can block all real trading commands locally.
+- [ ] Feishu cannot bypass local real-trading confirmation.
+- [ ] Tests prove real order paths are blocked unless every gate is explicitly satisfied.
+
+## Phase 28: Final Product Packaging
+
+Status: planned
+
+Scope:
+
+- Make the system maintainable as a personal product rather than a development prototype.
+- Add setup, update, deploy, backup, and recovery guides.
+- Provide simple entrypoints for daily use: local dashboard, local runner, Feishu commands, and study reports.
+- Keep developer workflows separate from normal user workflows.
+
+Acceptance criteria:
+
+- [ ] Local setup guide can recreate the system on a fresh Windows machine.
+- [ ] Server setup guide can recreate the Feishu bridge on a fresh Ubuntu server.
+- [ ] Daily-use command guide is Chinese-first.
+- [ ] Update/deploy process is documented and tested.
+- [ ] Final verification includes full tests, dashboard browser check, Feishu smoke check, and sensitive information scan.

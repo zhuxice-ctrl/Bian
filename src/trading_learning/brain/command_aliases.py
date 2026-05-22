@@ -40,6 +40,12 @@ _YES_VALUES = {_u(r"\u662f"), _u(r"\u5bf9"), _u(r"\u597d"), _u(r"\u901a\u8fc7"),
 _NO_VALUES = {_u(r"\u5426"), _u(r"\u4e0d"), _u(r"\u4e0d\u662f"), "no", "false", "0"}
 
 _STATUS_ALIASES = {_u(r"\u72b6\u6001"), _u(r"\u67e5\u770b\u72b6\u6001"), _u(r"\u7cfb\u7edf\u72b6\u6001"), _u(r"\u8111\u72b6\u6001")}
+_LLM_STATUS_ALIASES = {
+    _u(r"\u68c0\u67e5\u94fe\u63a5"),
+    _u(r"\u68c0\u67e5LLM\u8fde\u63a5"),
+    _u(r"\u68c0\u67e5llm\u8fde\u63a5"),
+    _u(r"\u7535\u8111\u72b6\u6001"),
+}
 _PLAN_STATUS_ALIASES = {_u(r"\u8ba1\u5212\u72b6\u6001"), _u(r"\u4eca\u65e5\u8ba1\u5212"), _u(r"\u67e5\u770b\u8ba1\u5212")}
 _REVIEW_SUMMARY_ALIASES = {_u(r"\u6700\u8fd1\u590d\u76d8"), _u(r"\u590d\u76d8\u6458\u8981"), _u(r"\u67e5\u770b\u590d\u76d8"), _u(r"\u590d\u76d8\u603b\u7ed3")}
 _EXPERIMENT_SUMMARY_ALIASES = {_u(r"\u6700\u8fd1\u5b9e\u9a8c"), _u(r"\u5b9e\u9a8c\u603b\u7ed3"), _u(r"\u56de\u6d4b\u603b\u7ed3"), _u(r"\u6700\u8fd1\u56de\u6d4b")}
@@ -52,6 +58,7 @@ _PRE_TRADE_CHECK = _u(r"\u4ea4\u6613\u524d\u68c0\u67e5")
 _ADD_REVIEW = _u(r"\u6dfb\u52a0\u590d\u76d8")
 _DOWNLOAD_HISTORY = _u(r"\u4e0b\u8f7d\u5386\u53f2")
 _MA_BACKTEST = _u(r"\u5747\u7ebf\u56de\u6d4b")
+_REMOTE_MA_BACKTEST = _u(r"\u8fdc\u7a0b\u56de\u6d4b")
 _COMMIT_EXPERIMENT_REVIEW = _u(r"\u6c89\u6dc0\u5b9e\u9a8c\u590d\u76d8")
 _TESTNET_BUY = _u(r"\u6d4b\u8bd5\u7f51\u4e70\u5165")
 _TEST_BUY = _u(r"\u6d4b\u8bd5\u4e70\u5165")
@@ -65,6 +72,8 @@ def normalize_brain_command(text: str) -> str:
     compact = re.sub(r"\s+", "", command)
     if compact in _STATUS_ALIASES:
         return "/status"
+    if compact in _LLM_STATUS_ALIASES:
+        return "/llm-status"
     if compact in _PLAN_STATUS_ALIASES:
         return "/plan-status"
     if compact in _REVIEW_SUMMARY_ALIASES:
@@ -99,6 +108,8 @@ def normalize_brain_command(text: str) -> str:
         return _rewrite_keyed_command("/history-download", command.removeprefix(_DOWNLOAD_HISTORY + " "))
     if command.startswith(_MA_BACKTEST + " "):
         return _rewrite_keyed_command("/backtest-ma", command.removeprefix(_MA_BACKTEST + " "))
+    if command.startswith(_REMOTE_MA_BACKTEST + " "):
+        return _rewrite_keyed_command("/queue-backtest-ma", command.removeprefix(_REMOTE_MA_BACKTEST + " "))
     if command.startswith(_COMMIT_EXPERIMENT_REVIEW + " "):
         return _rewrite_keyed_command(
             "/experiment-review-commit",
@@ -115,7 +126,7 @@ def _rewrite_keyed_command(prefix: str, body: str) -> str:
         if not separator or not key:
             continue
         normalized_key = _KEY_ALIASES.get(key, key)
-        if prefix in {"/checklist", "/history-download", "/backtest-ma"} and normalized_key == "symbols":
+        if prefix in {"/checklist", "/history-download", "/backtest-ma", "/queue-backtest-ma"} and normalized_key == "symbols":
             normalized_key = "symbol"
         if prefix == "/history-download" and normalized_key == "csv":
             normalized_key = "output"

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from http.server import HTTPServer
 from pathlib import Path
+import os
 
 from trading_learning.backtest.engine import run_spot_backtest
 from trading_learning.backtest.report import summarize_backtest
@@ -12,6 +13,7 @@ from trading_learning.brain.commands import BrainCommandHandler
 from trading_learning.brain.feishu import FeishuBotClient
 from trading_learning.brain.feishu import FeishuEventAdapter
 from trading_learning.brain.natural_language import LocalCodexBrainAssistant
+from trading_learning.brain.remote_tasks import TaskQueue
 from trading_learning.brain.service import build_handler
 from trading_learning.config import load_config
 from trading_learning.config import AppConfig
@@ -26,6 +28,8 @@ from trading_learning.market_data.catalog import DEFAULT_MARKET_INTERVALS
 from trading_learning.market_data.catalog import refresh_market_data
 from trading_learning.market_data.csv_loader import load_candles_csv
 from trading_learning.risk.execution_guard import ExecutionRiskGuard, OrderIntent, RiskConfig
+from trading_learning.runner import RunnerClient
+from trading_learning.runner import run_runner_loop
 from trading_learning.storage.db import connect, connect_readonly, initialize_schema
 from trading_learning.strategy.moving_average import moving_average_crossover_signals
 
@@ -58,6 +62,35 @@ def build_natural_language_assistant(config: AppConfig):
     except ValueError:
         return None
     return LocalCodexBrainAssistant(client)
+
+
+def build_llm_status_provider(config: AppConfig):
+    if not config.local_codex_api_key:
+        return lambda: {
+            "mode": "mock",
+            "configured": False,
+            "reachable": False,
+            "base_url": config.local_codex_base_url,
+            "model": config.local_codex_model,
+            "message": "LOCAL_CODEX_API_KEY is not configured",
+        }
+    client = LocalCodexClient(
+        base_url=config.local_codex_base_url,
+        api_key=config.local_codex_api_key,
+        model=config.local_codex_model,
+    )
+    try:
+        client._validate_loopback_base_url()
+    except ValueError as exc:
+        return lambda: {
+            "mode": "invalid",
+            "configured": True,
+            "reachable": False,
+            "base_url": config.local_codex_base_url,
+            "model": config.local_codex_model,
+            "message": str(exc),
+        }
+    return client.health
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -128,6 +161,12 @@ def build_parser() -> argparse.ArgumentParser:
     dashboard_serve.add_argument("--host", default="127.0.0.1")
     dashboard_serve.add_argument("--port", type=int, default=8780)
 
+    quant_runner = subparsers.add_parser("quant-runner", help="run the local quant task runner")
+    quant_runner.add_argument("--server-url", default=os.getenv("TRADING_LEARNING_SERVER_URL", "http://127.0.0.1:8765"))
+    quant_runner.add_argument("--runner-id", default=os.getenv("TRADING_LEARNING_RUNNER_ID", "local-pc"))
+    quant_runner.add_argument("--interval-seconds", type=float, default=10.0)
+    quant_runner.add_argument("--once", action="store_true")
+
     return parser
 
 
@@ -152,6 +191,22 @@ def main(argv: list[str] | None = None) -> int:
                 pass
             finally:
                 server.server_close()
+        return 0
+
+    if args.command == "quant-runner":
+        if not config.runner_token:
+            print("TRADING_LEARNING_RUNNER_TOKEN is required for quant-runner")
+            return 1
+        with connect(config.db_path) as conn:
+            initialize_schema(conn)
+            run_runner_loop(
+                client=RunnerClient(server_url=args.server_url, token=config.runner_token),
+                conn=conn,
+                runner_id=args.runner_id,
+                allowed_symbols=config.allowed_symbols,
+                interval_seconds=args.interval_seconds,
+                once=args.once,
+            )
         return 0
 
     with connect(config.db_path) as conn:
@@ -317,6 +372,7 @@ def main(argv: list[str] | None = None) -> int:
                 allowed_user_ids=tuple(args.allowed_user_id),
                 allowed_market_symbols=config.allowed_symbols,
                 natural_language=build_natural_language_assistant(config),
+                llm_status_provider=build_llm_status_provider(config),
             )
             feishu_messenger = None
             if config.feishu_app_id and config.feishu_app_secret:
@@ -330,7 +386,12 @@ def main(argv: list[str] | None = None) -> int:
             )
             server = HTTPServer(
                 (args.host, args.port),
-                build_handler(command_handler, feishu_adapter=feishu_adapter),
+                build_handler(
+                    command_handler,
+                    feishu_adapter=feishu_adapter,
+                    task_queue=TaskQueue(conn),
+                    runner_token=config.runner_token,
+                ),
             )
             print(f"brain service listening on http://{args.host}:{args.port}/brain/command")
             print(f"feishu event endpoint listening on http://{args.host}:{args.port}/feishu/events")

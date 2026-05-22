@@ -114,6 +114,28 @@ def test_set_local_codex_env_script_prompts_for_secret():
     assert "LOCAL_CODEX_API_KEY=" not in script
 
 
+def test_start_quant_runner_script_uses_runner_token_without_literal_secret():
+    script = _read_script("start-quant-runner.ps1")
+
+    assert "trading-learning quant-runner" in script
+    assert "TRADING_LEARNING_RUNNER_TOKEN" in script
+    assert "GetEnvironmentVariable" in script
+    assert "--server-url" in script
+    assert "--runner-id" in script
+    assert "TRADING_LEARNING_RUNNER_TOKEN=" not in script
+
+
+def test_connect_server_llm_script_uses_ssh_reverse_tunnel():
+    script = _read_script("connect-server-llm.ps1")
+
+    assert "ssh" in script
+    assert "-R" in script
+    assert "127.0.0.1:61771:127.0.0.1:61771" in script
+    assert "bian_server_codex_ed25519" in script
+    assert "ubuntu@152.136.204.41" in script
+    assert "LOCAL_CODEX_API_KEY=" not in script
+
+
 def test_service_scripts_do_not_contain_known_secret_values():
     combined = "\n".join(
         path.read_text(encoding="utf-8")
@@ -126,3 +148,4 @@ def test_service_scripts_do_not_contain_known_secret_values():
     assert "FEISHU_VERIFICATION_TOKEN=" not in combined
     assert "FEISHU_ENCRYPT_KEY=" not in combined
     assert "FEISHU_APP_SECRET=" not in combined
+    assert "TRADING_LEARNING_RUNNER_TOKEN=" not in combined

@@ -139,6 +139,7 @@ powershell -ExecutionPolicy Bypass -File scripts/restart-brain.ps1
 ```
 
 Without `LOCAL_CODEX_API_KEY`, non-command text returns a clear `chat_unavailable` response instead of executing anything.
+Use `/llm-status` or Chinese `检查链接` / `检查LLM连接` / `电脑状态` to check whether the Brain is in mock mode, unavailable mode, or connected to the local Codex-compatible API.
 
 When natural-language chat suggests a low-risk record command, run it explicitly with:
 
@@ -161,6 +162,7 @@ Open `http://127.0.0.1:8780/`. JSON endpoints include `/api/overview`, `/api/rev
 Supported commands:
 
 - `/status`: health check and mode summary.
+- `/llm-status`: checks local Codex/LLM configuration and reachability. Chinese aliases: `检查链接`, `检查LLM连接`, `电脑状态`.
 - `/plan-set date=2026-05-20 symbols=BTCUSDT,ETHUSDT max_trades=5 bias=neutral conditions=trend_up forbidden=fomo`: stores the daily trading plan.
 - `/checklist symbol=BTCUSDT plan=yes setup=yes risk=yes emotion=calm`: stores the pre-trade checklist.
 - `/plan-status date=2026-05-20`: returns the plan and checklist records.
@@ -181,6 +183,9 @@ Supported commands:
 - `/history-download symbol=BTCUSDT interval=1h limit=500 output=data/local/BTCUSDT-1h.csv`: downloads public Binance Spot K-lines to CSV without API keys.
 - `/market-refresh limit=500`: refreshes default BTC/ETH `1m,5m,15m,1h` local CSV datasets for the dashboard data center.
 - `/backtest-ma csv=data/local/BTCUSDT-1h.csv symbol=BTCUSDT interval=1h short=20 long=60 starting_cash=1000 quote_amount=100 fee=0.001 daily_limit=5 note=MA_replay`: runs a moving-average replay and stores the experiment summary.
+- `/queue-backtest-ma csv=data/local/BTCUSDT-1h.csv symbol=BTCUSDT interval=1h short=20 long=60`: queues a local-runner backtest task on the server.
+- `/queue-status`: queues a local-runner status check.
+- `/task-status limit=5`: lists recent server-side remote tasks.
 - `/experiment-summary limit=5`: returns recent strategy experiment summaries.
 - `/experiment-review experiment=experiment-id`: generates and stores a deterministic experiment review draft.
 - `/experiment-review-commit experiment=experiment-id date=2026-05-20`: commits an experiment review draft into the learning loop by writing a daily review, knowledge cards, review links, and the daily learning report.
@@ -205,6 +210,8 @@ Chinese aliases and keyword commands are also supported for local chat and Feish
 - `执行建议`
 - `测试网买入 BTCUSDT 10U`
 - `确认 123456`
+- `检查链接`
+- `远程回测 币种=BTCUSDT 周期=1h 文件=data/local/BTCUSDT-1h.csv 短线=20 长线=60`
 
 Chinese trading aliases still use the same plan, checklist, and confirmation guards. Fuzzy text such as `帮我买 BTC` is not treated as an execution command.
 
@@ -249,6 +256,30 @@ Official Feishu references:
 - Send message API: `https://open.feishu.cn/document/server-docs/im-v1/message/create`
 
 Keep Binance keys and Feishu secrets in local environment variables only.
+
+### Local Quant Runner And LLM Bridge
+
+For the AI-led local-first architecture, Feishu queues work on the server and the Windows PC pulls tasks locally. The server does not need Binance keys for this flow.
+
+Set the same runner token on the server and local Windows user environment, then start the local runner:
+
+```powershell
+[Environment]::SetEnvironmentVariable("TRADING_LEARNING_RUNNER_TOKEN", "use-a-random-local-secret", "User")
+powershell -ExecutionPolicy Bypass -File scripts/start-quant-runner.ps1 -ServerUrl "https://dl.zeroxcore.tech" -RunnerId "local-windows-pc"
+```
+
+The first runner capabilities are:
+
+- `local_status`: reports that the local runner is online.
+- `backtest_ma`: runs a local moving-average backtest and stores the experiment in the local SQLite database.
+
+To let the server call the local Codex-compatible API only through loopback, open an SSH reverse tunnel after the local PC is online:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/connect-server-llm.ps1
+```
+
+The default tunnel maps server `127.0.0.1:61771` to local `127.0.0.1:61771`. Do not expose the local Codex API as a public URL.
 
 Before connecting the real Feishu app, run the local callback smoke test:
 

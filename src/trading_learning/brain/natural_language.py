@@ -56,3 +56,16 @@ class LocalCodexBrainAssistant:
                 result["suggested_command"] = data["suggested_command"]
             return result
         return {"message": content}
+
+
+def mock_mode_guidance() -> dict[str, Any]:
+    return {
+        "status": "chat_unavailable",
+        "message": (
+            "当前是 mock 模式：本地 Codex/LLM 没有连接，仍可使用确定性指令。"
+            "如需自然语言聊天，请在本地环境配置 LOCAL_CODEX_API_KEY。"
+            "可用示例：/status，/llm-status，/experiment-summary limit=5，"
+            "/learning-next，/review-summary limit=5。"
+        ),
+        "requires_confirmation": False,
+    }

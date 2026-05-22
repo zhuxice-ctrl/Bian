@@ -22,6 +22,7 @@ class AppConfig:
     feishu_app_id: str | None
     feishu_app_secret: str | None
     allowed_symbols: tuple[str, ...] = DEFAULT_ALLOWED_SYMBOLS
+    runner_token: str | None = None
 
 
 def load_config() -> AppConfig:
@@ -39,6 +40,7 @@ def load_config() -> AppConfig:
         feishu_app_id=os.getenv("FEISHU_APP_ID"),
         feishu_app_secret=os.getenv("FEISHU_APP_SECRET"),
         allowed_symbols=parse_symbols(os.getenv("TRADING_LEARNING_ALLOWED_SYMBOLS", ",".join(DEFAULT_ALLOWED_SYMBOLS))),
+        runner_token=os.getenv("TRADING_LEARNING_RUNNER_TOKEN"),
     )
 
 

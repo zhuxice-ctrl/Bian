@@ -32,6 +32,31 @@ def test_chinese_status_alias_returns_brain_status(tmp_path):
         assert "testnet" in response["message"].lower()
 
 
+def test_chinese_link_and_llm_status_aliases_route_to_llm_status(tmp_path):
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(
+            conn,
+            executor=FakeExecutor(),
+            llm_status_provider=lambda: {
+                "mode": "mock",
+                "configured": False,
+                "reachable": False,
+                "base_url": "http://127.0.0.1:61771/v1",
+                "model": "test-model",
+                "message": "LOCAL_CODEX_API_KEY is not configured",
+            },
+        )
+
+        link = handler.handle(_u(r"\u68c0\u67e5\u94fe\u63a5"), user_id="owner")
+        llm = handler.handle(_u(r"\u68c0\u67e5LLM\u8fde\u63a5"), user_id="owner")
+        pc = handler.handle(_u(r"\u7535\u8111\u72b6\u6001"), user_id="owner")
+
+        assert link["status"] == "ok"
+        assert llm["llm"]["mode"] == "mock"
+        assert pc["llm"]["reachable"] is False
+
+
 def test_chinese_plan_and_checklist_aliases_persist_records(tmp_path):
     with connect(tmp_path / "brain.sqlite3") as conn:
         initialize_schema(conn)

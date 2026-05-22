@@ -178,3 +178,22 @@ create table if not exists brain_suggested_commands (
   created_at text not null default CURRENT_TIMESTAMP,
   updated_at text not null default CURRENT_TIMESTAMP
 );
+
+create table if not exists remote_tasks (
+  id integer primary key autoincrement,
+  external_id text not null unique,
+  requester_user_id text not null,
+  command_text text not null,
+  task_type text not null,
+  risk_level text not null,
+  payload text not null default '{}',
+  state text not null default 'queued',
+  runner_id text not null default '',
+  result_summary text not null default '',
+  result_payload text not null default '{}',
+  error_message text not null default '',
+  created_at text not null default CURRENT_TIMESTAMP,
+  claimed_at text,
+  completed_at text,
+  updated_at text not null default CURRENT_TIMESTAMP
+);

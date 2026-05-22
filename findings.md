@@ -49,3 +49,17 @@
 - Feishu inbound callback alone is not enough for mobile use; the local service also needs a Feishu app id/secret so it can call the message API and reply to the chat.
 - Feishu app credentials should stay in Windows user environment variables through `scripts/set-feishu-env.ps1`; the repository only stores prompts and variable names.
 - Real phone verification still requires external setup: public HTTPS tunnel/reverse proxy, Feishu event subscription Request URL, bot message permissions, and app installation/publish in the tenant.
+
+## 2026-05-22
+
+- The final product should be an AI-led, local-first quant workstation rather than a simple Feishu bot or ordinary backtest dashboard.
+- The assistant is the brain: coach, research lead, system designer, review author, and task planner. The program is the hands: data, backtests, Binance access, execution, logs, dashboard, and recovery.
+- Feishu should remain a light remote interface for task intake, learning records, status checks, and concise summaries. It should not become the main trading terminal.
+- The server should remain a stable bridge and task queue. It should not hold Binance exchange keys or directly execute real trading operations.
+- The local PC should own all sensitive quant operations: Binance keys, full dashboard, local Codex/LLM, local data, backtests, and future trading execution.
+- Remote automation should use a pull model: local Quant Runner pulls queued tasks from the server. The server should not directly control the local PC.
+- Real trading must stay disabled until a dedicated readiness gate exists with local confirmation, risk limits, kill switch, audit logs, and tests proving Feishu cannot bypass local controls.
+- The immediate product gap is Phase 18-22: capability boundary, server task queue, local runner, Feishu remote backtest path, and local LLM bridge/mock mode.
+- Phase 18-22 MVP uses a pull model: the server stores `remote_tasks`, and the Windows `quant-runner` claims tasks through token-protected `/runner/claim` and reports through `/runner/complete`.
+- The first remote task types are intentionally narrow: `local_status` and `backtest_ma`. Real trading and arbitrary shell/Codex execution are not task types.
+- The server-side LLM bridge still enforces loopback-only local Codex URLs. The SSH reverse tunnel maps server loopback to local loopback and avoids publishing the local Codex API.

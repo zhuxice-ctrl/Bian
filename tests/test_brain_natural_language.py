@@ -4,8 +4,15 @@ from threading import Thread
 
 from trading_learning.ai_assistant.local_codex import LocalCodexClient
 from trading_learning.brain.natural_language import LocalCodexBrainAssistant
+from trading_learning.brain.commands import BrainCommandHandler
 from trading_learning.cli import build_natural_language_assistant
+from trading_learning.cli import build_llm_status_provider
 from trading_learning.config import AppConfig
+from trading_learning.storage.db import connect, initialize_schema
+
+
+class FakeExecutor:
+    pass
 
 
 class ChatHandler(BaseHTTPRequestHandler):
@@ -138,3 +145,47 @@ def test_build_natural_language_assistant_rejects_non_loopback_base_url(tmp_path
     )
 
     assert build_natural_language_assistant(config) is None
+
+
+def test_llm_status_reports_mock_mode_without_local_key(tmp_path):
+    config = AppConfig(
+        db_path=tmp_path / "test.sqlite3",
+        local_codex_base_url="http://127.0.0.1:61771/v1",
+        local_codex_model="test-model",
+        local_codex_api_key=None,
+        binance_testnet_base_url="https://testnet.binance.vision",
+        binance_testnet_api_key=None,
+        binance_testnet_api_secret=None,
+        feishu_verification_token=None,
+        feishu_encrypt_key=None,
+        feishu_user_map="",
+        feishu_app_id=None,
+        feishu_app_secret=None,
+    )
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(
+            conn,
+            executor=FakeExecutor(),
+            llm_status_provider=build_llm_status_provider(config),
+        )
+
+        response = handler.handle("/llm-status", user_id="owner")
+
+    assert response["status"] == "ok"
+    assert response["llm"]["mode"] == "mock"
+    assert response["llm"]["configured"] is False
+    assert "mock" in response["message"].lower()
+
+
+def test_plain_text_without_llm_returns_deterministic_mock_guidance(tmp_path):
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor())
+
+        response = handler.handle("帮我看看今天该做什么", user_id="owner")
+
+    assert response["status"] == "chat_unavailable"
+    assert "mock" in response["message"].lower()
+    assert "/status" in response["message"]
+    assert "/experiment-summary" in response["message"]
