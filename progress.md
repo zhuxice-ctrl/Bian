@@ -127,3 +127,9 @@
 - Extended the local dashboard backtest action so it can run selected strategy families while preserving the existing safe local endpoint.
 - Added a strategy selector to the Backtests page.
 - Verified Phase 42 with targeted tests (`12 passed`), full suite (`219 passed`), and dashboard JavaScript syntax check.
+- Started Phase 43 robust backtesting and validation.
+- Added `trading_learning.backtest.validation` with date-range filtering, train/test split generation, stress-window ranking, and validation warnings.
+- Extended dashboard local backtest actions with `start`, `end`, and `train_ratio`, and persisted validation summaries inside experiment metrics.
+- Added Backtests page controls for start time, end time, and training ratio.
+- Fixed a validation-summary bug where the action tried to read `max_drawdown` from `BacktestMetrics`; detailed drawdown remains in the report layer, while validation slice summaries now return stable core metrics.
+- Verified Phase 43 with targeted tests (`10 passed`), full suite (`224 passed`), and dashboard JavaScript syntax check.

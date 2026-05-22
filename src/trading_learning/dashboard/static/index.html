@@ -172,6 +172,9 @@
               <label><span>交易对</span><input id="backtestSymbol" value="BTCUSDT" /></label>
               <label><span>周期</span><input id="backtestInterval" value="1h" /></label>
               <label><span>数据 CSV</span><input id="backtestCsv" value="data/local/market_data/BTCUSDT/BTCUSDT-1h.csv" /></label>
+              <label><span>开始时间</span><input id="backtestStart" placeholder="可选 ISO 时间" /></label>
+              <label><span>结束时间</span><input id="backtestEnd" placeholder="可选 ISO 时间" /></label>
+              <label><span>训练比例</span><input id="backtestTrainRatio" type="number" value="0.7" min="0.1" max="0.9" step="0.1" /></label>
               <label><span>短均线</span><input id="backtestShort" type="number" value="20" min="1" /></label>
               <label><span>长均线</span><input id="backtestLong" type="number" value="60" min="2" /></label>
               <button id="runBacktestAction" type="submit">运行回测</button>

@@ -114,8 +114,37 @@ def test_dashboard_backtest_action_supports_breakout_strategy(tmp_path, monkeypa
 
     assert response["status"] == "saved"
     assert response["strategy_name"] == "breakout"
+    assert "validation" in response["metrics"]
+    assert "out_of_sample" in response["metrics"]["validation"]
     assert experiment["strategy_name"] == "breakout"
     assert '"lookback": 2' in experiment["parameters"]
+
+
+def test_dashboard_backtest_action_supports_date_range_and_validation_split(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    csv_path = tmp_path / "data" / "local" / "market_data" / "BTCUSDT" / "BTCUSDT-1h.csv"
+    _write_prices(csv_path)
+    with connect(tmp_path / "dashboard.sqlite3") as conn:
+        initialize_schema(conn)
+        data = DashboardData(conn)
+
+        response = data.run_backtest_ma_action(
+            {
+                "symbol": "BTCUSDT",
+                "interval": "1h",
+                "csv": "data/local/market_data/BTCUSDT/BTCUSDT-1h.csv",
+                "short": 2,
+                "long": 3,
+                "start": "2026-05-20T01:00:00+00:00",
+                "end": "2026-05-20T05:00:00+00:00",
+                "train_ratio": 0.6,
+            }
+        )
+
+    assert response["status"] == "saved"
+    assert response["parameters"]["start"] == "2026-05-20T01:00:00+00:00"
+    assert response["metrics"]["validation"]["train"]["candle_count"] == 3
+    assert response["metrics"]["validation"]["out_of_sample"]["candle_count"] == 2
 
 
 def test_dashboard_review_actions_persist_and_commit(tmp_path, monkeypatch):

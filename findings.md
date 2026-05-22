@@ -84,3 +84,5 @@
 - Manual ETF/stock support is best handled first as CSV import into the same cache layout, before adding live third-party providers.
 - Strategy expansion should stay research-only at this stage: adding signal families is safe, but promotion to testnet or real trading still requires later validation and safety phases.
 - A generic strategy signal dispatcher lets the dashboard and Brain share strategy families without adding one endpoint per strategy.
+- Validation summaries now distinguish selected date range, in-sample, out-of-sample, and stress-window context. These warnings are evidence for research decisions, not trading permission.
+- `BacktestMetrics` does not carry drawdown directly; drawdown is produced by the richer report builder. Validation slice summaries should avoid assuming report-only fields exist.

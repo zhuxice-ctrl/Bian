@@ -919,6 +919,9 @@ async function runDashboardBacktest(event) {
     symbol: document.querySelector("#backtestSymbol").value,
     interval: document.querySelector("#backtestInterval").value,
     csv: document.querySelector("#backtestCsv").value,
+    start: document.querySelector("#backtestStart").value,
+    end: document.querySelector("#backtestEnd").value,
+    train_ratio: Number(document.querySelector("#backtestTrainRatio").value),
     short: Number(document.querySelector("#backtestShort").value),
     long: Number(document.querySelector("#backtestLong").value),
   });

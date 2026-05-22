@@ -830,7 +830,7 @@ Acceptance criteria:
 
 ## Phase 43: Robust Backtesting And Validation
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -840,10 +840,10 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] Experiments can run on selected date ranges and validation splits.
-- [ ] Reports distinguish in-sample, out-of-sample, and stress-test results.
-- [ ] Overfitting and unstable-parameter warnings are visible in the dashboard and Brain.
-- [ ] Tests cover split generation, stress windows, and validation summaries.
+- [x] Experiments can run on selected date ranges and validation splits.
+- [x] Reports distinguish in-sample, out-of-sample, and stress-test results.
+- [x] Overfitting and unstable-parameter warnings are visible in the dashboard and Brain.
+- [x] Tests cover split generation, stress windows, and validation summaries.
 
 ## Phase 44: Experiment Portfolio And Comparison Lab
 
