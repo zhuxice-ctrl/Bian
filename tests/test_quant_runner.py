@@ -54,7 +54,7 @@ def test_quant_task_executor_handles_local_status(tmp_path):
 
     assert result["state"] == "succeeded"
     assert "local runner online" in result["result_summary"]
-    assert result["result_payload"]["capabilities"] == ["local_status", "backtest_ma"]
+    assert result["result_payload"]["capabilities"] == ["local_status", "backtest_ma", "market_refresh"]
 
 
 def test_quant_task_executor_runs_backtest_ma(tmp_path, monkeypatch):
@@ -91,6 +91,45 @@ def test_quant_task_executor_runs_backtest_ma(tmp_path, monkeypatch):
     assert result["state"] == "succeeded"
     assert result["result_payload"]["status"] == "saved"
     assert experiment_count == 1
+
+
+def test_quant_task_executor_runs_market_refresh_with_safe_fetcher(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    def fake_fetcher(symbol, interval, limit, **kwargs):
+        from datetime import timezone
+
+        from trading_learning.models import Candle
+
+        assert symbol == "BTCUSDT"
+        assert interval == "1h"
+        assert limit == 2
+        return [
+            Candle(
+                symbol=symbol,
+                opened_at=datetime(2026, 5, 21, 0, 0, tzinfo=timezone.utc),
+                open=100,
+                high=110,
+                low=90,
+                close=105,
+                volume=1,
+            )
+        ]
+
+    with connect(tmp_path / "local.sqlite3") as conn:
+        initialize_schema(conn)
+        executor = QuantTaskExecutor(conn, allowed_symbols=("BTCUSDT",), kline_fetcher=fake_fetcher)
+
+        result = executor.execute(
+            _task(
+                "market_refresh",
+                {"symbols": ["BTCUSDT"], "intervals": ["1h"], "limit": 2},
+            )
+        )
+
+    assert result["state"] == "succeeded"
+    assert "refreshed 1 datasets" in result["result_summary"]
+    assert result["result_payload"]["count"] == 1
 
 
 def test_run_runner_once_claims_executes_and_reports(tmp_path):

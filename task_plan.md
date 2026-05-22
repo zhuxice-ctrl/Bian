@@ -881,7 +881,7 @@ Acceptance criteria:
 
 ## Phase 46: Feishu Remote Study Assistant
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -891,10 +891,10 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] Chinese Feishu commands cover common remote study workflows.
-- [ ] Long tasks return task ids and readable completion summaries.
-- [ ] Remote actions remain queue-based and token-protected.
-- [ ] Tests prove Feishu cannot bypass local execution safety.
+- [x] Chinese Feishu commands cover common remote study workflows.
+- [x] Long tasks return task ids and readable completion summaries.
+- [x] Remote actions remain queue-based and token-protected.
+- [x] Tests prove Feishu cannot bypass local execution safety.
 
 ## Phase 47: Testnet Strategy Execution Loop
 

@@ -145,3 +145,8 @@
 - Surfaced the review queue in the local workstation Today page through the control console payload.
 - Fixed the dashboard experiment-decision rendering scope while wiring the review queue.
 - Verified Phase 45 with targeted curriculum, Brain learning report, dashboard tests, and dashboard JavaScript syntax check.
+- Started Phase 46 Feishu remote study assistant.
+- Added `/queue-market-refresh` so Feishu can request long-running local public-data refresh through the existing token-protected runner queue.
+- Added runner capability `market_refresh`; the local runner executes it by calling the existing Brain `/market-refresh` path with the same allowed-symbol boundary.
+- Added Chinese study aliases for learning queue, task status, daily coach, and remote data refresh.
+- Verified Phase 46 with Feishu bridge, remote task, runner service, and full test suite (`234 passed`).

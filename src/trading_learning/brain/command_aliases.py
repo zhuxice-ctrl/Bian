@@ -50,6 +50,9 @@ _PLAN_STATUS_ALIASES = {_u(r"\u8ba1\u5212\u72b6\u6001"), _u(r"\u4eca\u65e5\u8ba1
 _REVIEW_SUMMARY_ALIASES = {_u(r"\u6700\u8fd1\u590d\u76d8"), _u(r"\u590d\u76d8\u6458\u8981"), _u(r"\u67e5\u770b\u590d\u76d8"), _u(r"\u590d\u76d8\u603b\u7ed3")}
 _EXPERIMENT_SUMMARY_ALIASES = {_u(r"\u6700\u8fd1\u5b9e\u9a8c"), _u(r"\u5b9e\u9a8c\u603b\u7ed3"), _u(r"\u56de\u6d4b\u603b\u7ed3"), _u(r"\u6700\u8fd1\u56de\u6d4b")}
 _LEARNING_ALIASES = {_u(r"\u4eca\u5929\u5b66\u4ec0\u4e48"), _u(r"\u4eca\u65e5\u5b66\u4e60"), _u(r"\u5b66\u4e60\u5efa\u8bae"), _u(r"\u4e0b\u4e00\u6b65\u5b66\u4e60")}
+_LEARNING_QUEUE_ALIASES = {_u(r"\u5b66\u4e60\u961f\u5217"), _u(r"\u590d\u4e60\u961f\u5217"), _u(r"\u4eca\u5929\u590d\u4e60\u4ec0\u4e48")}
+_TASK_STATUS_ALIASES = {_u(r"\u4efb\u52a1\u72b6\u6001"), _u(r"\u8fdc\u7a0b\u4efb\u52a1"), _u(r"\u67e5\u770b\u4efb\u52a1")}
+_COACH_DAILY_ALIASES = {_u(r"\u4eca\u65e5\u6559\u7ec3"), _u(r"\u6559\u7ec3\u8ba1\u5212"), _u(r"\u4eca\u5929\u505a\u4ec0\u4e48")}
 _RUN_SUGGESTED_ALIASES = {_u(r"\u6267\u884c\u5efa\u8bae"), _u(r"\u8fd0\u884c\u5efa\u8bae"), _u(r"\u6267\u884c\u63a8\u8350")}
 
 _SET_PLAN = _u(r"\u8bbe\u7f6e\u8ba1\u5212")
@@ -59,6 +62,7 @@ _ADD_REVIEW = _u(r"\u6dfb\u52a0\u590d\u76d8")
 _DOWNLOAD_HISTORY = _u(r"\u4e0b\u8f7d\u5386\u53f2")
 _MA_BACKTEST = _u(r"\u5747\u7ebf\u56de\u6d4b")
 _REMOTE_MA_BACKTEST = _u(r"\u8fdc\u7a0b\u56de\u6d4b")
+_REMOTE_MARKET_REFRESH = _u(r"\u8fdc\u7a0b\u5237\u65b0\u6570\u636e")
 _COMMIT_EXPERIMENT_REVIEW = _u(r"\u6c89\u6dc0\u5b9e\u9a8c\u590d\u76d8")
 _TESTNET_BUY = _u(r"\u6d4b\u8bd5\u7f51\u4e70\u5165")
 _TEST_BUY = _u(r"\u6d4b\u8bd5\u4e70\u5165")
@@ -82,6 +86,12 @@ def normalize_brain_command(text: str) -> str:
         return "/experiment-summary limit=5"
     if compact in _LEARNING_ALIASES:
         return "/learning-next"
+    if compact in _LEARNING_QUEUE_ALIASES:
+        return "/learning-queue"
+    if compact in _TASK_STATUS_ALIASES:
+        return "/task-status limit=5"
+    if compact in _COACH_DAILY_ALIASES:
+        return "/coach-daily"
     if compact in _RUN_SUGGESTED_ALIASES:
         return "/run suggested"
 
@@ -110,6 +120,8 @@ def normalize_brain_command(text: str) -> str:
         return _rewrite_keyed_command("/backtest-ma", command.removeprefix(_MA_BACKTEST + " "))
     if command.startswith(_REMOTE_MA_BACKTEST + " "):
         return _rewrite_keyed_command("/queue-backtest-ma", command.removeprefix(_REMOTE_MA_BACKTEST + " "))
+    if command.startswith(_REMOTE_MARKET_REFRESH + " "):
+        return _rewrite_keyed_command("/queue-market-refresh", command.removeprefix(_REMOTE_MARKET_REFRESH + " "))
     if command.startswith(_COMMIT_EXPERIMENT_REVIEW + " "):
         return _rewrite_keyed_command(
             "/experiment-review-commit",
@@ -128,6 +140,8 @@ def _rewrite_keyed_command(prefix: str, body: str) -> str:
         normalized_key = _KEY_ALIASES.get(key, key)
         if prefix in {"/checklist", "/history-download", "/backtest-ma", "/queue-backtest-ma"} and normalized_key == "symbols":
             normalized_key = "symbol"
+        if prefix == "/queue-market-refresh" and normalized_key == "interval":
+            normalized_key = "intervals"
         if prefix == "/history-download" and normalized_key == "csv":
             normalized_key = "output"
         normalized_value = _normalize_value(normalized_key, value)

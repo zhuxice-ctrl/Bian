@@ -239,6 +239,11 @@ class BrainCommandHandler:
             self._audit(user_id, command_text, response)
             return response
 
+        if command_text.startswith("/queue-market-refresh"):
+            response = self._queue_market_refresh(command_text, user_id)
+            self._audit(user_id, command_text, response)
+            return response
+
         if command_text.startswith("/queue-backtest-ma "):
             response = self._queue_backtest_ma(command_text, user_id)
             self._audit(user_id, command_text, response)
@@ -1305,6 +1310,35 @@ class BrainCommandHandler:
         return {
             "status": "queued",
             "message": f"queued local backtest task {task.external_id}",
+            "task": task.to_dict(),
+            "requires_confirmation": False,
+        }
+
+    def _queue_market_refresh(self, command_text: str, user_id: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/queue-market-refresh").strip())
+        try:
+            limit = int(fields.get("limit", "500"))
+        except ValueError:
+            return {
+                "status": "invalid",
+                "message": "limit must be an integer",
+                "requires_confirmation": False,
+            }
+        symbols = tuple(symbol.upper() for symbol in self._csv_values(fields.get("symbols", ""))) or self.allowed_market_symbols
+        intervals = tuple(self._csv_values(fields.get("intervals", ""))) or DEFAULT_MARKET_INTERVALS
+        unsupported = [symbol for symbol in symbols if symbol not in self.allowed_market_symbols]
+        if unsupported:
+            return self._symbol_not_allowed(unsupported[0])
+        task = TaskQueue(self.conn).create_task(
+            requester_user_id=user_id,
+            command_text=command_text,
+            task_type="market_refresh",
+            risk_level="data",
+            payload={"symbols": list(symbols), "intervals": list(intervals), "limit": limit},
+        )
+        return {
+            "status": "queued",
+            "message": f"queued local market refresh task {task.external_id}",
             "task": task.to_dict(),
             "requires_confirmation": False,
         }

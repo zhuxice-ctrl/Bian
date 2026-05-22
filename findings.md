@@ -90,3 +90,5 @@
 - Failed experiments should create deterministic mistake-pattern knowledge cards rather than free-form notes, so the learning queue can rank them reliably without LLM access.
 - Review queue priority is derived from source, category, risk tags, and recency; it is a study workflow, not a trading signal.
 - The dashboard had a latent JavaScript scope bug where experiment decisions were rendered from `renderReferenceList` using a local variable from another function. Moving that rendering into `renderStrategyLab` keeps runtime behavior consistent with the data payload.
+- Feishu remains safest when long-running work becomes a `remote_tasks` record and the local runner pulls it; adding `market_refresh` preserves that queue boundary instead of letting Feishu call local data downloads directly.
+- Chinese Feishu shortcuts should map only to known Brain commands. Unknown plain text can still go to the non-executing chat fallback, but common study workflows now avoid that dependency.
