@@ -31,6 +31,8 @@ from trading_learning.market_data.catalog import DEFAULT_MARKET_INTERVALS
 from trading_learning.market_data.catalog import inventory_datasets
 from trading_learning.market_data.catalog import refresh_market_data
 from trading_learning.market_data.csv_loader import load_candles_csv
+from trading_learning.production_gate import RealOrderIntent
+from trading_learning.production_gate import build_real_order_dry_run
 from trading_learning.production_gate import production_readiness_status
 from trading_learning.strategy.moving_average import moving_average_crossover_signals
 from trading_learning.strategy.lab import list_strategy_profiles
@@ -161,6 +163,20 @@ class BrainCommandHandler:
                 "message": "Real trading can only be considered after the local production readiness gate is completed.",
                 "requires_confirmation": False,
             }
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/real-create-buy"):
+            response = {
+                "status": "blocked",
+                "message": "Real order routes are disabled. Use /real-dry-run-buy for local simulation only.",
+                "requires_confirmation": False,
+            }
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/real-dry-run-buy"):
+            response = self._real_dry_run_buy(command_text)
             self._audit(user_id, command_text, response)
             return response
 
@@ -717,6 +733,34 @@ class BrainCommandHandler:
         return {
             "status": "blocked",
             "gate": production_readiness_status(),
+            "requires_confirmation": False,
+        }
+
+    def _real_dry_run_buy(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/real-dry-run-buy").strip())
+        try:
+            symbol = fields.get("symbol", "").upper()
+            quote = float(fields.get("quote", "0"))
+        except ValueError:
+            return {
+                "status": "invalid",
+                "message": "quote must be a number",
+                "requires_confirmation": False,
+            }
+        if not symbol:
+            return {
+                "status": "invalid",
+                "message": "missing fields: symbol",
+                "requires_confirmation": False,
+            }
+        order_path = build_real_order_dry_run(
+            RealOrderIntent(symbol=symbol, side="BUY", order_type="MARKET", quote_order_qty=quote)
+        )
+        return {
+            "status": "dry_run",
+            "message": "real trading dry-run simulated locally; no order was sent",
+            "gate": production_readiness_status(),
+            "order_path": order_path,
             "requires_confirmation": False,
         }
 

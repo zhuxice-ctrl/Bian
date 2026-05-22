@@ -156,3 +156,8 @@
 - Preserved the existing manual confirmation and plan/checklist risk guard before any Spot Testnet order is sent.
 - Fixed a helper naming conflict with the existing `/experiment-decision` command during full-suite verification.
 - Verified Phase 47 with testnet lifecycle tests and full test suite (`236 passed`).
+- Started Phase 48 real trading readiness implementation.
+- Added explicit real-trading risk config, real order intent, and independent risk evaluation for symbol allowlist, order size, daily loss, position exposure, and cooldown.
+- Expanded production readiness status with daily loss, position limit, cooldown, and dry-run verification gates.
+- Added Brain `/real-dry-run-buy` for local simulation only and `/real-create-buy` as an explicit blocked route.
+- Verified that dry-run does not call the executor and that real order commands remain blocked; full suite passed with `239 passed`.

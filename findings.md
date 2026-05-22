@@ -95,3 +95,5 @@
 - Testnet strategy execution should be tied to an explicit `testnet_candidate` research decision, not to raw backtest performance alone.
 - Testnet order records need context links because the useful learning object is the full chain: experiment, signal, daily plan, checklist, order result, and later review.
 - A helper named `_experiment_decision` collided with the existing Brain command handler of the same name; command handlers and read helpers should use distinct names to avoid runtime routing bugs.
+- Real-trading readiness can be improved without adding a live order path: dry-run simulation and independent risk checks provide coverage while preserving the default disabled state.
+- The default real-trading risk config intentionally fails closed; unset max order size, loss limit, position limit, or cooldown all block the simulated path.
