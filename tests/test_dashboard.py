@@ -305,6 +305,7 @@ def test_dashboard_control_console_aggregates_product_state(tmp_path):
     assert "workspace_state" in console
     assert console["tasks"][0]["external_id"] == "task-1"
     assert "daily_plan" in console["coach"]
+    assert "review_queue" in console["coach"]
     assert console["coach"]["proposals"][0]["external_id"] == "proposal-1"
     assert console["strategy_lab"]["profiles"][0]["name"] == "ma_baseline"
     assert console["strategy_lab"]["sweeps"][0]["best_experiment"] == "experiment-2"
@@ -557,6 +558,7 @@ def test_dashboard_static_page_exposes_interactive_replay_controls():
         'id="emptyStatePanel"',
         'id="workspaceStatus"',
         'id="dailyCoachPlan"',
+        'id="reviewQueueList"',
         'id="backtestForm"',
         'id="backtestStrategy"',
         'id="backtestStart"',
@@ -617,6 +619,7 @@ def test_dashboard_static_script_uses_lightweight_charts_engine():
         "function renderControlConsole",
         "function renderWorkspaceStatus",
         "function renderDailyCoachPlan",
+        "function renderReviewQueue",
         "function renderTaskQueue",
         "function renderCoachProposals",
         "function renderStrategyLab",

@@ -22,6 +22,8 @@ from trading_learning.learning.experiment_review import build_experiment_review_
 from trading_learning.learning.coach import build_next_experiment_proposal
 from trading_learning.learning.coach import evaluate_experiment_proposal
 from trading_learning.learning.coach import save_experiment_proposal
+from trading_learning.learning.curriculum import build_failed_experiment_learning
+from trading_learning.learning.curriculum import build_review_queue
 from trading_learning.learning.daily_coach import build_daily_coach_plan
 from trading_learning.learning.repository import save_knowledge_card
 from trading_learning.market_data.binance_klines import fetch_klines, save_klines_csv
@@ -267,6 +269,11 @@ class BrainCommandHandler:
             self._audit(user_id, command_text, response)
             return response
 
+        if command_text.startswith("/experiment-learning"):
+            response = self._experiment_learning(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
         if command_text.startswith("/experiment-review"):
             response = self._experiment_review(command_text)
             self._audit(user_id, command_text, response)
@@ -284,6 +291,11 @@ class BrainCommandHandler:
 
         if command_text.startswith("/learning-next"):
             response = self._learning_next(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/learning-queue"):
+            response = self._learning_queue(command_text)
             self._audit(user_id, command_text, response)
             return response
 
@@ -1608,6 +1620,25 @@ class BrainCommandHandler:
         self.conn.commit()
         return card_ids
 
+    def _experiment_learning(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/experiment-learning").strip())
+        experiment_id = fields.get("experiment", "").strip()
+        if not experiment_id:
+            return {
+                "status": "invalid",
+                "message": "missing fields: experiment",
+                "requires_confirmation": False,
+            }
+        result = build_failed_experiment_learning(self.conn, experiment_id)
+        if result["status"] == "not_found":
+            return {**result, "requires_confirmation": False}
+        return {
+            **result,
+            "message": f"saved failed-experiment learning for {experiment_id}",
+            "knowledge_card_count": len(result.get("knowledge_cards", [])),
+            "requires_confirmation": False,
+        }
+
     def _daily_report(self, command_text: str) -> dict[str, Any]:
         fields = self._parse_key_value_args(command_text.removeprefix("/daily-report").strip())
         report_date = fields.get("date", self._today())
@@ -1630,6 +1661,7 @@ class BrainCommandHandler:
             "review": context["review"],
             "experiments": context["experiments"],
             "knowledge_cards": context["knowledge_cards"],
+            "experiment_learning_tasks": self._experiment_learning_tasks(context["experiments"]),
             "summary": {
                 "trade_count": context["review"]["trade_count"],
                 "pnl": context["review"]["pnl"],
@@ -1674,10 +1706,13 @@ class BrainCommandHandler:
         review_payloads = [self._review_payload(row) for row in review_rows]
         tag_counts: dict[str, int] = {}
         linked_experiment_count = 0
+        experiment_learning_tasks: list[dict[str, Any]] = []
         for review in review_payloads:
             for tag in review["mistake_tags"]:
                 tag_counts[tag] = tag_counts.get(tag, 0) + 1
             linked_experiment_count += self._linked_experiment_count(review["external_id"])
+            context = self._review_context_payload(review["external_id"], self._review_row(review["external_id"]))
+            experiment_learning_tasks.extend(self._experiment_learning_tasks(context["experiments"]))
         review_count = len(review_payloads)
         trade_count = sum(review["trade_count"] for review in review_payloads)
         pnl = sum(float(review["pnl"]) for review in review_payloads)
@@ -1697,6 +1732,7 @@ class BrainCommandHandler:
                 "linked_experiment_count": linked_experiment_count,
             },
             "focus_tags": focus_tags,
+            "experiment_learning_tasks": experiment_learning_tasks,
             "next_actions": self._weekly_next_actions(review_payloads, focus_tags),
         }
         external_id = self._save_learning_report("weekly", period_start, period_end, report)
@@ -1727,6 +1763,24 @@ class BrainCommandHandler:
             "tasks": self._next_learning_actions(context),
             "requires_confirmation": False,
         }
+
+    def _learning_queue(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/learning-queue").strip())
+        limit = int(fields.get("limit", 10) or 10)
+        today = fields.get("today") or fields.get("date")
+        return {
+            "status": "ok",
+            "queue": build_review_queue(self.conn, today=today, limit=limit),
+            "requires_confirmation": False,
+        }
+
+    def _experiment_learning_tasks(self, experiments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        tasks: list[dict[str, Any]] = []
+        for experiment in experiments:
+            result = build_failed_experiment_learning(self.conn, experiment["external_id"])
+            if result.get("status") in {"saved", "ok"}:
+                tasks.extend(result.get("tasks", []))
+        return tasks
 
     def _coach_next(self, command_text: str) -> dict[str, Any]:
         proposal = build_next_experiment_proposal(self.conn)

@@ -8,6 +8,7 @@ from typing import Any
 
 from trading_learning.backtest.report import build_backtest_report
 from trading_learning.config import DEFAULT_ALLOWED_SYMBOLS
+from trading_learning.learning.curriculum import build_review_queue
 from trading_learning.learning.experiment_review import build_experiment_review_draft
 from trading_learning.learning.daily_coach import build_daily_coach_plan
 from trading_learning.market_data.catalog import inventory_datasets
@@ -170,6 +171,7 @@ class DashboardData:
             "tasks": self._recent_remote_tasks(limit=8),
             "coach": {
                 "daily_plan": build_daily_coach_plan(self.conn, allowed_symbols=self.allowed_symbols),
+                "review_queue": build_review_queue(self.conn, limit=8),
                 "proposals": self._recent_experiment_proposals(limit=5),
                 "next_review_actions": self._next_review_actions(limit=5),
             },

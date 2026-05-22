@@ -300,6 +300,7 @@ function renderControlConsole() {
   ].join("");
   renderWorkspaceStatus(data.workspace_state || {});
   renderDailyCoachPlan(data.coach?.daily_plan || null);
+  renderReviewQueue(data.coach?.review_queue || []);
   renderTaskQueue(data.tasks || []);
   renderCoachProposals(data.coach?.proposals || []);
   renderStrategyLab(data.strategy_lab || {});
@@ -328,6 +329,24 @@ function renderDailyCoachPlan(plan) {
     <p>${escapeHtml(plan.summary || "")}</p>
     <ol>${(plan.actions || []).map((action) => `<li>${escapeHtml(action.title)} <code>${escapeHtml(action.command)}</code></li>`).join("")}</ol>
   `;
+}
+
+function renderReviewQueue(queue) {
+  const target = document.querySelector("#reviewQueueList");
+  if (!target) return;
+  target.innerHTML = queue.length
+    ? queue
+        .map(
+          (item) => `
+            <article class="item">
+              <span>${escapeHtml(item.reason || "\u590d\u4e60")} &middot; ${escapeHtml((item.tags || []).join(", "))}</span>
+              <strong>${escapeHtml(item.title || item.card_external_id)}</strong>
+              <p>\u4f18\u5148\u7ea7 ${escapeHtml(item.importance ?? "-")} &middot; ${escapeHtml(item.category || "-")}</p>
+            </article>
+          `,
+        )
+        .join("")
+    : `<p class="empty-note">${text.empty}</p>`;
 }
 
 function renderTaskQueue(tasks) {
@@ -392,6 +411,22 @@ function renderStrategyLab(strategyLab) {
         )
         .join("")
     : `<p class="empty-note">${text.empty}</p>`;
+  const decisionTarget = document.querySelector("#experimentDecisionList");
+  if (decisionTarget) {
+    decisionTarget.innerHTML = decisions.length
+      ? decisions
+          .map(
+            (decision) => `
+              <article class="item">
+                <span>${escapeHtml(decision.decision)} &middot; ${escapeHtml(decision.updated_at || "-")}</span>
+                <strong>${escapeHtml(decision.experiment_external_id)}</strong>
+                <p>${escapeHtml(decision.reason || "-")}</p>
+              </article>
+            `,
+          )
+          .join("")
+      : `<p class="empty-note">${text.empty}</p>`;
+  }
 }
 
 function renderTestnetOrders(orders) {
@@ -436,22 +471,6 @@ function renderReferenceList(references) {
         )
         .join("")
     : `<p class="empty-note">${text.empty}</p>`;
-  const decisionTarget = document.querySelector("#experimentDecisionList");
-  if (decisionTarget) {
-    decisionTarget.innerHTML = decisions.length
-      ? decisions
-          .map(
-            (decision) => `
-              <article class="item">
-                <span>${escapeHtml(decision.decision)} &middot; ${escapeHtml(decision.updated_at || "-")}</span>
-                <strong>${escapeHtml(decision.experiment_external_id)}</strong>
-                <p>${escapeHtml(decision.reason || "-")}</p>
-              </article>
-            `,
-          )
-          .join("")
-      : `<p class="empty-note">${text.empty}</p>`;
-  }
 }
 
 function createCharts() {

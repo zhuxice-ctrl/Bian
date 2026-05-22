@@ -87,3 +87,6 @@
 - Validation summaries now distinguish selected date range, in-sample, out-of-sample, and stress-window context. These warnings are evidence for research decisions, not trading permission.
 - `BacktestMetrics` does not carry drawdown directly; drawdown is produced by the richer report builder. Validation slice summaries should avoid assuming report-only fields exist.
 - Experiment promotion is now represented as a decision record, not an execution path. Marking `testnet_candidate` creates research state only; it does not place or enable orders.
+- Failed experiments should create deterministic mistake-pattern knowledge cards rather than free-form notes, so the learning queue can rank them reliably without LLM access.
+- Review queue priority is derived from source, category, risk tags, and recency; it is a study workflow, not a trading signal.
+- The dashboard had a latent JavaScript scope bug where experiment decisions were rendered from `renderReferenceList` using a local variable from another function. Moving that rendering into `renderStrategyLab` keeps runtime behavior consistent with the data payload.

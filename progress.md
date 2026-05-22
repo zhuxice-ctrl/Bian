@@ -138,3 +138,10 @@
 - Added Brain `/experiment-decision` so experiment promotion/rejection can be audited.
 - Surfaced experiment decisions in the dashboard control console and Experiments page.
 - Verified Phase 44 with targeted tests (`6 passed`), full suite (`227 passed`), and dashboard JavaScript syntax check.
+- Started Phase 45 learning system deepening after confirming the clean baseline with `pytest -q` (`227 passed`).
+- Added `trading_learning.learning.curriculum` for failed-experiment learning tasks, deterministic mistake-pattern cards, and importance/recency-ranked review queues.
+- Added Brain `/experiment-learning` and `/learning-queue` commands.
+- Extended daily and weekly learning reports with experiment-linked learning tasks.
+- Surfaced the review queue in the local workstation Today page through the control console payload.
+- Fixed the dashboard experiment-decision rendering scope while wiring the review queue.
+- Verified Phase 45 with targeted curriculum, Brain learning report, dashboard tests, and dashboard JavaScript syntax check.

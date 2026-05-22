@@ -864,7 +864,7 @@ Acceptance criteria:
 
 ## Phase 45: Learning System Deepening
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -874,10 +874,10 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] Failed experiments generate learning tasks and mistake-pattern cards.
-- [ ] The app shows a review queue ranked by importance and recency.
-- [ ] Daily/weekly reports connect learning progress to actual experiments.
-- [ ] Tests cover generated tasks, review queue ranking, and report links.
+- [x] Failed experiments generate learning tasks and mistake-pattern cards.
+- [x] The app shows a review queue ranked by importance and recency.
+- [x] Daily/weekly reports connect learning progress to actual experiments.
+- [x] Tests cover generated tasks, review queue ranking, and report links.
 
 ## Phase 46: Feishu Remote Study Assistant
 
