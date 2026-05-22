@@ -57,6 +57,7 @@ def test_refresh_market_data_writes_each_symbol_interval_and_returns_inventory(t
     assert [item["symbol"] for item in captured] == ["BTCUSDT", "BTCUSDT", "ETHUSDT", "ETHUSDT"]
     assert [item["interval"] for item in captured] == ["1h", "15m", "1h", "15m"]
     assert all(item["limit"] == 2 for item in captured)
+    _normalize_updated_at(result["datasets"])
     assert result == {
         "status": "saved",
         "datasets": [
@@ -67,6 +68,9 @@ def test_refresh_market_data_writes_each_symbol_interval_and_returns_inventory(t
                 "row_count": 1,
                 "first_opened_at": "2026-05-21T00:00:00+00:00",
                 "last_opened_at": "2026-05-21T00:00:00+00:00",
+                "exists": True,
+                "source": "binance_public_cache",
+                "updated_at": csv_path_stat_any(),
             },
             {
                 "symbol": "BTCUSDT",
@@ -75,6 +79,9 @@ def test_refresh_market_data_writes_each_symbol_interval_and_returns_inventory(t
                 "row_count": 1,
                 "first_opened_at": "2026-05-21T00:00:00+00:00",
                 "last_opened_at": "2026-05-21T00:00:00+00:00",
+                "exists": True,
+                "source": "binance_public_cache",
+                "updated_at": csv_path_stat_any(),
             },
             {
                 "symbol": "ETHUSDT",
@@ -83,6 +90,9 @@ def test_refresh_market_data_writes_each_symbol_interval_and_returns_inventory(t
                 "row_count": 1,
                 "first_opened_at": "2026-05-21T00:00:00+00:00",
                 "last_opened_at": "2026-05-21T00:00:00+00:00",
+                "exists": True,
+                "source": "binance_public_cache",
+                "updated_at": csv_path_stat_any(),
             },
             {
                 "symbol": "ETHUSDT",
@@ -91,6 +101,9 @@ def test_refresh_market_data_writes_each_symbol_interval_and_returns_inventory(t
                 "row_count": 1,
                 "first_opened_at": "2026-05-21T00:00:00+00:00",
                 "last_opened_at": "2026-05-21T00:00:00+00:00",
+                "exists": True,
+                "source": "binance_public_cache",
+                "updated_at": csv_path_stat_any(),
             },
         ],
     }
@@ -107,15 +120,44 @@ def test_inventory_datasets_reads_existing_csv_files(tmp_path):
         encoding="utf-8",
     )
 
-    inventory = inventory_datasets(root=root, allowed_symbols=("BTCUSDT", "ETHUSDT"), intervals=DEFAULT_MARKET_INTERVALS)
+    inventory = inventory_datasets(root=root, allowed_symbols=("BTCUSDT",), intervals=("1m", "1h"))
+    _normalize_updated_at(inventory)
 
     assert inventory == [
         {
             "symbol": "BTCUSDT",
+            "exists": False,
+            "source": "missing_local_cache",
+            "interval": "1m",
+            "path": str(root / "market_data" / "BTCUSDT" / "BTCUSDT-1m.csv"),
+            "row_count": 0,
+            "first_opened_at": None,
+            "last_opened_at": None,
+            "updated_at": None,
+        },
+        {
+            "symbol": "BTCUSDT",
+            "exists": True,
+            "source": "binance_public_cache",
             "interval": "1h",
             "path": str(csv_path),
             "row_count": 2,
             "first_opened_at": "2026-05-21T00:00:00+00:00",
             "last_opened_at": "2026-05-21T01:00:00+00:00",
+            "updated_at": csv_path_stat_any(),
         }
     ]
+
+
+def test_default_market_intervals_include_higher_timeframes():
+    assert DEFAULT_MARKET_INTERVALS == ("1m", "5m", "15m", "1h", "4h", "1d")
+
+
+def csv_path_stat_any():
+    return "__ANY_TIMESTAMP__"
+
+
+def _normalize_updated_at(datasets):
+    for dataset in datasets:
+        if dataset.get("updated_at"):
+            dataset["updated_at"] = csv_path_stat_any()

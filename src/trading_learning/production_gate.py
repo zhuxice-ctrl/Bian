@@ -16,6 +16,11 @@ def production_readiness_status() -> dict[str, Any]:
         "ready": False,
         "real_trading_enabled": False,
         "kill_switch_active": True,
+        "kill_switch": {
+            "active": True,
+            "mode": "locked",
+            "message": "Kill switch is active; real trading routes are unavailable.",
+        },
         "checks": checks,
         "missing": missing,
         "message": "Real trading is disabled. Complete the local production readiness gate before adding any real order path.",

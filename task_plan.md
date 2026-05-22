@@ -600,3 +600,156 @@ Acceptance criteria:
 - [x] Static dashboard shows console panels for tasks, coach proposals, strategy lab, sweeps, testnet orders, and real-trading gate.
 - [x] Tests cover dashboard data payload, HTTP route, and static UI markers.
 - [x] Documentation records the Freqtrade/Jesse/vectorbt reference direction.
+
+## Phase 30: Server Deployment And Runner Route Verification
+
+Status: completed
+
+Scope:
+
+- Deploy the latest local code to the Ubuntu server that hosts the Feishu bridge.
+- Keep secrets in server/local environment variables only.
+- Expose only the token-protected runner queue endpoints publicly.
+- Verify the server Brain, nginx, local runner, and local dashboard after deployment.
+
+Acceptance criteria:
+
+- [x] Server `bian-brain` is active and health check returns `status=ok`.
+- [x] Server nginx is active and `/feishu/events` remains configured.
+- [x] Public `/runner/claim` and `/runner/complete` route to Brain and reject bad tokens.
+- [x] Local `quant-runner --once` can claim and complete a queued status task through the public server URL.
+- [x] Local test suite and dashboard JavaScript syntax checks pass.
+
+## Phase 31: Clean Workspace And Data Provenance
+
+Status: completed
+
+Scope:
+
+- Make the clean, no-real-data state explicit in dashboard and Brain responses.
+- Add provenance labels for local data: manual, backtest, generated, remote task, testnet, system.
+- Add a safe reset workflow that backs up the SQLite database before clearing local learning/research records.
+- Keep exchange keys, Feishu secrets, local LLM settings, and market CSV cache out of reset scope.
+
+Acceptance criteria:
+
+- [x] CLI has a `reset-workspace` command that requires explicit confirmation and writes a backup.
+- [x] Brain has a low-risk `/workspace-status` query and a guarded `/workspace-reset confirm=...` command.
+- [x] Dashboard overview includes `workspace_state` and data source counts.
+- [x] Tests prove reset clears business records but preserves schema and does not touch secrets.
+
+## Phase 32: Real Market Data Center
+
+Status: completed
+
+Scope:
+
+- Extend the default BTC/ETH market intervals to `1m,5m,15m,1h,4h,1d`.
+- Surface dataset freshness, candle count, first/last candle time, and source labels in dashboard.
+- Add a status command that explains whether data is cached locally or missing.
+- Keep data download public-only and local-cache based.
+
+Acceptance criteria:
+
+- [x] Default inventory includes `4h` and `1d`.
+- [x] Dataset payloads include `source`, `exists`, `updated_at`, and clear missing states.
+- [x] Brain `/market-status` summarizes cached and missing datasets.
+- [x] Tests cover inventory payloads and status command output.
+
+## Phase 33: Local Backtest Workbench
+
+Status: completed
+
+Scope:
+
+- Let the local dashboard start a safe MA backtest from selected cached data and parameters.
+- Persist the generated experiment and trades so existing report/replay views can open it.
+- Keep the operation local, deterministic, and limited to allowed symbols and `data/local` CSV paths.
+
+Acceptance criteria:
+
+- [x] Dashboard exposes a local-only backtest action endpoint.
+- [x] Action validates symbol, interval, CSV path, and MA parameters.
+- [x] Successful action returns an experiment id and summary metrics.
+- [x] Tests cover action validation, persistence, and HTTP response shape.
+
+## Phase 34: Learning Loop Actions
+
+Status: completed
+
+Scope:
+
+- Make experiment review and review-commit usable as first-class local actions.
+- Show what should be reviewed next when experiments exist but learning records do not.
+- Keep writes deterministic and auditable through existing Brain logic.
+
+Acceptance criteria:
+
+- [x] Dashboard control console includes `next_review_actions`.
+- [x] Local action can persist an experiment review draft.
+- [x] Local action can commit an experiment review into review/knowledge/report records.
+- [x] Tests cover empty state, draft persistence, and commit action.
+
+## Phase 35: Feishu Remote Loop Polish
+
+Status: completed
+
+Scope:
+
+- Improve remote task status output so Feishu can return useful completion summaries.
+- Keep task queue operations token-protected and avoid exposing local secrets.
+
+Acceptance criteria:
+
+- [x] `/task-status` returns a concise Chinese-readable `message`.
+- [x] Completed remote tasks include result summary and payload for Feishu status follow-up.
+- [x] Tests cover task status text for queued and succeeded tasks.
+
+## Phase 36: AI Coach Daily Flow
+
+Status: completed
+
+Scope:
+
+- Add a daily coach command that turns current workspace state into a short next-action plan.
+- Prefer deterministic suggestions when there is no LLM connection.
+- Keep recommendations research/learning oriented, not trading signals.
+
+Acceptance criteria:
+
+- [x] Brain `/coach-daily` returns next actions for empty workspace, data-ready workspace, and experiment-ready workspace.
+- [x] Dashboard control console surfaces the same daily coach plan.
+- [x] Tests cover deterministic branches.
+
+## Phase 37: Local Application Shell
+
+Status: completed
+
+Scope:
+
+- Turn the dashboard from a long page into a clearer local workstation shell.
+- Add navigation anchors for console, data, backtest, review, knowledge, reports, and safety.
+- Keep controls compact, readable, and non-overlapping on desktop and mobile.
+
+Acceptance criteria:
+
+- [x] Dashboard has stable navigation targets for the main work areas.
+- [x] Empty states guide the first real workflow without pretending sample data exists.
+- [x] Static UI tests cover the navigation and new controls.
+- [x] Browser smoke check confirms the page renders cleanly.
+
+## Phase 38: Safety Trading Preparation
+
+Status: completed
+
+Scope:
+
+- Strengthen the visible safety boundary before any real trading discussion.
+- Add explicit kill-switch/status commands and dashboard safety summaries.
+- Keep real trading disabled and unimplemented.
+
+Acceptance criteria:
+
+- [x] Brain `/kill-switch-status` and `/kill-switch-enable` report safe disabled state without enabling real trading.
+- [x] Dashboard safety panel shows kill-switch active, real trading disabled, and missing readiness gates.
+- [x] Tests prove real trading remains blocked after safety commands.

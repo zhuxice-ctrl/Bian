@@ -88,3 +88,15 @@
 - Added Phase 29 local application console API `/api/control-console`.
 - Added dashboard console panels for task queue, AI Coach proposals, strategy profiles, parameter sweeps, Testnet orders, and production gate.
 - Added `docs/operations/app-framework-references-zh.md` to record how Freqtrade, Jesse, and vectorbt are being used as structural references.
+- Started Phase 31-38 productization batch after cleaning local smoke data.
+- Added Phase 30-38 roadmap entries to `task_plan.md`.
+- Created implementation plan `docs/superpowers/plans/2026-05-22-phase-31-38-productization.md`.
+- Completed Phase 31 workspace reset/provenance service with CLI `reset-workspace`, Brain `/workspace-status`, and Brain `/workspace-reset`.
+- Completed Phase 32 market data center metadata: default intervals now include `4h` and `1d`, inventory reports cached and missing datasets, and Brain `/market-status` summarizes cache state.
+- Completed Phase 33 local dashboard MA backtest action endpoint and persisted experiment/trade flow.
+- Completed Phase 34 dashboard experiment review actions for saving drafts and committing learning-loop records.
+- Completed Phase 35 remote task status message formatting for Feishu-friendly task summaries.
+- Completed Phase 36 deterministic `/coach-daily` and surfaced the daily coach plan in the local console.
+- Completed Phase 37 dashboard application shell with navigation, empty-state guidance, backtest form, and review action buttons.
+- Completed Phase 38 kill-switch status commands while keeping real trading disabled.
+- Verified productization batch with `pytest -q` (`209 passed`), dashboard JavaScript syntax check, and Edge headless DOM smoke.

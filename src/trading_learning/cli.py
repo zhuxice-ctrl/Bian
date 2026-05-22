@@ -36,6 +36,7 @@ from trading_learning.runner import RunnerClient
 from trading_learning.runner import run_runner_loop
 from trading_learning.storage.db import connect, connect_readonly, initialize_schema
 from trading_learning.strategy.moving_average import moving_average_crossover_signals
+from trading_learning.workspace import reset_workspace
 
 
 class MissingBinanceTestnetExecutor:
@@ -180,6 +181,10 @@ def build_parser() -> argparse.ArgumentParser:
     restore.add_argument("--backup", required=True)
     restore.add_argument("--target")
 
+    reset = subparsers.add_parser("reset-workspace", help="clear local learning and research records after backup")
+    reset.add_argument("--confirm", required=True)
+    reset.add_argument("--backup-dir", default="data/backups")
+
     return parser
 
 
@@ -192,7 +197,8 @@ def main(argv: list[str] | None = None) -> int:
         if not config.db_path.exists():
             print(f"dashboard database not found: {config.db_path}. Run `trading-learning init-db` first.")
             return 1
-        with connect_readonly(config.db_path) as conn:
+        with connect(config.db_path) as conn:
+            initialize_schema(conn)
             server = HTTPServer(
                 (args.host, args.port),
                 build_dashboard_handler(DashboardData(conn, allowed_symbols=config.allowed_symbols)),
@@ -241,6 +247,16 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "init-db":
             print(f"initialized {config.db_path}")
             return 0
+
+        if args.command == "reset-workspace":
+            result = reset_workspace(
+                conn,
+                db_path=config.db_path,
+                backup_dir=Path(args.backup_dir),
+                confirm=args.confirm,
+            )
+            print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+            return 0 if result["status"] == "reset" else 1
 
         if args.command == "download-klines":
             symbol = args.symbol.upper()

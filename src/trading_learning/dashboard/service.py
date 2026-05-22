@@ -103,6 +103,25 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
 
         self._write_json({"status": "not_found", "message": "not found"}, HTTPStatus.NOT_FOUND)
 
+    def do_POST(self) -> None:
+        parsed = urlparse(self.path)
+        try:
+            payload = self._read_json_body()
+            if parsed.path == "/api/actions/backtest-ma":
+                self._write_json(self.data.run_backtest_ma_action(payload), HTTPStatus.OK)
+                return
+            if parsed.path == "/api/actions/experiment-review":
+                self._write_json(self.data.persist_experiment_review_action(payload), HTTPStatus.OK)
+                return
+            if parsed.path == "/api/actions/experiment-review-commit":
+                self._write_json(self.data.commit_experiment_review_action(payload), HTTPStatus.OK)
+                return
+        except ValueError as exc:
+            self._write_json({"status": "invalid", "message": str(exc)}, HTTPStatus.OK)
+            return
+
+        self._write_json({"status": "not_found", "message": "not found"}, HTTPStatus.NOT_FOUND)
+
     def log_message(self, format: str, *args: Any) -> None:
         return
 
@@ -113,6 +132,16 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(encoded)))
         self.end_headers()
         self.wfile.write(encoded)
+
+    def _read_json_body(self) -> dict[str, Any]:
+        length = int(self.headers.get("Content-Length", "0"))
+        if length <= 0:
+            return {}
+        decoded = self.rfile.read(length).decode("utf-8")
+        body = json.loads(decoded)
+        if not isinstance(body, dict):
+            raise ValueError("JSON body must be an object")
+        return body
 
     def _write_static(self, filename: str, content_type: str) -> None:
         content = files("trading_learning.dashboard.static").joinpath(filename).read_bytes()

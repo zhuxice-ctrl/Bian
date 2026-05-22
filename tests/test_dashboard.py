@@ -288,7 +288,9 @@ def test_dashboard_control_console_aggregates_product_state(tmp_path):
 
     assert console["status"] == "ok"
     assert console["health"]["status"] == "ok"
+    assert "workspace_state" in console
     assert console["tasks"][0]["external_id"] == "task-1"
+    assert "daily_plan" in console["coach"]
     assert console["coach"]["proposals"][0]["external_id"] == "proposal-1"
     assert console["strategy_lab"]["profiles"][0]["name"] == "ma_baseline"
     assert console["strategy_lab"]["sweeps"][0]["best_experiment"] == "experiment-2"
@@ -401,19 +403,20 @@ def test_dashboard_dataset_inventory_lists_local_market_data(tmp_path, monkeypat
 
         datasets = DashboardData(conn).datasets()
 
-    assert datasets == {
-        "status": "ok",
-        "datasets": [
-            {
-                "symbol": "BTCUSDT",
-                "interval": "1h",
-                "path": str(csv_path.relative_to(tmp_path)),
-                "row_count": 2,
-                "first_opened_at": "2026-05-21T00:00:00+00:00",
-                "last_opened_at": "2026-05-21T01:00:00+00:00",
-            }
-        ],
-    }
+    cached = [dataset for dataset in datasets["datasets"] if dataset["exists"]]
+    missing = [dataset for dataset in datasets["datasets"] if not dataset["exists"]]
+
+    assert datasets["status"] == "ok"
+    assert len(cached) == 1
+    assert len(missing) == 11
+    assert cached[0]["symbol"] == "BTCUSDT"
+    assert cached[0]["interval"] == "1h"
+    assert cached[0]["path"] == str(csv_path.relative_to(tmp_path))
+    assert cached[0]["row_count"] == 2
+    assert cached[0]["first_opened_at"] == "2026-05-21T00:00:00+00:00"
+    assert cached[0]["last_opened_at"] == "2026-05-21T01:00:00+00:00"
+    assert cached[0]["source"] == "binance_public_cache"
+    assert missing[0]["source"] == "missing_local_cache"
 
 
 def test_dashboard_http_serves_api_and_static_page(tmp_path):
@@ -534,6 +537,15 @@ def test_dashboard_static_page_exposes_interactive_replay_controls():
         'id="reviewQuestions"',
         'id="reviewLearningTasks"',
         'id="consoleMetrics"',
+        'id="appNav"',
+        'id="emptyStatePanel"',
+        'id="workspaceStatus"',
+        'id="dailyCoachPlan"',
+        'id="backtestForm"',
+        'id="runBacktestAction"',
+        'id="backtestActionStatus"',
+        'id="saveReviewDraftAction"',
+        'id="commitReviewAction"',
         'id="taskQueueList"',
         'id="coachProposalList"',
         'id="strategyProfileList"',
@@ -563,7 +575,10 @@ def test_dashboard_static_script_uses_lightweight_charts_engine():
         "function jumpToNextTrade",
         "function movingAverage",
         "function renderDatasets",
+        "function renderEmptyState",
         "function renderControlConsole",
+        "function renderWorkspaceStatus",
+        "function renderDailyCoachPlan",
         "function renderTaskQueue",
         "function renderCoachProposals",
         "function renderStrategyLab",
@@ -577,6 +592,10 @@ def test_dashboard_static_script_uses_lightweight_charts_engine():
         "function loadExperimentComparison",
         "function renderExperimentComparison",
         "function loadExperimentReview",
+        "function runDashboardBacktest",
+        "function saveReviewDraftAction",
+        "function commitReviewAction",
+        "function postJson",
         "function renderExperimentReview",
         "function renderRiskFlags",
         "function renderFocusTrades",
@@ -586,5 +605,8 @@ def test_dashboard_static_script_uses_lightweight_charts_engine():
         "/api/experiment-review",
         "/api/datasets",
         "/api/control-console",
+        "/api/actions/backtest-ma",
+        "/api/actions/experiment-review",
+        "/api/actions/experiment-review-commit",
     ]:
         assert marker in script

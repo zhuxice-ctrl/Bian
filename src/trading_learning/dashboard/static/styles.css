@@ -31,6 +31,30 @@ body {
   color: #f8fafc;
 }
 
+.app-nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--line);
+}
+
+.app-nav a {
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 13px;
+  padding: 7px 10px;
+  border-radius: 6px;
+}
+
+.app-nav a:hover {
+  background: #eef5f8;
+}
+
 h1,
 h2,
 p {
@@ -110,7 +134,8 @@ h3 {
 }
 
 select,
-button {
+button,
+input {
   height: 34px;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -131,6 +156,29 @@ button {
   border-color: var(--accent);
 }
 
+.empty-state {
+  margin-top: 12px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfdff;
+}
+
+.empty-state[hidden] {
+  display: none;
+}
+
+.empty-state p,
+.empty-state ol {
+  margin-top: 8px;
+}
+
+.empty-state code,
+#dailyCoachPlan code {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .replay-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
@@ -142,6 +190,42 @@ button {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 12px;
+}
+
+.backtest-form {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  align-items: end;
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.backtest-form label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.backtest-form span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.backtest-form input {
+  width: 100%;
+  min-width: 0;
+  padding: 0 8px;
+}
+
+.action-status {
+  grid-column: 1 / -1;
+  min-height: 18px;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .source-control {
@@ -461,6 +545,10 @@ button {
   background: #ffffff;
 }
 
+.muted-item {
+  opacity: 0.72;
+}
+
 .item strong {
   display: block;
   font-size: 14px;
@@ -523,7 +611,8 @@ button {
     grid-template-columns: 1fr;
   }
 
-  .source-grid {
+  .source-grid,
+  .backtest-form {
     grid-template-columns: 1fr;
   }
 

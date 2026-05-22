@@ -145,20 +145,48 @@ def test_market_refresh_downloads_default_symbol_interval_scope(tmp_path, monkey
         audit = conn.execute("select status from brain_audit_logs").fetchone()
 
     assert response["status"] == "saved"
-    assert response["count"] == 8
+    assert response["count"] == 12
     assert [item["symbol"] for item in captured] == [
         "BTCUSDT",
         "BTCUSDT",
         "BTCUSDT",
         "BTCUSDT",
+        "BTCUSDT",
+        "BTCUSDT",
+        "ETHUSDT",
+        "ETHUSDT",
         "ETHUSDT",
         "ETHUSDT",
         "ETHUSDT",
         "ETHUSDT",
     ]
-    assert [item["interval"] for item in captured] == ["1m", "5m", "15m", "1h"] * 2
+    assert [item["interval"] for item in captured] == ["1m", "5m", "15m", "1h", "4h", "1d"] * 2
     assert all(item["limit"] == 2 for item in captured)
     assert audit["status"] == "saved"
+
+
+def test_market_status_summarizes_cached_and_missing_datasets(tmp_path, monkeypatch):
+    root = tmp_path / "data" / "local"
+    csv_path = root / "market_data" / "BTCUSDT" / "BTCUSDT-1h.csv"
+    csv_path.parent.mkdir(parents=True)
+    csv_path.write_text(
+        "opened_at,open,high,low,close,volume\n"
+        "2026-05-21T00:00:00+00:00,100,105,99,104,12\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor())
+
+        response = handler.handle("/market-status", user_id="owner")
+
+    assert response["status"] == "ok"
+    assert response["cached_count"] == 1
+    assert response["missing_count"] == 11
+    assert "cached=1" in response["message"]
+    assert "missing=11" in response["message"]
 
 
 def test_market_refresh_rejects_symbols_outside_learning_scope(tmp_path):

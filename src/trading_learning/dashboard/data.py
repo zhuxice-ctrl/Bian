@@ -9,11 +9,13 @@ from typing import Any
 from trading_learning.backtest.report import build_backtest_report
 from trading_learning.config import DEFAULT_ALLOWED_SYMBOLS
 from trading_learning.learning.experiment_review import build_experiment_review_draft
+from trading_learning.learning.daily_coach import build_daily_coach_plan
 from trading_learning.market_data.catalog import inventory_datasets
 from trading_learning.market_data.csv_loader import load_candles_csv
 from trading_learning.models import BacktestResult, Side, Trade
 from trading_learning.ops import build_local_health
 from trading_learning.production_gate import production_readiness_status
+from trading_learning.workspace import build_workspace_state
 
 
 class DashboardData:
@@ -53,6 +55,7 @@ class DashboardData:
                 "knowledge_count": int(knowledge_count),
                 "pending_suggestions": int(pending_suggestions),
             },
+            "workspace_state": build_workspace_state(self.conn),
             "recent_reviews": self.reviews(limit=5)["reviews"],
             "recent_experiments": self.experiments(limit=5)["experiments"],
         }
@@ -163,9 +166,12 @@ class DashboardData:
         return {
             "status": "ok",
             "health": build_local_health(self._database_path()),
+            "workspace_state": build_workspace_state(self.conn),
             "tasks": self._recent_remote_tasks(limit=8),
             "coach": {
+                "daily_plan": build_daily_coach_plan(self.conn, allowed_symbols=self.allowed_symbols),
                 "proposals": self._recent_experiment_proposals(limit=5),
+                "next_review_actions": self._next_review_actions(limit=5),
             },
             "strategy_lab": {
                 "profiles": self._strategy_profiles(limit=5),
@@ -196,6 +202,21 @@ class DashboardData:
             "status": "ok",
             "datasets": inventory_datasets(allowed_symbols=self.allowed_symbols),
         }
+
+    def run_backtest_ma_action(self, payload: dict[str, Any]) -> dict[str, Any]:
+        from trading_learning.actions import run_local_ma_backtest_action
+
+        return run_local_ma_backtest_action(self.conn, payload, allowed_symbols=self.allowed_symbols)
+
+    def persist_experiment_review_action(self, payload: dict[str, Any]) -> dict[str, Any]:
+        from trading_learning.actions import persist_experiment_review_action
+
+        return persist_experiment_review_action(self.conn, payload, allowed_symbols=self.allowed_symbols)
+
+    def commit_experiment_review_action(self, payload: dict[str, Any]) -> dict[str, Any]:
+        from trading_learning.actions import commit_experiment_review_action
+
+        return commit_experiment_review_action(self.conn, payload, allowed_symbols=self.allowed_symbols)
 
     def _recent_remote_tasks(self, *, limit: int) -> list[dict[str, Any]]:
         try:
@@ -242,6 +263,31 @@ class DashboardData:
                 }
             )
         return proposals
+
+    def _next_review_actions(self, *, limit: int) -> list[dict[str, str]]:
+        try:
+            rows = self.conn.execute(
+                """
+                select e.external_id, e.symbol, e.interval, e.created_at
+                from strategy_experiments e
+                left join experiment_review_drafts d on d.experiment_external_id = e.external_id
+                where d.external_id is null
+                order by e.id desc
+                limit ?
+                """,
+                (limit,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+        return [
+            {
+                "experiment_external_id": row["external_id"],
+                "title": f"Review {row['symbol']} {row['interval']} experiment",
+                "command": f"/experiment-review experiment={row['external_id']}",
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
 
     def _strategy_profiles(self, *, limit: int) -> list[dict[str, Any]]:
         try:

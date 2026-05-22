@@ -76,3 +76,28 @@ def test_coach_evaluate_updates_proposal_with_outcome(tmp_path):
     assert response["outcome"]["verdict"] == "improved"
     assert row["status"] == "evaluated"
     assert json.loads(row["outcome"])["comparison"]["realized_pnl_delta"] == 20.5
+
+
+def test_coach_daily_guides_empty_workspace(tmp_path):
+    with connect(tmp_path / "coach.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor())
+
+        response = handler.handle("/coach-daily", user_id="owner")
+
+    assert response["status"] == "ok"
+    assert response["daily_plan"]["stage"] == "empty_workspace"
+    assert response["daily_plan"]["actions"][0]["command"].startswith("trading-learning refresh-market-data")
+
+
+def test_coach_daily_guides_experiment_review(tmp_path):
+    with connect(tmp_path / "coach.sqlite3") as conn:
+        initialize_schema(conn)
+        _insert_experiment(conn, "experiment-loss", realized_pnl=-12.5, win_rate=0.25)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor())
+
+        response = handler.handle("/coach-daily", user_id="owner")
+
+    assert response["status"] == "ok"
+    assert response["daily_plan"]["stage"] == "review_experiment"
+    assert "/experiment-review" in response["daily_plan"]["actions"][0]["command"]

@@ -79,6 +79,15 @@ async function getJson(path) {
   return response.json();
 }
 
+async function postJson(path, body) {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return response.json();
+}
+
 function metric(label, value) {
   return `<div class="metric"><span>${label}</span><strong>${value}</strong></div>`;
 }
@@ -97,6 +106,7 @@ function toChartTime(value) {
 
 function renderOverview() {
   const totals = state.overview.totals;
+  const workspace = state.overview.workspace_state || {};
   document.querySelector("#metrics").innerHTML = [
     metric(text.reviewDays, totals.review_days),
     metric(text.reviewTrades, totals.review_trade_count),
@@ -105,6 +115,22 @@ function renderOverview() {
     metric(text.experiments, totals.experiment_count),
     metric(text.knowledge, totals.knowledge_count),
   ].join("");
+  renderEmptyState(workspace);
+}
+
+function renderEmptyState(workspace) {
+  const panel = document.querySelector("#emptyStatePanel");
+  if (!workspace || workspace.status !== "empty") {
+    panel.innerHTML = "";
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  panel.innerHTML = `
+    <strong>\u5f53\u524d\u662f\u5e72\u51c0\u5de5\u4f5c\u533a</strong>
+    <p>\u8fd8\u6ca1\u6709\u771f\u5b9e\u590d\u76d8\u3001\u56de\u6d4b\u5b9e\u9a8c\u6216\u77e5\u8bc6\u5361\u3002\u5148\u5237\u65b0\u516c\u5171\u884c\u60c5\uff0c\u518d\u8fd0\u884c\u7b2c\u4e00\u4e2a\u57fa\u7ebf\u56de\u6d4b\u3002</p>
+    <ol>${(workspace.next_steps || []).map((step) => `<li><code>${escapeHtml(step.command)}</code></li>`).join("")}</ol>
+  `;
 }
 
 function renderReviews() {
@@ -144,12 +170,23 @@ function renderExperiments() {
 
 function renderDatasets() {
   const select = document.querySelector("#datasetSelect");
-  if (!state.datasets.length) {
+  const cachedDatasets = state.datasets.filter((dataset) => dataset.exists);
+  if (!cachedDatasets.length) {
     select.innerHTML = `<option value="">\u6682\u65e0\u672c\u5730\u6570\u636e</option>`;
-    document.querySelector("#datasetList").innerHTML = "";
+    document.querySelector("#datasetList").innerHTML = state.datasets
+      .map(
+        (dataset) => `
+        <article class="item muted-item">
+          <span>${escapeHtml(dataset.symbol)} &middot; ${escapeHtml(dataset.interval)} &middot; ${escapeHtml(dataset.source)}</span>
+          <strong>${escapeHtml(dataset.path)}</strong>
+          <p>\u672a\u7f13\u5b58\uff1a\u4f7f\u7528 /market-refresh \u6216 refresh-market-data \u5237\u65b0</p>
+        </article>
+      `,
+      )
+      .join("");
     return;
   }
-  select.innerHTML = state.datasets
+  select.innerHTML = cachedDatasets
     .map((dataset) => {
       const value = `${dataset.symbol}|${dataset.path}`;
       return `<option value="${escapeHtml(value)}">${escapeHtml(dataset.symbol)} ${escapeHtml(dataset.interval)} &middot; ${dataset.row_count} bars</option>`;
@@ -159,9 +196,9 @@ function renderDatasets() {
     .map(
       (dataset) => `
         <article class="item">
-          <span>${escapeHtml(dataset.symbol)} &middot; ${escapeHtml(dataset.interval)} &middot; ${dataset.row_count} bars</span>
+          <span>${escapeHtml(dataset.symbol)} &middot; ${escapeHtml(dataset.interval)} &middot; ${dataset.exists ? `${dataset.row_count} bars` : "\u672a\u7f13\u5b58"}</span>
           <strong>${escapeHtml(dataset.path)}</strong>
-          <p>${escapeHtml(dataset.first_opened_at || "-")} \u2192 ${escapeHtml(dataset.last_opened_at || "-")}</p>
+          <p>${escapeHtml(dataset.first_opened_at || "-")} \u2192 ${escapeHtml(dataset.last_opened_at || "-")} &middot; ${escapeHtml(dataset.source || "-")}</p>
         </article>
       `,
     )
@@ -194,11 +231,33 @@ function renderControlConsole() {
     metric("\u53c2\u6570\u626b\u63cf", data.strategy_lab?.sweeps?.length ?? 0),
     metric("\u5b9e\u76d8", data.production_gate?.real_trading_enabled ? "\u5df2\u542f\u7528" : "\u7981\u7528"),
   ].join("");
+  renderWorkspaceStatus(data.workspace_state || {});
+  renderDailyCoachPlan(data.coach?.daily_plan || null);
   renderTaskQueue(data.tasks || []);
   renderCoachProposals(data.coach?.proposals || []);
   renderStrategyLab(data.strategy_lab || {});
   renderTestnetOrders(data.testnet?.orders || []);
   renderProductionGate(data.production_gate || {});
+}
+
+function renderWorkspaceStatus(workspace) {
+  document.querySelector("#workspaceStatus").innerHTML = `
+    <strong>\u5de5\u4f5c\u533a: ${escapeHtml(workspace.status || "-")}</strong>
+    <span>\u590d\u76d8 ${workspace.counts?.daily_reviews ?? 0} / \u5b9e\u9a8c ${workspace.counts?.strategy_experiments ?? 0} / \u77e5\u8bc6 ${workspace.counts?.knowledge_cards ?? 0}</span>
+  `;
+}
+
+function renderDailyCoachPlan(plan) {
+  const box = document.querySelector("#dailyCoachPlan");
+  if (!plan) {
+    box.textContent = text.empty;
+    return;
+  }
+  box.innerHTML = `
+    <strong>AI Coach: ${escapeHtml(plan.stage || "-")}</strong>
+    <p>${escapeHtml(plan.summary || "")}</p>
+    <ol>${(plan.actions || []).map((action) => `<li>${escapeHtml(action.title)} <code>${escapeHtml(action.command)}</code></li>`).join("")}</ol>
+  `;
 }
 
 function renderTaskQueue(tasks) {
@@ -746,6 +805,58 @@ async function loadExperimentReview() {
   renderExperimentReview(review);
 }
 
+async function refreshExperimentsAndConsole(selectedExperimentId) {
+  const [experiments, overview, controlConsole] = await Promise.all([
+    getJson("/api/experiments?limit=12"),
+    getJson("/api/overview"),
+    getJson("/api/control-console"),
+  ]);
+  state.experiments = experiments.experiments;
+  state.overview = overview;
+  state.controlConsole = controlConsole;
+  renderOverview();
+  renderExperiments();
+  renderControlConsole();
+  if (selectedExperimentId) {
+    document.querySelector("#experimentSelect").value = selectedExperimentId;
+  }
+}
+
+async function runDashboardBacktest(event) {
+  event.preventDefault();
+  const status = document.querySelector("#backtestActionStatus");
+  status.textContent = "\u8fd0\u884c\u4e2d...";
+  const result = await postJson("/api/actions/backtest-ma", {
+    symbol: document.querySelector("#backtestSymbol").value,
+    interval: document.querySelector("#backtestInterval").value,
+    csv: document.querySelector("#backtestCsv").value,
+    short: Number(document.querySelector("#backtestShort").value),
+    long: Number(document.querySelector("#backtestLong").value),
+  });
+  status.textContent = result.status === "saved" ? `\u5df2\u4fdd\u5b58 ${result.external_id}` : `${result.status}: ${result.message || ""}`;
+  if (result.status === "saved") {
+    await refreshExperimentsAndConsole(result.external_id);
+    await loadReplay();
+  }
+}
+
+async function saveReviewDraftAction() {
+  const experiment = document.querySelector("#experimentSelect").value;
+  if (!experiment) return;
+  const result = await postJson("/api/actions/experiment-review", { experiment });
+  document.querySelector("#experimentReviewStatus").textContent = result.message || result.status;
+  await loadExperimentReview();
+}
+
+async function commitReviewAction() {
+  const experiment = document.querySelector("#experimentSelect").value;
+  if (!experiment) return;
+  const result = await postJson("/api/actions/experiment-review-commit", { experiment });
+  document.querySelector("#experimentReviewStatus").textContent = result.message || result.status;
+  await refreshExperimentsAndConsole(experiment);
+  await loadExperimentReview();
+}
+
 function focusTrade(tradeId) {
   const trade = (state.report?.trades || []).find((item) => item.external_id === tradeId);
   if (!trade) return;
@@ -890,7 +1001,7 @@ async function boot() {
     renderControlConsole();
     if (state.experiments.length) {
       await loadReplay();
-    } else if (state.datasets.length) {
+    } else if (state.datasets.some((dataset) => dataset.exists)) {
       await loadDataset();
     } else {
       renderBacktestReport(null);
@@ -935,4 +1046,7 @@ document.querySelector("#clearTradeFilters").addEventListener("click", () => {
   renderTradeTable();
 });
 document.querySelector("#loadComparison").addEventListener("click", loadExperimentComparison);
+document.querySelector("#backtestForm").addEventListener("submit", runDashboardBacktest);
+document.querySelector("#saveReviewDraftAction").addEventListener("click", saveReviewDraftAction);
+document.querySelector("#commitReviewAction").addEventListener("click", commitReviewAction);
 boot();

@@ -9,7 +9,7 @@ from trading_learning.config import DEFAULT_ALLOWED_SYMBOLS
 from trading_learning.market_data.binance_klines import fetch_klines, save_klines_csv
 from trading_learning.models import Candle
 
-DEFAULT_MARKET_INTERVALS = ("1m", "5m", "15m", "1h")
+DEFAULT_MARKET_INTERVALS = ("1m", "5m", "15m", "1h", "4h", "1d")
 DEFAULT_MARKET_DATA_ROOT = Path("data/local")
 
 
@@ -29,8 +29,6 @@ def inventory_datasets(
     for symbol in allowed_symbols:
         for interval in intervals:
             path = dataset_path(symbol, interval, root=root)
-            if not path.exists():
-                continue
             datasets.append(_dataset_info(symbol=symbol, interval=interval, path=path))
     return datasets
 
@@ -61,15 +59,36 @@ def refresh_market_data(
 
 
 def _dataset_info(*, symbol: str, interval: str, path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {
+            "symbol": symbol.upper(),
+            "interval": interval,
+            "path": str(path),
+            "exists": False,
+            "source": "missing_local_cache",
+            "row_count": 0,
+            "first_opened_at": None,
+            "last_opened_at": None,
+            "updated_at": None,
+        }
     rows = _read_candle_rows(path)
     return {
         "symbol": symbol.upper(),
         "interval": interval,
         "path": str(path),
+        "exists": True,
+        "source": "binance_public_cache",
         "row_count": len(rows),
         "first_opened_at": rows[0]["opened_at"] if rows else None,
         "last_opened_at": rows[-1]["opened_at"] if rows else None,
+        "updated_at": _mtime_iso(path),
     }
+
+
+def _mtime_iso(path: Path) -> str:
+    from datetime import datetime, timezone
+
+    return datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat()
 
 
 def _read_candle_rows(path: Path) -> list[dict[str, str]]:

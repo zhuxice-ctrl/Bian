@@ -68,3 +68,8 @@
 - The production gate is a blocker, not an enablement path. Real trading still has no executable order route.
 - Phase 29 should not replace Bian with Freqtrade/Jesse/vectorbt. The useful reference is application structure: status surfaces, research workflow separation, parameter-grid visibility, and explicit risk state.
 - The local application console can remain read-only while still becoming the user's main application shell.
+- After local smoke data was cleared, the product needs explicit empty-state guidance; otherwise a clean dashboard looks broken instead of ready.
+- The next productization batch must avoid reintroducing sample data. All new flows should either read real local cache, generate deterministic backtest records from user-selected data, or show a missing-data state.
+- Dashboard writes are now limited to local, deterministic research/learning actions: MA backtest, experiment-review draft save, and experiment-review commit. No dashboard path touches exchange credentials or real trading.
+- Market data inventory now intentionally shows missing cache entries so the user can see what still needs refresh instead of wondering why a selector is empty.
+- Kill-switch commands are status/lock commands only; they do not create any path to enable real trading.

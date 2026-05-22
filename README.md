@@ -334,6 +334,27 @@ The aggregate API is read-only:
 GET /api/control-console
 ```
 
+The dashboard also has local-only research actions for daily use:
+
+- `POST /api/actions/backtest-ma`: run a moving-average backtest from a local `data/local` CSV.
+- `POST /api/actions/experiment-review`: save a deterministic experiment review draft.
+- `POST /api/actions/experiment-review-commit`: commit a review draft into local learning records.
+
+These actions do not use exchange keys and do not expose real trading.
+
+Useful productization commands:
+
+```powershell
+trading-learning reset-workspace --confirm RESET_LOCAL_WORKSPACE --backup-dir data/backups
+```
+
+```text
+/workspace-status
+/market-status
+/coach-daily
+/kill-switch-status
+```
+
 Before connecting the real Feishu app, run the local callback smoke test:
 
 ```powershell

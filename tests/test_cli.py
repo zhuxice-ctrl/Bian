@@ -159,7 +159,7 @@ def test_refresh_market_data_uses_default_btc_eth_scope(tmp_path, monkeypatch):
 
     assert exit_code == 0
     assert captured["symbols"] == ("BTCUSDT", "ETHUSDT")
-    assert captured["intervals"] == ("1m", "5m", "15m", "1h")
+    assert captured["intervals"] == ("1m", "5m", "15m", "1h", "4h", "1d")
     assert captured["allowed_symbols"] == ("BTCUSDT", "ETHUSDT")
     assert captured["limit"] == 10
 

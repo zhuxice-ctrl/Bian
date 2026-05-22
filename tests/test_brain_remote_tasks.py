@@ -1,4 +1,5 @@
 from trading_learning.brain.commands import BrainCommandHandler
+from trading_learning.brain.remote_tasks import TaskQueue
 from trading_learning.storage.db import connect, initialize_schema
 
 
@@ -41,6 +42,35 @@ def test_task_status_lists_recent_tasks(tmp_path):
     assert response["status"] == "ok"
     assert response["tasks"][0]["external_id"] == queued["task"]["external_id"]
     assert response["tasks"][0]["state"] == "queued"
+    assert "任务" in response["message"]
+    assert "queued" in response["message"]
+
+
+def test_task_status_message_includes_completed_results(tmp_path):
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        queue = TaskQueue(conn)
+        task = queue.create_task(
+            requester_user_id="owner",
+            command_text="/queue-status",
+            task_type="local_status",
+            risk_level="query",
+            payload={},
+        )
+        queue.complete_task(
+            task.external_id,
+            runner_id="pc-1",
+            state="succeeded",
+            result_summary="local runner online",
+            result_payload={"ok": True},
+        )
+        handler = BrainCommandHandler(conn, executor=FakeExecutor())
+
+        response = handler.handle("/task-status limit=1", user_id="owner")
+
+    assert response["status"] == "ok"
+    assert "succeeded" in response["message"]
+    assert "local runner online" in response["message"]
 
 
 def test_queue_backtest_rejects_unsupported_symbol(tmp_path):

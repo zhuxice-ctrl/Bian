@@ -22,9 +22,11 @@ from trading_learning.learning.experiment_review import build_experiment_review_
 from trading_learning.learning.coach import build_next_experiment_proposal
 from trading_learning.learning.coach import evaluate_experiment_proposal
 from trading_learning.learning.coach import save_experiment_proposal
+from trading_learning.learning.daily_coach import build_daily_coach_plan
 from trading_learning.learning.repository import save_knowledge_card
 from trading_learning.market_data.binance_klines import fetch_klines, save_klines_csv
 from trading_learning.market_data.catalog import DEFAULT_MARKET_INTERVALS
+from trading_learning.market_data.catalog import inventory_datasets
 from trading_learning.market_data.catalog import refresh_market_data
 from trading_learning.market_data.csv_loader import load_candles_csv
 from trading_learning.production_gate import production_readiness_status
@@ -32,6 +34,8 @@ from trading_learning.strategy.moving_average import moving_average_crossover_si
 from trading_learning.strategy.lab import list_strategy_profiles
 from trading_learning.strategy.lab import run_ma_parameter_sweep
 from trading_learning.strategy.lab import save_strategy_profile
+from trading_learning.workspace import build_workspace_state
+from trading_learning.workspace import reset_workspace
 
 
 @dataclass(frozen=True)
@@ -54,6 +58,8 @@ class BrainCommandHandler:
         natural_language: Any | None = None,
         llm_status_provider: Callable[[], dict[str, Any]] | None = None,
         kline_fetcher: Callable[..., Any] | None = None,
+        db_path: Path | None = None,
+        backup_dir: Path | None = None,
     ) -> None:
         self.conn = conn
         self.executor = executor
@@ -63,6 +69,8 @@ class BrainCommandHandler:
         self.natural_language = natural_language
         self.llm_status_provider = llm_status_provider or self._default_llm_status
         self.kline_fetcher = kline_fetcher or fetch_klines
+        self.db_path = db_path
+        self.backup_dir = backup_dir or Path("data/backups")
 
     def handle(self, text: str, *, user_id: str) -> dict[str, Any]:
         command_text = normalize_brain_command(text.strip())
@@ -116,6 +124,26 @@ class BrainCommandHandler:
 
         if command_text.startswith("/real-trading-status"):
             response = self._real_trading_status()
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/kill-switch-status"):
+            response = self._kill_switch_status()
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/kill-switch-enable"):
+            response = self._kill_switch_enable()
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/workspace-status"):
+            response = self._workspace_status()
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/workspace-reset"):
+            response = self._workspace_reset(command_text)
             self._audit(user_id, command_text, response)
             return response
 
@@ -203,6 +231,11 @@ class BrainCommandHandler:
             self._audit(user_id, command_text, response)
             return response
 
+        if command_text.startswith("/market-status"):
+            response = self._market_status(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
         if command_text.startswith("/queue-backtest-ma "):
             response = self._queue_backtest_ma(command_text, user_id)
             self._audit(user_id, command_text, response)
@@ -255,6 +288,11 @@ class BrainCommandHandler:
 
         if command_text.startswith("/coach-next"):
             response = self._coach_next(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/coach-daily"):
+            response = self._coach_daily()
             self._audit(user_id, command_text, response)
             return response
 
@@ -313,6 +351,30 @@ class BrainCommandHandler:
             ),
             "requires_confirmation": False,
         }
+
+    def _workspace_status(self) -> dict[str, Any]:
+        state = build_workspace_state(self.conn)
+        return {
+            "status": "ok",
+            "workspace_state": state,
+            "message": f"Workspace: {state['status']} | experiments={state['counts']['strategy_experiments']} | reviews={state['counts']['daily_reviews']}",
+            "requires_confirmation": False,
+        }
+
+    def _workspace_reset(self, command_text: str) -> dict[str, Any]:
+        if self.db_path is None:
+            return {
+                "status": "not_configured",
+                "message": "workspace reset requires BrainCommandHandler db_path configuration",
+                "requires_confirmation": False,
+            }
+        fields = self._parse_key_value_args(command_text.removeprefix("/workspace-reset").strip())
+        return reset_workspace(
+            self.conn,
+            db_path=self.db_path,
+            backup_dir=self.backup_dir,
+            confirm=fields.get("confirm", ""),
+        )
 
     @staticmethod
     def _default_llm_status() -> dict[str, Any]:
@@ -570,6 +632,26 @@ class BrainCommandHandler:
         return {
             "status": "blocked",
             "gate": production_readiness_status(),
+            "requires_confirmation": False,
+        }
+
+    def _kill_switch_status(self) -> dict[str, Any]:
+        gate = production_readiness_status()
+        return {
+            "status": "ok",
+            "kill_switch": gate["kill_switch"],
+            "real_trading_enabled": gate["real_trading_enabled"],
+            "message": gate["kill_switch"]["message"],
+            "requires_confirmation": False,
+        }
+
+    def _kill_switch_enable(self) -> dict[str, Any]:
+        gate = production_readiness_status()
+        return {
+            "status": "ok",
+            "kill_switch": gate["kill_switch"],
+            "real_trading_enabled": gate["real_trading_enabled"],
+            "message": "Kill switch remains active. Real trading is still disabled.",
             "requires_confirmation": False,
         }
 
@@ -1026,6 +1108,29 @@ class BrainCommandHandler:
             "requires_confirmation": False,
         }
 
+    def _market_status(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/market-status").strip())
+        symbols = tuple(symbol.upper() for symbol in self._csv_values(fields.get("symbols", ""))) or self.allowed_market_symbols
+        intervals = tuple(self._csv_values(fields.get("intervals", ""))) or DEFAULT_MARKET_INTERVALS
+        unsupported = [symbol for symbol in symbols if symbol not in self.allowed_market_symbols]
+        if unsupported:
+            return {
+                "status": "invalid",
+                "message": f"symbol not allowed: {unsupported[0]}. allowed: {', '.join(self.allowed_market_symbols)}",
+                "requires_confirmation": False,
+            }
+        datasets = inventory_datasets(allowed_symbols=symbols, intervals=intervals)
+        cached = [dataset for dataset in datasets if dataset["exists"]]
+        missing = [dataset for dataset in datasets if not dataset["exists"]]
+        return {
+            "status": "ok",
+            "cached_count": len(cached),
+            "missing_count": len(missing),
+            "datasets": datasets,
+            "message": f"Market data cache: cached={len(cached)} missing={len(missing)}",
+            "requires_confirmation": False,
+        }
+
     def _backtest_ma(self, command_text: str) -> dict[str, Any]:
         fields = self._parse_key_value_args(command_text.removeprefix("/backtest-ma "))
         required = {"csv", "symbol", "short", "long"}
@@ -1210,11 +1315,28 @@ class BrainCommandHandler:
                 "requires_confirmation": False,
             }
         tasks = TaskQueue(self.conn).list_recent(limit=limit)
+        message = "\n".join(self._format_task_status_line(task.to_dict()) for task in tasks) or "暂无远程任务"
         return {
             "status": "ok",
             "tasks": [task.to_dict() for task in tasks],
+            "message": message,
             "requires_confirmation": False,
         }
+
+    @staticmethod
+    def _format_task_status_line(task: dict[str, Any]) -> str:
+        parts = [
+            f"任务 {task['external_id']}",
+            f"type={task['task_type']}",
+            f"state={task['state']}",
+        ]
+        if task.get("runner_id"):
+            parts.append(f"runner={task['runner_id']}")
+        if task.get("result_summary"):
+            parts.append(str(task["result_summary"]))
+        if task.get("error_message"):
+            parts.append(f"error={task['error_message']}")
+        return " | ".join(parts)
 
     def _experiment_summary(self, command_text: str) -> dict[str, Any]:
         fields = self._parse_key_value_args(command_text.removeprefix("/experiment-summary").strip())
@@ -1612,6 +1734,15 @@ class BrainCommandHandler:
             "status": "saved",
             "message": f"saved experiment proposal {saved['external_id']}",
             "proposal": saved,
+            "requires_confirmation": False,
+        }
+
+    def _coach_daily(self) -> dict[str, Any]:
+        daily_plan = build_daily_coach_plan(self.conn, allowed_symbols=self.allowed_market_symbols)
+        return {
+            "status": "ok",
+            "daily_plan": daily_plan,
+            "message": daily_plan["summary"],
             "requires_confirmation": False,
         }
 
