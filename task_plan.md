@@ -847,7 +847,7 @@ Acceptance criteria:
 
 ## Phase 44: Experiment Portfolio And Comparison Lab
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -857,10 +857,10 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] The dashboard can compare multiple experiments side by side.
-- [ ] AI Coach can explain the next research priority from experiment history.
-- [ ] Each experiment can be marked as rejected, needs more data, testnet candidate, or archived.
-- [ ] Tests cover comparison groups and decision persistence.
+- [x] The dashboard can compare multiple experiments side by side.
+- [x] AI Coach can explain the next research priority from experiment history.
+- [x] Each experiment can be marked as rejected, needs more data, testnet candidate, or archived.
+- [x] Tests cover comparison groups and decision persistence.
 
 ## Phase 45: Learning System Deepening
 

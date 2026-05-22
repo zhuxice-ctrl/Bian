@@ -277,6 +277,20 @@ def test_dashboard_control_console_aggregates_product_state(tmp_path):
         )
         conn.execute(
             """
+            insert into strategy_experiments (
+              external_id, strategy_name, symbol, interval, source_csv, parameters, metrics
+            ) values ('experiment-2', 'moving_average_crossover', 'BTCUSDT', '1h', 'data/local/BTCUSDT-1h.csv', '{}', '{}')
+            """
+        )
+        conn.execute(
+            """
+            insert into experiment_decisions (
+              experiment_external_id, decision, reason
+            ) values ('experiment-2', 'testnet_candidate', 'stable_out_of_sample')
+            """
+        )
+        conn.execute(
+            """
             insert into testnet_order_records (
               external_id, user_id, action, symbol, side, order_type, order_id, status
             ) values ('testnet-order-1', 'owner', 'create_order', 'BTCUSDT', 'BUY', 'MARKET', '123', 'FILLED')
@@ -294,6 +308,7 @@ def test_dashboard_control_console_aggregates_product_state(tmp_path):
     assert console["coach"]["proposals"][0]["external_id"] == "proposal-1"
     assert console["strategy_lab"]["profiles"][0]["name"] == "ma_baseline"
     assert console["strategy_lab"]["sweeps"][0]["best_experiment"] == "experiment-2"
+    assert console["strategy_lab"]["decisions"][0]["decision"] == "testnet_candidate"
     assert console["testnet"]["orders"][0]["order_id"] == "123"
     assert console["production_gate"]["real_trading_enabled"] is False
     assert [item["project"] for item in console["references"]] == ["Freqtrade", "Jesse", "vectorbt"]
@@ -530,6 +545,7 @@ def test_dashboard_static_page_exposes_interactive_replay_controls():
         'id="comparisonSelect"',
         'id="loadComparison"',
         'id="comparisonTable"',
+        'id="experimentDecisionList"',
         'id="experimentReviewStatus"',
         'id="reviewSummary"',
         'id="reviewRiskFlags"',

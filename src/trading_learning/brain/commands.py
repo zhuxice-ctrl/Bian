@@ -34,6 +34,7 @@ from trading_learning.strategy.moving_average import moving_average_crossover_si
 from trading_learning.strategy.lab import list_strategy_profiles
 from trading_learning.strategy.lab import run_ma_parameter_sweep
 from trading_learning.strategy.lab import save_strategy_profile
+from trading_learning.strategy.decisions import save_experiment_decision
 from trading_learning.workspace import build_workspace_state
 from trading_learning.workspace import reset_workspace
 
@@ -313,6 +314,11 @@ class BrainCommandHandler:
 
         if command_text.startswith("/sweep-ma "):
             response = self._sweep_ma(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/experiment-decision "):
+            response = self._experiment_decision(command_text)
             self._audit(user_id, command_text, response)
             return response
 
@@ -1904,6 +1910,28 @@ class BrainCommandHandler:
             "status": "saved",
             "message": f"saved parameter sweep {sweep['external_id']}",
             "sweep": sweep,
+            "requires_confirmation": False,
+        }
+
+    def _experiment_decision(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/experiment-decision ").strip())
+        required = {"experiment", "decision"}
+        missing = sorted(required - fields.keys())
+        if missing:
+            return {"status": "invalid", "message": f"missing fields: {', '.join(missing)}", "requires_confirmation": False}
+        try:
+            decision = save_experiment_decision(
+                self.conn,
+                experiment=fields["experiment"],
+                decision=fields["decision"],
+                reason=self._display_value(fields.get("reason", "")),
+            )
+        except ValueError as exc:
+            return {"status": "invalid", "message": str(exc), "requires_confirmation": False}
+        return {
+            "status": "saved",
+            "message": f"saved decision {decision['decision']} for {decision['experiment_external_id']}",
+            "decision": decision,
             "requires_confirmation": False,
         }
 

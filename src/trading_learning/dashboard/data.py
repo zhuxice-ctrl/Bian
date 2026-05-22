@@ -176,6 +176,7 @@ class DashboardData:
             "strategy_lab": {
                 "profiles": self._strategy_profiles(limit=5),
                 "sweeps": self._parameter_sweeps(limit=5),
+                "decisions": self._experiment_decisions(limit=8),
             },
             "testnet": {
                 "orders": self._testnet_orders(limit=5),
@@ -348,6 +349,21 @@ class DashboardData:
                 }
             )
         return sweeps
+
+    def _experiment_decisions(self, *, limit: int) -> list[dict[str, Any]]:
+        try:
+            rows = self.conn.execute(
+                """
+                select experiment_external_id, decision, reason, created_at, updated_at
+                from experiment_decisions
+                order by updated_at desc, id desc
+                limit ?
+                """,
+                (limit,),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+        return [dict(row) for row in rows]
 
     def _testnet_orders(self, *, limit: int) -> list[dict[str, Any]]:
         try:

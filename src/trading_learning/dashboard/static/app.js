@@ -365,6 +365,7 @@ function renderCoachProposals(proposals) {
 function renderStrategyLab(strategyLab) {
   const profiles = strategyLab.profiles || [];
   const sweeps = strategyLab.sweeps || [];
+  const decisions = strategyLab.decisions || [];
   document.querySelector("#strategyProfileList").innerHTML = profiles.length
     ? profiles
         .map(
@@ -435,6 +436,22 @@ function renderReferenceList(references) {
         )
         .join("")
     : `<p class="empty-note">${text.empty}</p>`;
+  const decisionTarget = document.querySelector("#experimentDecisionList");
+  if (decisionTarget) {
+    decisionTarget.innerHTML = decisions.length
+      ? decisions
+          .map(
+            (decision) => `
+              <article class="item">
+                <span>${escapeHtml(decision.decision)} &middot; ${escapeHtml(decision.updated_at || "-")}</span>
+                <strong>${escapeHtml(decision.experiment_external_id)}</strong>
+                <p>${escapeHtml(decision.reason || "-")}</p>
+              </article>
+            `,
+          )
+          .join("")
+      : `<p class="empty-note">${text.empty}</p>`;
+  }
 }
 
 function createCharts() {

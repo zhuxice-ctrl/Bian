@@ -133,3 +133,8 @@
 - Added Backtests page controls for start time, end time, and training ratio.
 - Fixed a validation-summary bug where the action tried to read `max_drawdown` from `BacktestMetrics`; detailed drawdown remains in the report layer, while validation slice summaries now return stable core metrics.
 - Verified Phase 43 with targeted tests (`10 passed`), full suite (`224 passed`), and dashboard JavaScript syntax check.
+- Started Phase 44 experiment portfolio and comparison lab.
+- Added durable `experiment_decisions` storage and repository helpers for rejected, needs_more_data, continue_research, testnet_candidate, and archived decisions.
+- Added Brain `/experiment-decision` so experiment promotion/rejection can be audited.
+- Surfaced experiment decisions in the dashboard control console and Experiments page.
+- Verified Phase 44 with targeted tests (`6 passed`), full suite (`227 passed`), and dashboard JavaScript syntax check.

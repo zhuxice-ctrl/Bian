@@ -67,6 +67,7 @@ def test_initialize_schema_creates_core_tables(tmp_path):
         "knowledge_cards",
         "strategy_hypotheses",
         "strategy_experiments",
+        "experiment_decisions",
         "review_experiment_links",
         "learning_reports",
         "experiment_review_drafts",

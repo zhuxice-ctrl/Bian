@@ -86,3 +86,4 @@
 - A generic strategy signal dispatcher lets the dashboard and Brain share strategy families without adding one endpoint per strategy.
 - Validation summaries now distinguish selected date range, in-sample, out-of-sample, and stress-window context. These warnings are evidence for research decisions, not trading permission.
 - `BacktestMetrics` does not carry drawdown directly; drawdown is produced by the richer report builder. Validation slice summaries should avoid assuming report-only fields exist.
+- Experiment promotion is now represented as a decision record, not an execution path. Marking `testnet_candidate` creates research state only; it does not place or enable orders.

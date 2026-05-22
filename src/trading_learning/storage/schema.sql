@@ -167,6 +167,15 @@ create table if not exists experiment_review_drafts (
   updated_at text not null default CURRENT_TIMESTAMP
 );
 
+create table if not exists experiment_decisions (
+  id integer primary key autoincrement,
+  experiment_external_id text not null unique,
+  decision text not null check (decision in ('rejected', 'needs_more_data', 'continue_research', 'testnet_candidate', 'archived')),
+  reason text not null default '',
+  created_at text not null default CURRENT_TIMESTAMP,
+  updated_at text not null default CURRENT_TIMESTAMP
+);
+
 create table if not exists brain_suggested_commands (
   id integer primary key autoincrement,
   external_id text not null unique,
