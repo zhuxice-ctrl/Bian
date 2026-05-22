@@ -37,7 +37,8 @@ Build a local-first, low-frequency crypto trading learning system that can:
 - [x] Phase 15 experiment review learning loop.
 - [x] Phase 16 professional backtest software experience.
 - [x] Phase 17 Feishu phone access through the server Brain.
-- [ ] Phase 18+ final product roadmap: AI-led local quant workstation.
+- [x] Phase 18-38 final product skeleton: AI-led local quant workstation.
+- [ ] Phase 39+ final product roadmap: professional research, execution safety, and daily-use polish.
 
 ## Phase 1: Brain Review And Learning Commands
 
@@ -753,3 +754,212 @@ Acceptance criteria:
 - [x] Brain `/kill-switch-status` and `/kill-switch-enable` report safe disabled state without enabling real trading.
 - [x] Dashboard safety panel shows kill-switch active, real trading disabled, and missing readiness gates.
 - [x] Tests prove real trading remains blocked after safety commands.
+
+## Phase 39: Product Direction And UX Specification
+
+Status: drafted
+
+Scope:
+
+- Decide the final local application shape before rebuilding the dashboard UI.
+- Define the daily first screen, navigation model, visual style, and core workflows.
+- Keep the app local-first: Feishu remains a light remote interface, not the main terminal.
+- Produce a written UI/product spec before implementation.
+- Use navigation and subpages instead of cramming all features into one page.
+
+Acceptance criteria:
+
+- [x] A product spec defines the target workstation layout and user flows.
+- [x] The first-screen workflow answers "what should I do today" without fake sample data.
+- [x] The design separates research, learning, testnet, and safety states clearly.
+- [ ] The spec is approved before major dashboard rewrites.
+
+## Phase 40: Professional Local Quant Workstation UI
+
+Status: planned
+
+Scope:
+
+- Rebuild the current dashboard into a professional research workstation.
+- Add a left navigation rail, top system status bar, main workspace, and right AI Coach/review queue panel.
+- Improve visual density, spacing, tables, forms, empty states, and mobile behavior.
+- Keep all existing local APIs and safety boundaries intact.
+
+Acceptance criteria:
+
+- [ ] The app no longer feels like a simple prototype dashboard.
+- [ ] Data, backtest, experiments, review, knowledge, tasks, safety, and settings are reachable as clear work areas.
+- [ ] Controls do not overlap or resize unpredictably on desktop or mobile.
+- [ ] Browser smoke tests verify the main workflows render cleanly.
+
+## Phase 41: Market Data Pipeline Hardening
+
+Status: planned
+
+Scope:
+
+- Replace overwrite-only data refresh with incremental append/merge.
+- Add data completeness checks, gap detection, freshness warnings, and repair actions.
+- Add optional ETF/stock data provider support behind a separate provider abstraction.
+- Keep crypto public data and sensitive trading credentials separate.
+
+Acceptance criteria:
+
+- [ ] BTC/ETH cache refresh can update only new candles without duplicating rows.
+- [ ] The app can report missing ranges and stale datasets.
+- [ ] ETF/stock import path is supported through a configured provider or manual CSV import.
+- [ ] Tests cover incremental refresh, gap detection, and provider boundaries.
+
+## Phase 42: Strategy Engine Expansion
+
+Status: planned
+
+Scope:
+
+- Move beyond MA-only research into a small, controlled strategy library.
+- Add breakout, mean-reversion, volatility filter, grid-style research mode, and stop-loss/take-profit variants.
+- Keep strategy definitions reproducible and versioned.
+- Label every result as research-only until it passes validation.
+
+Acceptance criteria:
+
+- [ ] Strategy profiles can choose from multiple strategy families.
+- [ ] Each strategy records parameters, data range, version, fees, and slippage assumptions.
+- [ ] Backtest reports clearly show which strategy and assumptions produced the result.
+- [ ] Tests cover strategy selection and parameter validation.
+
+## Phase 43: Robust Backtesting And Validation
+
+Status: planned
+
+Scope:
+
+- Add more realistic backtest assumptions: fees, slippage, latency, partial fills where practical.
+- Add train/test splits, walk-forward validation, stress periods, and overfitting warnings.
+- Add market-regime tagging for trend, range, high volatility, drawdown, and recovery periods.
+
+Acceptance criteria:
+
+- [ ] Experiments can run on selected date ranges and validation splits.
+- [ ] Reports distinguish in-sample, out-of-sample, and stress-test results.
+- [ ] Overfitting and unstable-parameter warnings are visible in the dashboard and Brain.
+- [ ] Tests cover split generation, stress windows, and validation summaries.
+
+## Phase 44: Experiment Portfolio And Comparison Lab
+
+Status: planned
+
+Scope:
+
+- Let the system compare strategies, symbols, intervals, parameters, and date ranges as a portfolio of experiments.
+- Add experiment ranking, tagging, saved comparison groups, and reject/continue decisions.
+- Track why a strategy was promoted, paused, or discarded.
+
+Acceptance criteria:
+
+- [ ] The dashboard can compare multiple experiments side by side.
+- [ ] AI Coach can explain the next research priority from experiment history.
+- [ ] Each experiment can be marked as rejected, needs more data, testnet candidate, or archived.
+- [ ] Tests cover comparison groups and decision persistence.
+
+## Phase 45: Learning System Deepening
+
+Status: planned
+
+Scope:
+
+- Turn experiment results into a structured curriculum for the user.
+- Improve knowledge cards, mistake patterns, daily review prompts, and weekly learning summaries.
+- Add spaced repetition or review queue behavior for important lessons.
+
+Acceptance criteria:
+
+- [ ] Failed experiments generate learning tasks and mistake-pattern cards.
+- [ ] The app shows a review queue ranked by importance and recency.
+- [ ] Daily/weekly reports connect learning progress to actual experiments.
+- [ ] Tests cover generated tasks, review queue ranking, and report links.
+
+## Phase 46: Feishu Remote Study Assistant
+
+Status: planned
+
+Scope:
+
+- Polish Feishu as a remote command and study interface.
+- Support status checks, data refresh requests, backtest requests, review summaries, task lists, and learning reminders.
+- Keep Feishu away from unrestricted local automation and real-trading execution.
+
+Acceptance criteria:
+
+- [ ] Chinese Feishu commands cover common remote study workflows.
+- [ ] Long tasks return task ids and readable completion summaries.
+- [ ] Remote actions remain queue-based and token-protected.
+- [ ] Tests prove Feishu cannot bypass local execution safety.
+
+## Phase 47: Testnet Strategy Execution Loop
+
+Status: planned
+
+Scope:
+
+- Promote selected research candidates into Binance Spot Testnet only.
+- Connect strategy signals, paper/testnet orders, order lifecycle, post-trade review, and learning reports.
+- Keep confirmation, plan, checklist, and kill-switch controls active.
+
+Acceptance criteria:
+
+- [ ] A research experiment can be explicitly promoted to a testnet candidate.
+- [ ] Testnet execution records link back to strategy, signal, plan, checklist, and review records.
+- [ ] Kill-switch and risk guards block execution when unsafe.
+- [ ] Tests cover the full testnet lifecycle without touching real trading.
+
+## Phase 48: Real Trading Readiness Implementation
+
+Status: planned
+
+Scope:
+
+- Implement the missing readiness gates before any real trading is possible.
+- Add account mode separation, position limits, daily loss limits, max order size, cooldowns, allowlists, dry-run mode, and emergency stop behavior.
+- Keep real trading disabled by default and require a separate explicit activation process.
+
+Acceptance criteria:
+
+- [ ] The system can explain every missing real-trading requirement.
+- [ ] Risk checks are implemented and tested independently.
+- [ ] Dry-run mode can simulate the exact order path without sending real orders.
+- [ ] No real order can be sent without local manual activation and passing all gates.
+
+## Phase 49: Semi-Automated Small-Capital Pilot
+
+Status: planned-blocked
+
+Scope:
+
+- Only after Phase 48 passes, allow a tightly limited real-trading pilot.
+- Start with manual confirmation for every order and very small capital.
+- Require daily review, loss-limit enforcement, and rollback procedures.
+
+Acceptance criteria:
+
+- [ ] User explicitly approves entering this phase after reviewing risks.
+- [ ] Every pilot order has manual confirmation, audit log, and post-trade review.
+- [ ] Daily loss and position limits are enforced in code.
+- [ ] The phase can be stopped instantly through kill-switch.
+
+## Phase 50: Operations, Packaging, And Maintenance
+
+Status: planned
+
+Scope:
+
+- Make the system easy to run for months: startup, updates, backups, diagnostics, server deploys, and local recovery.
+- Add versioned migrations, release notes, one-command health checks, and clear user docs.
+- Keep secrets out of repo, logs, exports, and screenshots.
+
+Acceptance criteria:
+
+- [ ] A normal daily startup flow works after Windows reboot and network verification.
+- [ ] Server bridge deploy/update steps are documented and repeatable.
+- [ ] Backups and restores are verified against the current schema.
+- [ ] Final verification includes tests, dashboard browser QA, JavaScript syntax check, and secret scan.

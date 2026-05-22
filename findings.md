@@ -73,3 +73,8 @@
 - Dashboard writes are now limited to local, deterministic research/learning actions: MA backtest, experiment-review draft save, and experiment-review commit. No dashboard path touches exchange credentials or real trading.
 - Market data inventory now intentionally shows missing cache entries so the user can see what still needs refresh instead of wondering why a selector is empty.
 - Kill-switch commands are status/lock commands only; they do not create any path to enable real trading.
+- The remaining product work should start with UX/product specification before code changes, because the user explicitly paused UI implementation and wants to discuss the right application shape.
+- The next architecture direction remains local-first: local PC handles data, backtests, LLM/Codex, Binance keys, and execution; the server/Feishu layer handles remote task intake and short summaries.
+- Stable-profit research requires broad experimentation, but the safe sequence is research, validation, testnet, readiness gates, then small-capital pilot. Unrestricted autonomous real trading remains out of scope.
+- The preferred UI direction is not a single crowded dashboard. It should be a navigable workstation with separate pages for Today, Chart Lab, Data Center, Strategy Lab, Backtests, Experiments, Review, Knowledge, Testnet, Safety, and Settings.
+- The real Chart Lab must use existing Lightweight Charts with real local data, not hand-drawn placeholder candles.
