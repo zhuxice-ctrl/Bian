@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import shutil
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
@@ -41,6 +42,8 @@ def backfill_symbol(
             start_time_ms=_to_ms(current_start),
             end_time_ms=_to_ms(normalized_end),
         )
+        if not page:
+            break
         filtered = [
             _normalize_candle(candle, normalized_symbol)
             for candle in page
@@ -48,15 +51,47 @@ def backfill_symbol(
         ]
         for candle in filtered:
             candles_by_open[candle.opened_at] = candle
-        if len(page) < page_limit or not filtered:
+        page_last_opened_at = max(_to_utc(candle.opened_at) for candle in page)
+        if page_last_opened_at >= normalized_end:
+            break
+        if not filtered:
             break
         next_start = max(candle.opened_at for candle in filtered) + interval_delta
         if next_start <= current_start:
             break
         current_start = next_start
-        if current_start < normalized_end and request_delay_seconds > 0:
+        if request_delay_seconds > 0:
             sleep_fn(request_delay_seconds)
     return [candles_by_open[opened_at] for opened_at in sorted(candles_by_open)]
+
+
+def write_backfilled_dataset(
+    *,
+    candles: list[Candle],
+    symbol: str,
+    interval: str,
+    root: Path = DEFAULT_MARKET_DATA_ROOT,
+    backup_existing: bool = True,
+    now_fn: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+) -> dict[str, Any]:
+    normalized_symbol = symbol.upper()
+    ordered = _dedupe_ordered([_normalize_candle(candle, normalized_symbol) for candle in candles])
+    path = dataset_path(normalized_symbol, interval, root=root)
+    backup_path = None
+    if path.exists() and backup_existing:
+        timestamp = _to_utc(now_fn()).strftime("%Y%m%d-%H%M%S")
+        backup_path = path.with_name(f"{normalized_symbol}-{interval}.bak-{timestamp}.csv")
+        backup_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, backup_path)
+    save_klines_csv(ordered, path)
+    return {
+        "status": "saved",
+        "path": str(path),
+        "backup_path": str(backup_path) if backup_path is not None else None,
+        "row_count": len(ordered),
+        "first_opened_at": ordered[0].opened_at.isoformat() if ordered else None,
+        "last_opened_at": ordered[-1].opened_at.isoformat() if ordered else None,
+    }
 
 
 def backfill_symbols_to_csv(
@@ -70,6 +105,7 @@ def backfill_symbols_to_csv(
     sleep_fn: Callable[[float], None] = time.sleep,
     request_delay_seconds: float = 0.3,
     page_limit: int = 1000,
+    backup_existing: bool = True,
 ) -> dict[str, Any]:
     datasets: list[dict[str, Any]] = []
     for symbol in symbols:
@@ -83,18 +119,16 @@ def backfill_symbols_to_csv(
             request_delay_seconds=request_delay_seconds,
             page_limit=page_limit,
         )
-        path = dataset_path(symbol, interval, root=root)
-        save_klines_csv(candles, path)
-        datasets.append(
-            {
-                "symbol": symbol.upper(),
-                "interval": interval,
-                "path": str(path),
-                "row_count": len(candles),
-                "first_opened_at": candles[0].opened_at.isoformat() if candles else None,
-                "last_opened_at": candles[-1].opened_at.isoformat() if candles else None,
-            }
+        dataset = write_backfilled_dataset(
+            candles=candles,
+            symbol=symbol,
+            interval=interval,
+            root=root,
+            backup_existing=backup_existing,
         )
+        dataset["symbol"] = symbol.upper()
+        dataset["interval"] = interval
+        datasets.append(dataset)
     return {"status": "saved", "datasets": datasets}
 
 
@@ -147,6 +181,11 @@ def _normalize_candle(candle: Candle, symbol: str) -> Candle:
         close=float(candle.close),
         volume=float(candle.volume),
     )
+
+
+def _dedupe_ordered(candles: list[Candle]) -> list[Candle]:
+    by_opened_at = {candle.opened_at: candle for candle in candles}
+    return [by_opened_at[opened_at] for opened_at in sorted(by_opened_at)]
 
 
 def _to_utc(value: datetime) -> datetime:
