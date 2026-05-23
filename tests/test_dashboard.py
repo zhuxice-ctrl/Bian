@@ -277,6 +277,20 @@ def test_dashboard_control_console_aggregates_product_state(tmp_path):
         )
         conn.execute(
             """
+            insert into strategy_experiments (
+              external_id, strategy_name, symbol, interval, source_csv, parameters, metrics
+            ) values ('experiment-2', 'moving_average_crossover', 'BTCUSDT', '1h', 'data/local/BTCUSDT-1h.csv', '{}', '{}')
+            """
+        )
+        conn.execute(
+            """
+            insert into experiment_decisions (
+              experiment_external_id, decision, reason
+            ) values ('experiment-2', 'testnet_candidate', 'stable_out_of_sample')
+            """
+        )
+        conn.execute(
+            """
             insert into testnet_order_records (
               external_id, user_id, action, symbol, side, order_type, order_id, status
             ) values ('testnet-order-1', 'owner', 'create_order', 'BTCUSDT', 'BUY', 'MARKET', '123', 'FILLED')
@@ -291,9 +305,11 @@ def test_dashboard_control_console_aggregates_product_state(tmp_path):
     assert "workspace_state" in console
     assert console["tasks"][0]["external_id"] == "task-1"
     assert "daily_plan" in console["coach"]
+    assert "review_queue" in console["coach"]
     assert console["coach"]["proposals"][0]["external_id"] == "proposal-1"
     assert console["strategy_lab"]["profiles"][0]["name"] == "ma_baseline"
     assert console["strategy_lab"]["sweeps"][0]["best_experiment"] == "experiment-2"
+    assert console["strategy_lab"]["decisions"][0]["decision"] == "testnet_candidate"
     assert console["testnet"]["orders"][0]["order_id"] == "123"
     assert console["production_gate"]["real_trading_enabled"] is False
     assert [item["project"] for item in console["references"]] == ["Freqtrade", "Jesse", "vectorbt"]
@@ -472,7 +488,7 @@ def test_dashboard_http_serves_api_and_static_page(tmp_path):
             thread.join()
 
         assert overview["status"] == "ok"
-        assert "Trading Learning Dashboard" in html
+        assert "Bian Local Quant Workstation" in html
         assert "lightweight-charts.standalone.production.js" in html
         assert vendor_status == 200
         assert datasets["status"] == "ok"
@@ -530,6 +546,7 @@ def test_dashboard_static_page_exposes_interactive_replay_controls():
         'id="comparisonSelect"',
         'id="loadComparison"',
         'id="comparisonTable"',
+        'id="experimentDecisionList"',
         'id="experimentReviewStatus"',
         'id="reviewSummary"',
         'id="reviewRiskFlags"',
@@ -541,7 +558,12 @@ def test_dashboard_static_page_exposes_interactive_replay_controls():
         'id="emptyStatePanel"',
         'id="workspaceStatus"',
         'id="dailyCoachPlan"',
+        'id="reviewQueueList"',
         'id="backtestForm"',
+        'id="backtestStrategy"',
+        'id="backtestStart"',
+        'id="backtestEnd"',
+        'id="backtestTrainRatio"',
         'id="runBacktestAction"',
         'id="backtestActionStatus"',
         'id="saveReviewDraftAction"',
@@ -554,6 +576,24 @@ def test_dashboard_static_page_exposes_interactive_replay_controls():
         'id="productionGatePanel"',
         'id="klineChart"',
         'id="volumeChart"',
+        'id="workstationShell"',
+        'id="pageToday"',
+        'id="pageChart"',
+        'id="pageData"',
+        'id="pageStrategy"',
+        'id="pageBacktests"',
+        'id="pageExperiments"',
+        'id="pageReview"',
+        'id="pageKnowledge"',
+        'id="pageTestnet"',
+        'id="pageSafety"',
+        'id="pageSettings"',
+        'id="coachPanel"',
+        'id="coachToggle"',
+        'id="coachTitle"',
+        'id="coachBody"',
+        'data-route="chart"',
+        'data-page="chart"',
         "lightweight-charts.standalone.production.js",
     ]:
         assert marker in html
@@ -579,6 +619,7 @@ def test_dashboard_static_script_uses_lightweight_charts_engine():
         "function renderControlConsole",
         "function renderWorkspaceStatus",
         "function renderDailyCoachPlan",
+        "function renderReviewQueue",
         "function renderTaskQueue",
         "function renderCoachProposals",
         "function renderStrategyLab",
@@ -600,6 +641,13 @@ def test_dashboard_static_script_uses_lightweight_charts_engine():
         "function renderRiskFlags",
         "function renderFocusTrades",
         "function focusTrade",
+        "const routes =",
+        "function navigateTo",
+        "function setActiveRoute",
+        "function renderCoachPanel",
+        "function toggleCoach",
+        "function renderTopStatus",
+        "window.addEventListener(\"hashchange\"",
         "/api/backtest-report",
         "/api/experiment-comparison",
         "/api/experiment-review",

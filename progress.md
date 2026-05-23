@@ -107,3 +107,83 @@
 - Captured the user's preferred direction: B + C + D, with TradingView-style chart testing, quant research lab pages, and a right-side AI teaching/review coach.
 - Added the key UI constraint that features should be split into navigable subpages rather than packed into one crowded page.
 - Attempted to stage and commit with a PowerShell command using `&&`; this shell version rejected `&&`, so the commit was retried with separate commands.
+- Created branch `codex/phase-40-workstation-ui` for the workstation UI implementation.
+- Added the Phase 40 implementation plan at `docs/superpowers/plans/2026-05-22-phase-40-workstation-ui.md`.
+- Rebuilt the dashboard static shell into navigable pages: Today, Chart Lab, Data Center, Strategy Lab, Backtests, Experiments, Review, Knowledge, Testnet, Safety, and Settings.
+- Added a collapsible page-aware AI Coach panel and top safety/status strip.
+- Restyled the dashboard as a dark professional local quant workstation while preserving existing Lightweight Charts, action endpoints, and safety boundaries.
+- Verified Phase 40 with dashboard tests (`16 passed`), full suite (`209 passed`), dashboard JavaScript syntax check, and Chrome headless desktop smoke screenshot.
+- Started Phase 41 market data pipeline hardening.
+- Initially tried to read `src/trading_learning/binance/klines.py`; the correct module is `src/trading_learning/market_data/binance_klines.py`.
+- Added incremental market-data refresh: existing and fetched candles are merged by `opened_at`, sorted, and written without duplicate rows.
+- Added interval gap detection, `gap_count`, `has_gaps`, and `next_expected_opened_at` to dataset inventory.
+- Added Brain `/market-status` gap summaries and dashboard dataset gap/next-candle display.
+- Added manual `import-market-csv` support for ETF/stock/manual datasets into the local market cache.
+- Verified Phase 41 with targeted tests (`39 passed`), full suite (`214 passed`), and dashboard JavaScript syntax check.
+- Repeated the PowerShell `&&` mistake while checking diff/status; no repository changes were made by that failed command, and subsequent git checks are run as separate commands.
+- Started Phase 42 strategy engine expansion.
+- Added `trading_learning.strategy.library` with strategy-family signal generation for moving average crossover, breakout, mean reversion, and volatility-filtered MA signals.
+- Extended strategy profiles so Brain `/strategy-profile-set` can save non-MA strategy families such as `strategy=breakout`.
+- Extended the local dashboard backtest action so it can run selected strategy families while preserving the existing safe local endpoint.
+- Added a strategy selector to the Backtests page.
+- Verified Phase 42 with targeted tests (`12 passed`), full suite (`219 passed`), and dashboard JavaScript syntax check.
+- Started Phase 43 robust backtesting and validation.
+- Added `trading_learning.backtest.validation` with date-range filtering, train/test split generation, stress-window ranking, and validation warnings.
+- Extended dashboard local backtest actions with `start`, `end`, and `train_ratio`, and persisted validation summaries inside experiment metrics.
+- Added Backtests page controls for start time, end time, and training ratio.
+- Fixed a validation-summary bug where the action tried to read `max_drawdown` from `BacktestMetrics`; detailed drawdown remains in the report layer, while validation slice summaries now return stable core metrics.
+- Verified Phase 43 with targeted tests (`10 passed`), full suite (`224 passed`), and dashboard JavaScript syntax check.
+- Started Phase 44 experiment portfolio and comparison lab.
+- Added durable `experiment_decisions` storage and repository helpers for rejected, needs_more_data, continue_research, testnet_candidate, and archived decisions.
+- Added Brain `/experiment-decision` so experiment promotion/rejection can be audited.
+- Surfaced experiment decisions in the dashboard control console and Experiments page.
+- Verified Phase 44 with targeted tests (`6 passed`), full suite (`227 passed`), and dashboard JavaScript syntax check.
+- Started Phase 45 learning system deepening after confirming the clean baseline with `pytest -q` (`227 passed`).
+- Added `trading_learning.learning.curriculum` for failed-experiment learning tasks, deterministic mistake-pattern cards, and importance/recency-ranked review queues.
+- Added Brain `/experiment-learning` and `/learning-queue` commands.
+- Extended daily and weekly learning reports with experiment-linked learning tasks.
+- Surfaced the review queue in the local workstation Today page through the control console payload.
+- Fixed the dashboard experiment-decision rendering scope while wiring the review queue.
+- Verified Phase 45 with targeted curriculum, Brain learning report, dashboard tests, and dashboard JavaScript syntax check.
+- Started Phase 46 Feishu remote study assistant.
+- Added `/queue-market-refresh` so Feishu can request long-running local public-data refresh through the existing token-protected runner queue.
+- Added runner capability `market_refresh`; the local runner executes it by calling the existing Brain `/market-refresh` path with the same allowed-symbol boundary.
+- Added Chinese study aliases for learning queue, task status, daily coach, and remote data refresh.
+- Verified Phase 46 with Feishu bridge, remote task, runner service, and full test suite (`234 passed`).
+- Started Phase 47 Testnet strategy execution loop.
+- Added `/testnet-signal-buy` for promoted `testnet_candidate` experiments only.
+- Extended `testnet_order_records` with experiment, signal, plan, checklist, and review link fields, plus lightweight schema migration for existing local databases.
+- Preserved the existing manual confirmation and plan/checklist risk guard before any Spot Testnet order is sent.
+- Fixed a helper naming conflict with the existing `/experiment-decision` command during full-suite verification.
+- Verified Phase 47 with testnet lifecycle tests and full test suite (`236 passed`).
+- Started Phase 48 real trading readiness implementation.
+- Added explicit real-trading risk config, real order intent, and independent risk evaluation for symbol allowlist, order size, daily loss, position exposure, and cooldown.
+- Expanded production readiness status with daily loss, position limit, cooldown, and dry-run verification gates.
+- Added Brain `/real-dry-run-buy` for local simulation only and `/real-create-buy` as an explicit blocked route.
+- Verified that dry-run does not call the executor and that real order commands remain blocked; full suite passed with `239 passed`.
+- Started Phase 50 operations, packaging, and maintenance.
+- Added `scripts/start-local-workstation.ps1` to start Brain, optional Quant Runner, dashboard, and health check after Windows reboot/network verification.
+- Rewrote daily-use operations doc with current daily startup, Feishu queue, coach, backup, and real-trading dry-run boundaries.
+- Added release notes for Phase 45-50 and kept Phase 49 explicitly blocked.
+- Verified Phase 50 with documentation/script tests, full suite (`240 passed`), dashboard JavaScript syntax check, in-app Browser smoke for `http://127.0.0.1:8780/#safety`, and source/script secret scan.
+
+## 2026-05-23
+
+- Accepted the strategy-research direction with three hard constraints: 4 research decision levels, golden fixture indicator tests, and non-empty hypothesis cards with predicted/actual/decision/reason.
+- Added fixed indicator fixture `tests/fixtures/indicators_golden.json` and pure pandas/numpy indicators for EMA, RSI, ATR, and rolling regression slope.
+- Added `hypothesis_log` storage, `HypothesisLog`, CLI `hypothesis-create/list/resolve/tree`, and Chinese Brain hypothesis commands.
+- Added `risk_reduction_kept` as a first-class decision alongside kept, rejected, and inconclusive.
+- Added significance utilities, walk-forward runner, OOS reuse guardrails, and ablation report support.
+- Added MTF Trend strategy scaffold with H-100 through H-105 staged variables.
+- Wrote documented H-100 to H-105 hypothesis cards with predicted, actual, decision, and reason fields.
+- Added `docs/strategies/mtf_trend.md` and `exports/ablation-2026-05-23.md`.
+- Verified research-core targeted tests (`12 passed`) and full suite (`252 passed`).
+- Started Phase 52 MTF Trend research honesty pass.
+- Added tests proving `oos_trade_count` is real strategy entries and no longer OOS bar count.
+- Added tests for synchronized multi-timeframe walk-forward slicing and deferred lower-timeframe coverage.
+- Added `deferred` as a fifth research decision level.
+- Added a market cost model to MTF Trend returns: fee `0.0008`, slippage `0.0005`, latency `0.0002`.
+- Recounted H-100 through H-105 with corrected trade-count semantics and cost-aware returns.
+- Updated H-103 through H-105 to `deferred` where 15m/5m coverage is not sufficient for a real MTF conclusion.
+- Added a lightweight SQLite migration so existing `hypothesis_log` tables can accept the new `deferred` decision.
+- Verified Phase 52 full suite with `pytest -q` (`257 passed`).

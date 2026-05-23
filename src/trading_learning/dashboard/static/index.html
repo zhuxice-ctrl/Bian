@@ -3,216 +3,367 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Trading Learning Dashboard</title>
+    <title>Bian Local Quant Workstation</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <header class="topbar">
-      <div>
-        <h1>Trading Learning Dashboard</h1>
-        <p>&#26412;&#22320;&#21482;&#35835;&#22797;&#30424;&#24037;&#20316;&#21488;&#65306;&#22797;&#30424;&#12289;&#23454;&#39564;&#12289;&#30693;&#35782;&#24211;&#21644; K &#32447;&#22238;&#25918;&#12290;</p>
+    <div class="workstation-shell" id="workstationShell">
+      <aside class="side-rail" id="appNav" aria-label="主导航">
+        <div class="rail-brand">
+          <strong>Bian</strong>
+          <span>Local Quant</span>
+        </div>
+        <a href="#today" data-route="today">今日</a>
+        <a href="#chart" data-route="chart">图表</a>
+        <a href="#data" data-route="data">数据</a>
+        <a href="#strategy" data-route="strategy">策略</a>
+        <a href="#backtests" data-route="backtests">回测</a>
+        <a href="#experiments" data-route="experiments">实验</a>
+        <a href="#review" data-route="review">复盘</a>
+        <a href="#knowledge" data-route="knowledge">知识</a>
+        <a href="#testnet" data-route="testnet">测试网</a>
+        <a href="#safety" data-route="safety">安全</a>
+        <a href="#settings" data-route="settings">设置</a>
+      </aside>
+
+      <div class="app-frame">
+        <header class="topbar">
+          <div>
+            <h1>Bian Local Quant Workstation</h1>
+            <p>本地图表测试、量化研究、回测复盘和 AI 教学工作台。</p>
+          </div>
+          <div class="top-status">
+            <span id="connectionStatus" class="status-pill">读取中</span>
+            <span id="topSafetyStatus" class="status-pill danger">实盘关闭</span>
+            <span class="status-pill">本地优先</span>
+          </div>
+        </header>
+
+        <main class="workspace">
+          <section class="workspace-page today-page" id="pageToday" data-page="today">
+            <div class="page-heading">
+              <div>
+                <span class="eyebrow">Today</span>
+                <h2>今日工作台</h2>
+                <p>先看数据、实验和复盘队列，再决定下一步研究动作。</p>
+              </div>
+            </div>
+            <div class="metrics" id="metrics"></div>
+            <div id="emptyStatePanel" class="empty-state"></div>
+            <div class="today-grid">
+              <section class="panel">
+                <h3>AI Coach 今日计划</h3>
+                <div id="dailyCoachPlan" class="info-box"></div>
+              </section>
+              <section class="panel">
+                <h3>工作区状态</h3>
+                <div id="workspaceStatus" class="info-box"></div>
+              </section>
+              <section class="panel">
+                <h3>瀛︿範澶嶄範闃熷垪</h3>
+                <div id="reviewQueueList" class="list compact-list"></div>
+              </section>
+              <section class="panel">
+                <h3>系统摘要</h3>
+                <div class="metrics console-metrics" id="consoleMetrics"></div>
+              </section>
+            </div>
+          </section>
+
+          <section class="workspace-page chart-page" id="pageChart" data-page="chart">
+            <div class="page-heading">
+              <div>
+                <span class="eyebrow">Chart Lab</span>
+                <h2>图表实验室</h2>
+                <p>使用真实本地 K 线进行周期切换、辅助线观察、交易点定位和手动复盘。</p>
+              </div>
+            </div>
+            <div class="source-grid" id="dataSection">
+              <div class="source-control">
+                <span>历史数据</span>
+                <div class="controls">
+                  <select id="datasetSelect"></select>
+                  <button id="loadDataset" type="button">载入数据</button>
+                </div>
+              </div>
+              <div class="source-control">
+                <span>策略实验</span>
+                <div class="controls">
+                  <select id="experimentSelect"></select>
+                  <button id="loadReplay" type="button">载入实验</button>
+                </div>
+              </div>
+            </div>
+            <div class="chart-lab-layout">
+              <div class="chart-stack">
+                <div id="klineChart" class="chart-panel"></div>
+                <div id="volumeChart" class="volume-panel"></div>
+                <div class="timeline-row">
+                  <input id="replayRange" type="range" min="0" max="0" value="0" />
+                </div>
+                <div class="replay-toolbar">
+                  <button id="stepBack" type="button">后退</button>
+                  <button id="playPause" type="button">播放</button>
+                  <button id="stepForward" type="button">前进</button>
+                  <button id="nextTrade" type="button">下一笔</button>
+                  <label><input id="toggleMa20" type="checkbox" checked /> MA20</label>
+                  <label><input id="toggleMa60" type="checkbox" checked /> MA60</label>
+                </div>
+              </div>
+              <aside class="inspector">
+                <div id="ohlcPanel" class="info-box">等待载入 K 线</div>
+                <div id="tradeDetail" class="info-box">点击买卖点查看交易细节</div>
+                <div class="info-box">
+                  <strong>图表原则</strong>
+                  <span>正式页面只使用 Lightweight Charts 和真实本地数据，不使用假 K 线。</span>
+                </div>
+              </aside>
+            </div>
+          </section>
+
+          <section class="workspace-page data-page" id="pageData" data-page="data">
+            <div class="page-heading">
+              <div>
+                <span class="eyebrow">Data Center</span>
+                <h2>行情数据中心</h2>
+                <p>查看本地缓存、缺失周期、数据来源和后续增量刷新状态。</p>
+              </div>
+            </div>
+            <section class="panel">
+              <h3>历史数据</h3>
+              <div class="list" id="datasetList"></div>
+            </section>
+          </section>
+
+          <section class="workspace-page strategy-page" id="pageStrategy" data-page="strategy">
+            <div class="page-heading">
+              <div>
+                <span class="eyebrow">Strategy Lab</span>
+                <h2>策略实验室</h2>
+                <p>管理策略 Profile、参数扫描和研究假设。当前结果全部标记为研究用途。</p>
+              </div>
+            </div>
+            <div class="split-grid">
+              <section class="panel">
+                <h3>策略 Profile</h3>
+                <div class="list compact-list" id="strategyProfileList"></div>
+              </section>
+              <section class="panel">
+                <h3>参数扫描</h3>
+                <div class="list compact-list" id="sweepList"></div>
+              </section>
+            </div>
+          </section>
+
+          <section class="workspace-page backtests-page" id="pageBacktests" data-page="backtests">
+            <div class="page-heading">
+              <div>
+                <span class="eyebrow">Backtests</span>
+                <h2>回测工作台</h2>
+                <p>运行本地 MA 基线回测，查看报告、资金曲线、交易列表和过滤器。</p>
+              </div>
+            </div>
+            <form id="backtestForm" class="backtest-form">
+              <label>
+                <span>策略</span>
+                <select id="backtestStrategy">
+                  <option value="moving_average_crossover">MA 交叉</option>
+                  <option value="breakout">突破</option>
+                  <option value="mean_reversion">均值回归</option>
+                  <option value="volatility_filter">波动过滤 MA</option>
+                </select>
+              </label>
+              <label><span>交易对</span><input id="backtestSymbol" value="BTCUSDT" /></label>
+              <label><span>周期</span><input id="backtestInterval" value="1h" /></label>
+              <label><span>数据 CSV</span><input id="backtestCsv" value="data/local/market_data/BTCUSDT/BTCUSDT-1h.csv" /></label>
+              <label><span>开始时间</span><input id="backtestStart" placeholder="可选 ISO 时间" /></label>
+              <label><span>结束时间</span><input id="backtestEnd" placeholder="可选 ISO 时间" /></label>
+              <label><span>训练比例</span><input id="backtestTrainRatio" type="number" value="0.7" min="0.1" max="0.9" step="0.1" /></label>
+              <label><span>短均线</span><input id="backtestShort" type="number" value="20" min="1" /></label>
+              <label><span>长均线</span><input id="backtestLong" type="number" value="60" min="2" /></label>
+              <button id="runBacktestAction" type="submit">运行回测</button>
+              <div id="backtestActionStatus" class="action-status"></div>
+            </form>
+            <div id="reportMetrics" class="metrics report-metrics"></div>
+            <div class="report-grid">
+              <div class="panel">
+                <h3>资金曲线</h3>
+                <div id="equityChart" class="equity-panel"></div>
+              </div>
+              <div class="panel">
+                <div class="table-heading">
+                  <h3>交易列表</h3>
+                  <button id="clearTradeFilters" type="button">清空过滤</button>
+                </div>
+                <div class="trade-filters">
+                  <label><span>方向</span><select id="tradeSideFilter"></select></label>
+                  <label><span>结果</span><select id="tradeResultFilter"></select></label>
+                  <label><span>开始</span><input id="tradeStartFilter" type="date" /></label>
+                  <label><span>结束</span><input id="tradeEndFilter" type="date" /></label>
+                  <label><span>风险</span><select id="tradeRiskFilter"></select></label>
+                </div>
+                <table id="tradeTable" class="trade-table"></table>
+              </div>
+            </div>
+          </section>
+
+          <section class="workspace-page experiments-page" id="pageExperiments" data-page="experiments">
+            <div class="page-heading">
+              <div>
+                <span class="eyebrow">Experiments</span>
+                <h2>实验对比</h2>
+                <p>比较策略、周期、参数和风险标记，决定继续研究、淘汰或进入测试网候选。</p>
+              </div>
+            </div>
+            <div class="split-grid">
+              <section class="panel">
+                <h3>策略实验</h3>
+                <div class="list" id="experimentList"></div>
+              </section>
+              <section class="panel comparison-panel">
+                <div class="table-heading">
+                  <div>
+                    <h3>实验对比</h3>
+                    <p class="hint">按 Ctrl 或 Shift 选择多个实验，对比指标和参数。</p>
+                  </div>
+                  <button id="loadComparison" type="button">对比</button>
+                </div>
+                <select id="comparisonSelect" multiple size="4"></select>
+                <table id="comparisonTable" class="comparison-table"></table>
+              </section>
+              <section class="panel">
+                <h3>实验决策</h3>
+                <div class="list compact-list" id="experimentDecisionList"></div>
+              </section>
+            </div>
+          </section>
+
+          <section class="workspace-page review-page" id="pageReview" data-page="review">
+            <div class="page-heading">
+              <div>
+                <span class="eyebrow">Review</span>
+                <h2>复盘中心</h2>
+                <p>把回测草稿、亏损交易、复盘问题和学习任务沉淀到学习闭环。</p>
+              </div>
+            </div>
+            <section class="panel review-draft">
+              <div class="review-heading">
+                <div>
+                  <h3>回测复盘草稿</h3>
+                  <p id="experimentReviewStatus" class="hint">选择实验后生成复盘问题和学习任务</p>
+                </div>
+                <div class="controls">
+                  <button id="saveReviewDraftAction" type="button">保存草稿</button>
+                  <button id="commitReviewAction" type="button">沉淀到学习</button>
+                </div>
+              </div>
+              <div id="reviewSummary" class="review-summary"></div>
+              <div class="review-grid">
+                <section class="review-box">
+                  <h3>风险标记</h3>
+                  <div id="reviewRiskFlags" class="review-list"></div>
+                </section>
+                <section class="review-box">
+                  <h3>重点交易</h3>
+                  <div id="reviewFocusTrades" class="review-list"></div>
+                </section>
+                <section class="review-box">
+                  <h3>复盘问题</h3>
+                  <div id="reviewQuestions" class="review-list"></div>
+                </section>
+                <section class="review-box">
+                  <h3>学习任务</h3>
+                  <div id="reviewLearningTasks" class="review-list"></div>
+                </section>
+              </div>
+            </section>
+            <section class="panel">
+              <h3>最近复盘</h3>
+              <div class="list" id="reviewList"></div>
+            </section>
+          </section>
+
+          <section class="workspace-page knowledge-page" id="pageKnowledge" data-page="knowledge">
+            <div class="page-heading">
+              <div>
+                <span class="eyebrow">Knowledge</span>
+                <h2>知识库</h2>
+                <p>保存策略经验、错误模式、技术分析规则和复盘教训。</p>
+              </div>
+            </div>
+            <section class="panel">
+              <h3>知识卡片</h3>
+              <div class="list" id="knowledgeList"></div>
+            </section>
+          </section>
+
+          <section class="workspace-page testnet-page" id="pageTestnet" data-page="testnet">
+            <div class="page-heading">
+              <div>
+                <span class="eyebrow">Testnet</span>
+                <h2>测试网工作台</h2>
+                <p>测试网只验证执行流程和记录闭环，不代表实盘授权。</p>
+              </div>
+            </div>
+            <div class="split-grid">
+              <section class="panel">
+                <h3>Testnet 订单</h3>
+                <div class="list compact-list" id="testnetOrderList"></div>
+              </section>
+              <section class="panel">
+                <h3>远程任务队列</h3>
+                <div class="list compact-list" id="taskQueueList"></div>
+              </section>
+            </div>
+          </section>
+
+          <section class="workspace-page safety-page" id="pageSafety" data-page="safety">
+            <div class="page-heading">
+              <div>
+                <span class="eyebrow">Safety</span>
+                <h2>安全和实盘门禁</h2>
+                <p>实盘默认关闭，所有风险门禁都必须本地通过后才可能进入后续阶段。</p>
+              </div>
+            </div>
+            <section class="panel" id="safetySection">
+              <h3>实盘门禁</h3>
+              <div id="productionGatePanel" class="info-box"></div>
+            </section>
+          </section>
+
+          <section class="workspace-page settings-page" id="pageSettings" data-page="settings">
+            <div class="page-heading">
+              <div>
+                <span class="eyebrow">Settings</span>
+                <h2>本地设置</h2>
+                <p>查看本地配置状态、服务连接和参考架构，不显示任何密钥。</p>
+              </div>
+            </div>
+            <div class="split-grid">
+              <section class="panel">
+                <h3>AI Coach 提案</h3>
+                <div class="list compact-list" id="coachProposalList"></div>
+              </section>
+              <section class="panel">
+                <h3>本地产品参考</h3>
+                <div class="list compact-list" id="referenceList"></div>
+              </section>
+            </div>
+          </section>
+        </main>
       </div>
-      <div class="status" id="connectionStatus">&#35835;&#21462;&#20013;</div>
-    </header>
-    <nav class="app-nav" id="appNav">
-      <a href="#consoleSection">&#25511;&#21046;&#21488;</a>
-      <a href="#dataSection">&#34892;&#24773;</a>
-      <a href="#backtestSection">&#22238;&#27979;</a>
-      <a href="#reviewSection">&#22797;&#30424;</a>
-      <a href="#knowledgeSection">&#30693;&#35782;</a>
-      <a href="#safetySection">&#23433;&#20840;</a>
-    </nav>
 
-    <main class="layout">
-      <section class="panel overview">
-        <h2>&#24635;&#35272;</h2>
-        <div class="metrics" id="metrics"></div>
-        <div id="emptyStatePanel" class="empty-state"></div>
-      </section>
-
-      <section class="panel local-console" id="consoleSection">
-        <div class="panel-header">
+      <aside class="coach-panel" id="coachPanel">
+        <div class="coach-header">
           <div>
-            <h2>&#26412;&#22320;&#24212;&#29992;&#25511;&#21046;&#21488;</h2>
-            <p class="hint">&#21442;&#32771; Freqtrade / Jesse / vectorbt &#30340;&#29366;&#24577;&#12289;&#30740;&#31350;&#21644;&#21442;&#25968;&#23545;&#27604;&#24605;&#36335;&#65292;&#20445;&#25345; Bian &#26412;&#22320;&#20248;&#20808;&#21644;&#21482;&#35835;&#23433;&#20840;&#36793;&#30028;&#12290;</p>
+            <span>AI Coach</span>
+            <strong id="coachTitle">今日工作</strong>
           </div>
+          <button id="coachToggle" type="button" aria-expanded="true">收起</button>
         </div>
-        <div class="metrics console-metrics" id="consoleMetrics"></div>
-        <div id="workspaceStatus" class="info-box"></div>
-        <div id="dailyCoachPlan" class="info-box"></div>
-        <div class="console-grid">
-          <section class="console-box" id="safetySection">
-            <h3>&#20219;&#21153;&#38431;&#21015;</h3>
-            <div class="list compact-list" id="taskQueueList"></div>
-          </section>
-          <section class="console-box">
-            <h3>AI Coach</h3>
-            <div class="list compact-list" id="coachProposalList"></div>
-          </section>
-          <section class="console-box">
-            <h3>&#31574;&#30053; Profile</h3>
-            <div class="list compact-list" id="strategyProfileList"></div>
-          </section>
-          <section class="console-box">
-            <h3>&#21442;&#25968;&#25195;&#25551;</h3>
-            <div class="list compact-list" id="sweepList"></div>
-          </section>
-          <section class="console-box">
-            <h3>Testnet</h3>
-            <div class="list compact-list" id="testnetOrderList"></div>
-          </section>
-          <section class="console-box">
-            <h3>&#23454;&#30424;&#38376;&#31105;</h3>
-            <div id="productionGatePanel" class="info-box"></div>
-          </section>
-        </div>
-      </section>
-
-      <section class="panel replay" id="backtestSection">
-        <div class="panel-header replay-header">
-          <div>
-            <h2>K &#32447;&#22797;&#30424;&#21488;</h2>
-            <p class="hint">&#28378;&#36718;&#32553;&#25918;&#65292;&#25302;&#21160;&#27983;&#35272;&#65292;&#31227;&#21160;&#40736;&#26631;&#26597;&#30475;&#21313;&#23383;&#20809;&#26631;&#21644;&#24403;&#21069; OHLC&#12290;</p>
-          </div>
-        </div>
-
-        <div class="source-grid" id="dataSection">
-          <div class="source-control">
-            <span>&#21382;&#21490;&#25968;&#25454;</span>
-            <div class="controls">
-              <select id="datasetSelect"></select>
-              <button id="loadDataset" type="button">&#36733;&#20837;&#25968;&#25454;</button>
-            </div>
-          </div>
-          <div class="source-control">
-            <span>&#31574;&#30053;&#23454;&#39564;</span>
-            <div class="controls">
-              <select id="experimentSelect"></select>
-              <button id="loadReplay" type="button">&#36733;&#20837;&#23454;&#39564;</button>
-            </div>
-          </div>
-        </div>
-
-        <form id="backtestForm" class="backtest-form">
-          <label><span>&#20132;&#26131;&#23545;</span><input id="backtestSymbol" value="BTCUSDT" /></label>
-          <label><span>&#21608;&#26399;</span><input id="backtestInterval" value="1h" /></label>
-          <label><span>&#25968;&#25454; CSV</span><input id="backtestCsv" value="data/local/market_data/BTCUSDT/BTCUSDT-1h.csv" /></label>
-          <label><span>&#30701;&#22343;&#32447;</span><input id="backtestShort" type="number" value="20" min="1" /></label>
-          <label><span>&#38271;&#22343;&#32447;</span><input id="backtestLong" type="number" value="60" min="2" /></label>
-          <button id="runBacktestAction" type="submit">&#36816;&#34892;&#22238;&#27979;</button>
-          <div id="backtestActionStatus" class="action-status"></div>
-        </form>
-
-        <div class="replay-workspace">
-          <div class="chart-stack">
-            <div id="klineChart" class="chart-panel"></div>
-            <div id="volumeChart" class="volume-panel"></div>
-            <div class="timeline-row">
-              <input id="replayRange" type="range" min="0" max="0" value="0" />
-            </div>
-          </div>
-          <aside class="inspector">
-            <div id="ohlcPanel" class="info-box">&#31561;&#24453;&#36733;&#20837; K &#32447;</div>
-            <div id="tradeDetail" class="info-box">&#28857;&#20987;&#20080;&#21334;&#28857;&#26597;&#30475;&#20132;&#26131;&#32454;&#33410;</div>
-          </aside>
-        </div>
-
-        <div class="replay-toolbar">
-          <button id="stepBack" type="button">&#21518;&#36864;</button>
-          <button id="playPause" type="button">&#25773;&#25918;</button>
-          <button id="stepForward" type="button">&#21069;&#36827;</button>
-          <button id="nextTrade" type="button">&#19979;&#19968;&#31508;</button>
-          <label><input id="toggleMa20" type="checkbox" checked /> MA20</label>
-          <label><input id="toggleMa60" type="checkbox" checked /> MA60</label>
-        </div>
-
-        <div id="reportMetrics" class="metrics report-metrics"></div>
-        <div class="report-grid">
-          <div>
-            <h2>&#36164;&#37329;&#26354;&#32447;</h2>
-            <div id="equityChart" class="equity-panel"></div>
-          </div>
-          <div>
-            <div class="table-heading">
-              <h2>&#20132;&#26131;&#21015;&#34920;</h2>
-              <button id="clearTradeFilters" type="button">&#28165;&#31354;&#36807;&#28388;</button>
-            </div>
-            <div class="trade-filters">
-              <label><span>&#26041;&#21521;</span><select id="tradeSideFilter"></select></label>
-              <label><span>&#32467;&#26524;</span><select id="tradeResultFilter"></select></label>
-              <label><span>&#24320;&#22987;</span><input id="tradeStartFilter" type="date" /></label>
-              <label><span>&#32467;&#26463;</span><input id="tradeEndFilter" type="date" /></label>
-              <label><span>&#39118;&#38505;</span><select id="tradeRiskFilter"></select></label>
-            </div>
-            <table id="tradeTable" class="trade-table"></table>
-          </div>
-        </div>
-
-        <div class="comparison-panel">
-          <div class="table-heading">
-            <div>
-              <h2>&#23454;&#39564;&#23545;&#27604;</h2>
-              <p class="hint">&#25353; Ctrl &#25110; Shift &#36873;&#25321;&#22810;&#20010;&#23454;&#39564;&#65292;&#23545;&#27604;&#25351;&#26631;&#21644;&#21442;&#25968;&#12290;</p>
-            </div>
-            <button id="loadComparison" type="button">&#23545;&#27604;</button>
-          </div>
-          <select id="comparisonSelect" multiple size="4"></select>
-          <table id="comparisonTable" class="comparison-table"></table>
-        </div>
-
-        <div class="review-draft">
-          <div class="review-heading">
-            <div>
-              <h2>&#22238;&#27979;&#22797;&#30424;&#33609;&#31295;</h2>
-              <p id="experimentReviewStatus" class="hint">&#36873;&#25321;&#23454;&#39564;&#21518;&#29983;&#25104;&#22797;&#30424;&#38382;&#39064;&#21644;&#23398;&#20064;&#20219;&#21153;</p>
-            </div>
-            <div class="controls">
-              <button id="saveReviewDraftAction" type="button">&#20445;&#23384;&#33609;&#31295;</button>
-              <button id="commitReviewAction" type="button">&#27785;&#28096;&#21040;&#23398;&#20064;</button>
-            </div>
-          </div>
-          <div id="reviewSummary" class="review-summary"></div>
-          <div class="review-grid">
-            <section class="review-box">
-              <h3>&#39118;&#38505;&#26631;&#35760;</h3>
-              <div id="reviewRiskFlags" class="review-list"></div>
-            </section>
-            <section class="review-box">
-              <h3>&#37325;&#28857;&#20132;&#26131;</h3>
-              <div id="reviewFocusTrades" class="review-list"></div>
-            </section>
-            <section class="review-box">
-              <h3>&#22797;&#30424;&#38382;&#39064;</h3>
-              <div id="reviewQuestions" class="review-list"></div>
-            </section>
-            <section class="review-box">
-              <h3>&#23398;&#20064;&#20219;&#21153;</h3>
-              <div id="reviewLearningTasks" class="review-list"></div>
-            </section>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel" id="reviewSection">
-        <h2>&#26368;&#36817;&#22797;&#30424;</h2>
-        <div class="list" id="reviewList"></div>
-      </section>
-
-      <section class="panel">
-        <h2>&#31574;&#30053;&#23454;&#39564;</h2>
-        <div class="list" id="experimentList"></div>
-      </section>
-
-      <section class="panel knowledge" id="knowledgeSection">
-        <h2>&#21382;&#21490;&#25968;&#25454;</h2>
-        <div class="list" id="datasetList"></div>
-      </section>
-
-      <section class="panel knowledge">
-        <h2>&#30693;&#35782;&#21345;&#29255;</h2>
-        <div class="list" id="knowledgeList"></div>
-      </section>
-    </main>
+        <div class="coach-body" id="coachBody"></div>
+      </aside>
+    </div>
 
     <script src="/static/vendor/lightweight-charts.standalone.production.js"></script>
     <script src="/static/app.js"></script>

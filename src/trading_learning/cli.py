@@ -27,10 +27,13 @@ from trading_learning.journal.repository import save_trades
 from trading_learning.market_data.binance_klines import fetch_klines, save_klines_csv
 from trading_learning.market_data.catalog import DEFAULT_MARKET_INTERVALS
 from trading_learning.market_data.catalog import refresh_market_data
+from trading_learning.market_data.catalog import import_market_csv
 from trading_learning.market_data.csv_loader import load_candles_csv
 from trading_learning.ops import backup_database
 from trading_learning.ops import build_local_health
 from trading_learning.ops import restore_database
+from trading_learning.research.hypothesis_log import ALLOWED_RESEARCH_DECISIONS
+from trading_learning.research.hypothesis_log import HypothesisLog
 from trading_learning.risk.execution_guard import ExecutionRiskGuard, OrderIntent, RiskConfig
 from trading_learning.runner import RunnerClient
 from trading_learning.runner import run_runner_loop
@@ -117,6 +120,11 @@ def build_parser() -> argparse.ArgumentParser:
     refresh_market.add_argument("--intervals", default="")
     refresh_market.add_argument("--limit", type=int, default=500)
 
+    import_market = subparsers.add_parser("import-market-csv", help="import a manual market CSV into local cache")
+    import_market.add_argument("--symbol", required=True)
+    import_market.add_argument("--interval", required=True)
+    import_market.add_argument("--input", required=True)
+
     backtest = subparsers.add_parser("backtest-ma", help="run a moving-average backtest")
     backtest.add_argument("--csv", required=True)
     backtest.add_argument("--symbol", required=True)
@@ -184,6 +192,31 @@ def build_parser() -> argparse.ArgumentParser:
     reset = subparsers.add_parser("reset-workspace", help="clear local learning and research records after backup")
     reset.add_argument("--confirm", required=True)
     reset.add_argument("--backup-dir", default="data/backups")
+
+    hypothesis_create = subparsers.add_parser("hypothesis-create", help="create a preregistered research hypothesis")
+    hypothesis_create.add_argument("--title", required=True)
+    hypothesis_create.add_argument("--description", default="")
+    hypothesis_create.add_argument("--parent-iteration", default="baseline")
+    hypothesis_create.add_argument("--change-summary", required=True)
+    hypothesis_create.add_argument("--predicted", required=True)
+    hypothesis_create.add_argument("--decision-rule", required=True)
+    hypothesis_create.add_argument("--cards-dir", default="docs/research/hypothesis-log")
+
+    hypothesis_list = subparsers.add_parser("hypothesis-list", help="list research hypotheses")
+    hypothesis_list.add_argument("--cards-dir", default="docs/research/hypothesis-log")
+
+    hypothesis_resolve = subparsers.add_parser("hypothesis-resolve", help="resolve a research hypothesis")
+    hypothesis_resolve.add_argument("hypothesis_id")
+    hypothesis_resolve.add_argument("--actual", required=True)
+    hypothesis_resolve.add_argument("--decision", required=True, choices=sorted(ALLOWED_RESEARCH_DECISIONS))
+    hypothesis_resolve.add_argument("--reason", required=True)
+    hypothesis_resolve.add_argument("--hindsight-notes", default="")
+    hypothesis_resolve.add_argument("--code-commit", default="")
+    hypothesis_resolve.add_argument("--backtest-run-id", default="")
+    hypothesis_resolve.add_argument("--cards-dir", default="docs/research/hypothesis-log")
+
+    hypothesis_tree = subparsers.add_parser("hypothesis-tree", help="print hypothesis parent/decision tree")
+    hypothesis_tree.add_argument("--cards-dir", default="docs/research/hypothesis-log")
 
     return parser
 
@@ -258,6 +291,41 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(result, ensure_ascii=False, sort_keys=True))
             return 0 if result["status"] == "reset" else 1
 
+        if args.command == "hypothesis-create":
+            card = HypothesisLog(conn, cards_dir=Path(args.cards_dir)).create(
+                title=args.title,
+                description=args.description,
+                parent_iteration=args.parent_iteration,
+                change_summary=args.change_summary,
+                predicted=_parse_json_object(args.predicted, "predicted"),
+                decision_rule=args.decision_rule,
+            )
+            print(f"created {card.hypothesis_id} {card.title}")
+            return 0
+
+        if args.command == "hypothesis-list":
+            cards = HypothesisLog(conn, cards_dir=Path(args.cards_dir)).list()
+            print(json.dumps([_hypothesis_payload(card) for card in cards], ensure_ascii=False, sort_keys=True))
+            return 0
+
+        if args.command == "hypothesis-resolve":
+            card = HypothesisLog(conn, cards_dir=Path(args.cards_dir)).resolve(
+                args.hypothesis_id,
+                actual=_parse_json_object(args.actual, "actual"),
+                decision=args.decision,
+                reason=args.reason,
+                hindsight_notes=args.hindsight_notes,
+                code_commit=args.code_commit,
+                backtest_run_id=args.backtest_run_id,
+            )
+            print(f"resolved {card.hypothesis_id} decision={card.decision}")
+            return 0
+
+        if args.command == "hypothesis-tree":
+            tree = HypothesisLog(conn, cards_dir=Path(args.cards_dir)).tree()
+            print(json.dumps(tree, ensure_ascii=False, sort_keys=True))
+            return 0
+
         if args.command == "download-klines":
             symbol = args.symbol.upper()
             if symbol not in config.allowed_symbols:
@@ -288,6 +356,16 @@ def main(argv: list[str] | None = None) -> int:
                 limit=args.limit,
             )
             print(f"refreshed {len(result['datasets'])} datasets")
+            return 0
+
+        if args.command == "import-market-csv":
+            result = import_market_csv(
+                source_csv=Path(args.input),
+                symbol=args.symbol,
+                interval=args.interval,
+            )
+            dataset = result["dataset"]
+            print(f"imported {dataset['symbol']} {dataset['interval']} rows={dataset['row_count']} path={dataset['path']}")
             return 0
 
         if args.command == "backtest-ma":
@@ -465,3 +543,21 @@ def parse_key_value_map(value: str) -> dict[str, str]:
         if separator and key.strip() and mapped_value.strip():
             pairs[key.strip()] = mapped_value.strip()
     return pairs
+
+
+def _parse_json_object(value: str, label: str) -> dict:
+    parsed = json.loads(value)
+    if not isinstance(parsed, dict) or not parsed:
+        raise ValueError(f"{label} must be a non-empty JSON object")
+    return parsed
+
+
+def _hypothesis_payload(card) -> dict:
+    return {
+        "hypothesis_id": card.hypothesis_id,
+        "title": card.title,
+        "predicted": card.predicted,
+        "actual": card.actual,
+        "decision": card.decision,
+        "reason": card.reason,
+    }

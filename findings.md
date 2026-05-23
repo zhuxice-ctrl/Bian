@@ -78,3 +78,37 @@
 - Stable-profit research requires broad experimentation, but the safe sequence is research, validation, testnet, readiness gates, then small-capital pilot. Unrestricted autonomous real trading remains out of scope.
 - The preferred UI direction is not a single crowded dashboard. It should be a navigable workstation with separate pages for Today, Chart Lab, Data Center, Strategy Lab, Backtests, Experiments, Review, Knowledge, Testnet, Safety, and Settings.
 - The real Chart Lab must use existing Lightweight Charts with real local data, not hand-drawn placeholder candles.
+- Phase 40 can be done safely without a frontend framework migration because the existing vanilla dashboard already has stable API and chart integration points.
+- The current local market cache only has a few 1h candles after workspace cleanup, so a browser screenshot may look visually sparse even though it is using the real Lightweight Charts surface and real local data. Data refresh belongs to Phase 41.
+- Market data refresh now starts from the next expected candle after the existing local cache, then merges by `opened_at`; this avoids duplicate rows and preserves older local history.
+- Manual ETF/stock support is best handled first as CSV import into the same cache layout, before adding live third-party providers.
+- Strategy expansion should stay research-only at this stage: adding signal families is safe, but promotion to testnet or real trading still requires later validation and safety phases.
+- A generic strategy signal dispatcher lets the dashboard and Brain share strategy families without adding one endpoint per strategy.
+- Validation summaries now distinguish selected date range, in-sample, out-of-sample, and stress-window context. These warnings are evidence for research decisions, not trading permission.
+- `BacktestMetrics` does not carry drawdown directly; drawdown is produced by the richer report builder. Validation slice summaries should avoid assuming report-only fields exist.
+- Experiment promotion is now represented as a decision record, not an execution path. Marking `testnet_candidate` creates research state only; it does not place or enable orders.
+- Failed experiments should create deterministic mistake-pattern knowledge cards rather than free-form notes, so the learning queue can rank them reliably without LLM access.
+- Review queue priority is derived from source, category, risk tags, and recency; it is a study workflow, not a trading signal.
+- The dashboard had a latent JavaScript scope bug where experiment decisions were rendered from `renderReferenceList` using a local variable from another function. Moving that rendering into `renderStrategyLab` keeps runtime behavior consistent with the data payload.
+- Feishu remains safest when long-running work becomes a `remote_tasks` record and the local runner pulls it; adding `market_refresh` preserves that queue boundary instead of letting Feishu call local data downloads directly.
+- Chinese Feishu shortcuts should map only to known Brain commands. Unknown plain text can still go to the non-executing chat fallback, but common study workflows now avoid that dependency.
+- Testnet strategy execution should be tied to an explicit `testnet_candidate` research decision, not to raw backtest performance alone.
+- Testnet order records need context links because the useful learning object is the full chain: experiment, signal, daily plan, checklist, order result, and later review.
+- A helper named `_experiment_decision` collided with the existing Brain command handler of the same name; command handlers and read helpers should use distinct names to avoid runtime routing bugs.
+- Real-trading readiness can be improved without adding a live order path: dry-run simulation and independent risk checks provide coverage while preserving the default disabled state.
+- The default real-trading risk config intentionally fails closed; unset max order size, loss limit, position limit, or cooldown all block the simulated path.
+- The daily startup path should assume Windows network authentication happens first; after that, one local script can start Brain, runner, dashboard, and health checks without storing secrets.
+- Secret scans over docs can find placeholder assignment examples, so the higher-signal scan for committed source/scripts should distinguish placeholder docs from executable secret-bearing files.
+
+## 2026-05-23
+
+- Indicator correctness should be locked to a repository-owned golden fixture, not TA-Lib or pandas-ta runtime comparisons; this prevents a hidden TA dependency from entering tests.
+- Strategy research decisions need four states, not two: `kept`, `rejected`, `inconclusive`, and `risk_reduction_kept`. The fourth state matters when Sharpe is not better but drawdown/volatility materially improves.
+- Hypothesis cards are only useful if they include preregistered predicted metrics before the run and actual metrics after the run; actual-only cards destroy the research method.
+- The current local BTCUSDT 1h cache is sufficient for a research smoke walk-forward with 7d train / 5d test / 1d purge, but it is too short for production-grade conclusions.
+- H-101 currently looks like a risk-control variant, not an alpha improvement: the EMA200 filter reduced exposure/drawdown in the short local sample but did not prove Sharpe improvement.
+- H-103 to H-105 need a stronger multi-timeframe walk-forward runner before conclusions are meaningful; the current vectorized runner does not yet simulate synchronized 15m/5m entries or intrabar stop/take-profit exits.
+- Corrected MTF recount changed H-100 from 582 apparent trades to 28 real OOS entries; the old number was OOS bar count.
+- Applying fee/slippage/latency turned the H-100 baseline negative: OOS Sharpe `-0.82987`, max drawdown `-0.10001`, total return `-0.06717`.
+- H-101 over-filtered to zero OOS trades after corrected semantics, so it should be rejected rather than kept as a risk-control variant.
+- Current local lower-timeframe coverage is uneven: 1h has 1000 rows from 2026-04-11 to 2026-05-22, 15m starts 2026-05-12, and 5m starts 2026-05-19. This makes H-103 through H-105 deferred until more synchronized data exists.

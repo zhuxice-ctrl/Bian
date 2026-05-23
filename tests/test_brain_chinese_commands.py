@@ -168,6 +168,34 @@ def test_chinese_learning_and_summary_keywords_route_to_readonly_commands(tmp_pa
         assert experiments["status"] == "ok"
 
 
+def test_chinese_research_commands_create_and_resolve_hypothesis(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor())
+
+        created = handler.handle(
+            _u(
+                r"\u7814\u7a76\u5047\u8bbe \u6807\u9898=EMA200_Filter \u9884\u6d4b={\"sharpe\":0.8,\"trade_count\":60} "
+                r"\u63cf\u8ff0=Trend_filter \u7236\u7248\u672c=H-100 \u53d8\u66f4=+EMA200 \u89c4\u5219=OOS_improves"
+            ),
+            user_id="owner",
+        )
+        resolved = handler.handle(
+            _u(
+                r"\u7814\u7a76\u51b3\u7b56 \u5047\u8bbe=H-001 \u51b3\u7b56=risk_reduction_kept "
+                r"\u5b9e\u9645={\"sharpe\":0.75,\"trade_count\":64,\"max_drawdown\":-0.1} \u7406\u7531=Reduced_drawdown"
+            ),
+            user_id="owner",
+        )
+        status = handler.handle(_u(r"\u7814\u7a76\u72b6\u6001"), user_id="owner")
+
+        assert created["status"] == "saved"
+        assert created["hypothesis"]["predicted"]["sharpe"] == 0.8
+        assert resolved["hypothesis"]["decision"] == "risk_reduction_kept"
+        assert status["decisions"]["risk_reduction_kept"] == 1
+
+
 def test_chinese_testnet_buy_alias_still_requires_confirmation(tmp_path):
     executor = FakeExecutor()
     with connect(tmp_path / "brain.sqlite3") as conn:

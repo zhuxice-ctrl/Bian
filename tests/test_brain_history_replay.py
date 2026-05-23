@@ -187,6 +187,32 @@ def test_market_status_summarizes_cached_and_missing_datasets(tmp_path, monkeypa
     assert response["missing_count"] == 11
     assert "cached=1" in response["message"]
     assert "missing=11" in response["message"]
+    assert response["gap_count"] == 0
+
+
+def test_market_status_reports_dataset_gaps(tmp_path, monkeypatch):
+    root = tmp_path / "data" / "local"
+    csv_path = root / "market_data" / "BTCUSDT" / "BTCUSDT-1h.csv"
+    csv_path.parent.mkdir(parents=True)
+    csv_path.write_text(
+        "opened_at,open,high,low,close,volume\n"
+        "2026-05-21T00:00:00+00:00,100,105,99,104,12\n"
+        "2026-05-21T03:00:00+00:00,104,108,101,107,10\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor())
+
+        response = handler.handle("/market-status symbols=BTCUSDT intervals=1h", user_id="owner")
+
+    assert response["status"] == "ok"
+    assert response["cached_count"] == 1
+    assert response["missing_count"] == 0
+    assert response["gap_count"] == 2
+    assert "gaps=2" in response["message"]
 
 
 def test_market_refresh_rejects_symbols_outside_learning_scope(tmp_path):

@@ -125,6 +125,20 @@ def test_start_quant_runner_script_uses_runner_token_without_literal_secret():
     assert "TRADING_LEARNING_RUNNER_TOKEN=" not in script
 
 
+def test_start_local_workstation_script_starts_daily_services_without_secrets():
+    script = _read_script("start-local-workstation.ps1")
+
+    assert "start-brain.ps1" in script
+    assert "start-quant-runner.ps1" in script
+    assert "trading-learning dashboard-serve" in script
+    assert "trading-learning health-check" in script
+    assert "http://127.0.0.1:8780/" in script
+    assert "Start-Process" in script
+    assert "-WindowStyle Hidden" in script
+    assert "TRADING_LEARNING_RUNNER_TOKEN=" not in script
+    assert "LOCAL_CODEX_API_KEY=" not in script
+
+
 def test_connect_server_llm_script_uses_ssh_reverse_tunnel():
     script = _read_script("connect-server-llm.ps1")
 

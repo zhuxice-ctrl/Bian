@@ -127,6 +127,43 @@ def test_learning_next_returns_tasks_without_persisting_a_report(tmp_path):
     assert report_count == 0
 
 
+def test_learning_queue_command_returns_ranked_review_items(tmp_path):
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor())
+        conn.execute(
+            """
+            insert into knowledge_cards (external_id, title, category, content, source, created_at, updated_at)
+            values
+              ('card-low', 'Low', 'psychology', 'Stay calm', 'manual', '2026-05-20 00:00:00', '2026-05-20 00:00:00'),
+              ('card-high', 'Loss pattern', 'mistake_pattern', 'Review losses', 'failed_experiment', '2026-05-22 00:00:00', '2026-05-22 00:00:00')
+            """
+        )
+        conn.execute("insert into knowledge_card_tags (card_external_id, tag) values ('card-high', 'negative_pnl')")
+        conn.commit()
+
+        response = handler.handle("/learning-queue limit=2 today=2026-05-23", user_id="owner")
+
+    assert response["status"] == "ok"
+    assert [item["card_external_id"] for item in response["queue"]] == ["card-high", "card-low"]
+    assert response["queue"][0]["reason"] == "high-risk mistake pattern"
+    assert response["requires_confirmation"] is False
+
+
+def test_failed_experiment_learning_command_creates_cards_and_daily_report_links_tasks(tmp_path):
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor())
+        experiment_id = _seed_learning_day(handler, conn)
+
+        response = handler.handle(f"/experiment-learning experiment={experiment_id}", user_id="owner")
+        report = handler.handle("/daily-report date=2026-05-21", user_id="owner")
+
+    assert response["status"] == "saved"
+    assert response["knowledge_card_count"] >= 1
+    assert report["report"]["experiment_learning_tasks"][0]["experiment_external_id"] == experiment_id
+
+
 def test_daily_report_rejects_missing_review(tmp_path):
     with connect(tmp_path / "brain.sqlite3") as conn:
         initialize_schema(conn)

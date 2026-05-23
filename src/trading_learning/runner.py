@@ -11,7 +11,7 @@ from trading_learning.brain.remote_tasks import RemoteTask
 from trading_learning.brain.remote_tasks import remote_task_from_dict
 
 
-CAPABILITIES = ("local_status", "backtest_ma")
+CAPABILITIES = ("local_status", "backtest_ma", "market_refresh")
 
 
 class MissingRunnerExecutor:
@@ -69,9 +69,16 @@ class RunnerClient:
 
 
 class QuantTaskExecutor:
-    def __init__(self, conn: sqlite3.Connection, *, allowed_symbols: tuple[str, ...]) -> None:
+    def __init__(
+        self,
+        conn: sqlite3.Connection,
+        *,
+        allowed_symbols: tuple[str, ...],
+        kline_fetcher: Any | None = None,
+    ) -> None:
         self.conn = conn
         self.allowed_symbols = allowed_symbols
+        self.kline_fetcher = kline_fetcher
 
     def execute(self, task: RemoteTask) -> dict[str, Any]:
         if task.task_type == "local_status":
@@ -85,6 +92,8 @@ class QuantTaskExecutor:
             }
         if task.task_type == "backtest_ma":
             return self._execute_backtest_ma(task)
+        if task.task_type == "market_refresh":
+            return self._execute_market_refresh(task)
         return {
             "state": "rejected",
             "result_summary": f"unsupported local task type: {task.task_type}",
@@ -121,6 +130,34 @@ class QuantTaskExecutor:
         return {
             "state": "failed",
             "result_summary": response.get("message", "local backtest failed"),
+            "result_payload": response,
+            "error_message": response.get("message", ""),
+        }
+
+    def _execute_market_refresh(self, task: RemoteTask) -> dict[str, Any]:
+        payload = task.payload
+        command = (
+            "/market-refresh "
+            f"symbols={','.join(str(symbol) for symbol in payload.get('symbols', []))} "
+            f"intervals={','.join(str(interval) for interval in payload.get('intervals', []))} "
+            f"limit={payload.get('limit', 500)}"
+        )
+        handler = BrainCommandHandler(
+            self.conn,
+            executor=MissingRunnerExecutor(),
+            allowed_market_symbols=self.allowed_symbols,
+            kline_fetcher=self.kline_fetcher,
+        )
+        response = handler.handle(command, user_id="local-runner")
+        if response["status"] == "saved":
+            return {
+                "state": "succeeded",
+                "result_summary": response["message"],
+                "result_payload": response,
+            }
+        return {
+            "state": "failed",
+            "result_summary": response.get("message", "local market refresh failed"),
             "result_payload": response,
             "error_message": response.get("message", ""),
         }

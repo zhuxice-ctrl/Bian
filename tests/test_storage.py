@@ -67,11 +67,53 @@ def test_initialize_schema_creates_core_tables(tmp_path):
         "knowledge_cards",
         "strategy_hypotheses",
         "strategy_experiments",
+        "experiment_decisions",
         "review_experiment_links",
         "learning_reports",
         "experiment_review_drafts",
         "ai_drafts",
     }.issubset(table_names)
+
+
+def test_initialize_schema_migrates_hypothesis_log_to_deferred_decision(tmp_path):
+    db_path = tmp_path / "test.sqlite3"
+    with connect(db_path) as conn:
+        conn.executescript(
+            """
+            create table hypothesis_log (
+              id integer primary key autoincrement,
+              hypothesis_id text not null unique,
+              title text not null,
+              created_at text not null,
+              description text not null,
+              parent_iteration text not null,
+              change_summary text not null,
+              predicted text not null,
+              decision_rule text not null,
+              ran_at text,
+              actual text not null default '{}',
+              decision text not null default '',
+              reason text not null default '',
+              hindsight_notes text not null default '',
+              code_commit text not null default '',
+              backtest_run_id text not null default '',
+              updated_at text not null default CURRENT_TIMESTAMP,
+              check (decision in ('', 'kept', 'rejected', 'inconclusive', 'risk_reduction_kept'))
+            );
+            insert into hypothesis_log (
+              hypothesis_id, title, created_at, description, parent_iteration,
+              change_summary, predicted, decision_rule
+            ) values (
+              'H-103', '15m pullback', '2026-05-23T00:00:00+00:00',
+              'test', 'H-102', '+15m', '{"oos_sharpe":0.1}', 'defer if data missing'
+            );
+            """
+        )
+        initialize_schema(conn)
+        conn.execute("update hypothesis_log set decision = 'deferred' where hypothesis_id = 'H-103'")
+        row = conn.execute("select decision from hypothesis_log where hypothesis_id = 'H-103'").fetchone()
+
+    assert row["decision"] == "deferred"
 
 
 def test_initialize_schema_rolls_back_when_schema_fails(tmp_path, monkeypatch):

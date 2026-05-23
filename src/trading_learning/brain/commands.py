@@ -9,8 +9,12 @@ from pathlib import Path
 from typing import Any, Callable
 from uuid import uuid4
 
+import pandas as pd
+
 from trading_learning.backtest.engine import run_spot_backtest
 from trading_learning.backtest.report import summarize_backtest
+from trading_learning.backtest.walk_forward import WalkForwardConfig
+from trading_learning.backtest.walk_forward import run_walk_forward
 from trading_learning.brain.command_aliases import normalize_brain_command
 from trading_learning.brain.natural_language import mock_mode_guidance
 from trading_learning.brain.remote_tasks import TaskQueue
@@ -22,6 +26,8 @@ from trading_learning.learning.experiment_review import build_experiment_review_
 from trading_learning.learning.coach import build_next_experiment_proposal
 from trading_learning.learning.coach import evaluate_experiment_proposal
 from trading_learning.learning.coach import save_experiment_proposal
+from trading_learning.learning.curriculum import build_failed_experiment_learning
+from trading_learning.learning.curriculum import build_review_queue
 from trading_learning.learning.daily_coach import build_daily_coach_plan
 from trading_learning.learning.repository import save_knowledge_card
 from trading_learning.market_data.binance_klines import fetch_klines, save_klines_csv
@@ -29,11 +35,16 @@ from trading_learning.market_data.catalog import DEFAULT_MARKET_INTERVALS
 from trading_learning.market_data.catalog import inventory_datasets
 from trading_learning.market_data.catalog import refresh_market_data
 from trading_learning.market_data.csv_loader import load_candles_csv
+from trading_learning.production_gate import RealOrderIntent
+from trading_learning.production_gate import build_real_order_dry_run
 from trading_learning.production_gate import production_readiness_status
+from trading_learning.research.hypothesis_log import HypothesisLog
 from trading_learning.strategy.moving_average import moving_average_crossover_signals
+from trading_learning.strategy.mtf_trend import mtf_trend_strategy_factory
 from trading_learning.strategy.lab import list_strategy_profiles
 from trading_learning.strategy.lab import run_ma_parameter_sweep
 from trading_learning.strategy.lab import save_strategy_profile
+from trading_learning.strategy.decisions import save_experiment_decision
 from trading_learning.workspace import build_workspace_state
 from trading_learning.workspace import reset_workspace
 
@@ -107,6 +118,11 @@ class BrainCommandHandler:
             self._audit(user_id, command_text, response)
             return response
 
+        if command_text.startswith("/testnet-signal-buy "):
+            response = self._prepare_testnet_signal_buy(command_text, user_id)
+            self._audit(user_id, command_text, response)
+            return response
+
         if command_text.startswith("/testnet-cancel "):
             response = self._prepare_testnet_cancel(command_text, user_id)
             self._audit(user_id, command_text, response)
@@ -153,6 +169,20 @@ class BrainCommandHandler:
                 "message": "Real trading can only be considered after the local production readiness gate is completed.",
                 "requires_confirmation": False,
             }
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/real-create-buy"):
+            response = {
+                "status": "blocked",
+                "message": "Real order routes are disabled. Use /real-dry-run-buy for local simulation only.",
+                "requires_confirmation": False,
+            }
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/real-dry-run-buy"):
+            response = self._real_dry_run_buy(command_text)
             self._audit(user_id, command_text, response)
             return response
 
@@ -236,6 +266,11 @@ class BrainCommandHandler:
             self._audit(user_id, command_text, response)
             return response
 
+        if command_text.startswith("/queue-market-refresh"):
+            response = self._queue_market_refresh(command_text, user_id)
+            self._audit(user_id, command_text, response)
+            return response
+
         if command_text.startswith("/queue-backtest-ma "):
             response = self._queue_backtest_ma(command_text, user_id)
             self._audit(user_id, command_text, response)
@@ -266,6 +301,11 @@ class BrainCommandHandler:
             self._audit(user_id, command_text, response)
             return response
 
+        if command_text.startswith("/experiment-learning"):
+            response = self._experiment_learning(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
         if command_text.startswith("/experiment-review"):
             response = self._experiment_review(command_text)
             self._audit(user_id, command_text, response)
@@ -283,6 +323,11 @@ class BrainCommandHandler:
 
         if command_text.startswith("/learning-next"):
             response = self._learning_next(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/learning-queue"):
+            response = self._learning_queue(command_text)
             self._audit(user_id, command_text, response)
             return response
 
@@ -313,6 +358,46 @@ class BrainCommandHandler:
 
         if command_text.startswith("/sweep-ma "):
             response = self._sweep_ma(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/experiment-decision "):
+            response = self._experiment_decision(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/hypothesis-create "):
+            response = self._hypothesis_create(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/hypothesis-resolve "):
+            response = self._hypothesis_resolve(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/hypothesis-list"):
+            response = self._hypothesis_list()
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/research-status"):
+            response = self._research_status()
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/research-baseline"):
+            response = self._research_baseline(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/research-test"):
+            response = self._research_test(command_text)
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/research-ablation"):
+            response = self._research_ablation(command_text)
             self._audit(user_id, command_text, response)
             return response
 
@@ -459,6 +544,57 @@ class BrainCommandHandler:
             "side": "BUY",
             "order_type": "MARKET",
             "quote_order_qty": quote_order_qty,
+        }
+        return self._save_pending_confirmation(user_id, command_text, payload)
+
+    def _prepare_testnet_signal_buy(self, command_text: str, user_id: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/testnet-signal-buy "))
+        required = {"experiment", "signal", "quote"}
+        missing = sorted(required - fields.keys())
+        if missing:
+            return {
+                "status": "invalid",
+                "message": f"missing fields: {', '.join(missing)}",
+                "requires_confirmation": False,
+            }
+        experiment_id = fields["experiment"].strip()
+        experiment = self._experiment_row(experiment_id)
+        if experiment is None:
+            return {
+                "status": "not_found",
+                "message": f"experiment not found: {experiment_id}",
+                "requires_confirmation": False,
+            }
+        decision = self._experiment_decision_value(experiment_id)
+        if decision != "testnet_candidate":
+            return {
+                "status": "blocked",
+                "message": "experiment must be marked testnet_candidate before testnet signal execution",
+                "requires_confirmation": False,
+            }
+        try:
+            quote_order_qty = float(fields["quote"])
+        except ValueError:
+            return {
+                "status": "invalid",
+                "message": "quote must be a number",
+                "requires_confirmation": False,
+            }
+        symbol = str(experiment["symbol"]).upper()
+        context = self._execution_context(symbol)
+        if "block" in context:
+            return context["block"]
+        payload = {
+            "action": "create_order",
+            "symbol": symbol,
+            "side": "BUY",
+            "order_type": "MARKET",
+            "quote_order_qty": quote_order_qty,
+            "experiment_external_id": experiment_id,
+            "signal_id": fields["signal"].strip(),
+            "plan_external_id": context["plan_external_id"],
+            "checklist_external_id": context["checklist_external_id"],
+            "review_external_id": fields.get("review", "").strip(),
         }
         return self._save_pending_confirmation(user_id, command_text, payload)
 
@@ -610,8 +746,9 @@ class BrainCommandHandler:
             """
             insert into testnet_order_records (
               external_id, user_id, action, symbol, side, order_type, quote_order_qty,
-              order_id, status, request_payload, response_payload
-            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              order_id, status, experiment_external_id, signal_id, plan_external_id,
+              checklist_external_id, review_external_id, request_payload, response_payload
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 f"testnet-order-{uuid4()}",
@@ -623,6 +760,11 @@ class BrainCommandHandler:
                 payload.get("quote_order_qty"),
                 str(response.get("orderId", "")),
                 str(response.get("status", "")),
+                payload.get("experiment_external_id", ""),
+                payload.get("signal_id", ""),
+                payload.get("plan_external_id", ""),
+                payload.get("checklist_external_id", ""),
+                payload.get("review_external_id", ""),
                 json.dumps(payload, ensure_ascii=False, sort_keys=True),
                 json.dumps(response, ensure_ascii=False, sort_keys=True),
             ),
@@ -632,6 +774,34 @@ class BrainCommandHandler:
         return {
             "status": "blocked",
             "gate": production_readiness_status(),
+            "requires_confirmation": False,
+        }
+
+    def _real_dry_run_buy(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/real-dry-run-buy").strip())
+        try:
+            symbol = fields.get("symbol", "").upper()
+            quote = float(fields.get("quote", "0"))
+        except ValueError:
+            return {
+                "status": "invalid",
+                "message": "quote must be a number",
+                "requires_confirmation": False,
+            }
+        if not symbol:
+            return {
+                "status": "invalid",
+                "message": "missing fields: symbol",
+                "requires_confirmation": False,
+            }
+        order_path = build_real_order_dry_run(
+            RealOrderIntent(symbol=symbol, side="BUY", order_type="MARKET", quote_order_qty=quote)
+        )
+        return {
+            "status": "dry_run",
+            "message": "real trading dry-run simulated locally; no order was sent",
+            "gate": production_readiness_status(),
+            "order_path": order_path,
             "requires_confirmation": False,
         }
 
@@ -1122,12 +1292,14 @@ class BrainCommandHandler:
         datasets = inventory_datasets(allowed_symbols=symbols, intervals=intervals)
         cached = [dataset for dataset in datasets if dataset["exists"]]
         missing = [dataset for dataset in datasets if not dataset["exists"]]
+        gap_count = sum(int(dataset.get("gap_count", 0)) for dataset in datasets)
         return {
             "status": "ok",
             "cached_count": len(cached),
             "missing_count": len(missing),
+            "gap_count": gap_count,
             "datasets": datasets,
-            "message": f"Market data cache: cached={len(cached)} missing={len(missing)}",
+            "message": f"Market data cache: cached={len(cached)} missing={len(missing)} gaps={gap_count}",
             "requires_confirmation": False,
         }
 
@@ -1285,6 +1457,35 @@ class BrainCommandHandler:
         return {
             "status": "queued",
             "message": f"queued local backtest task {task.external_id}",
+            "task": task.to_dict(),
+            "requires_confirmation": False,
+        }
+
+    def _queue_market_refresh(self, command_text: str, user_id: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/queue-market-refresh").strip())
+        try:
+            limit = int(fields.get("limit", "500"))
+        except ValueError:
+            return {
+                "status": "invalid",
+                "message": "limit must be an integer",
+                "requires_confirmation": False,
+            }
+        symbols = tuple(symbol.upper() for symbol in self._csv_values(fields.get("symbols", ""))) or self.allowed_market_symbols
+        intervals = tuple(self._csv_values(fields.get("intervals", ""))) or DEFAULT_MARKET_INTERVALS
+        unsupported = [symbol for symbol in symbols if symbol not in self.allowed_market_symbols]
+        if unsupported:
+            return self._symbol_not_allowed(unsupported[0])
+        task = TaskQueue(self.conn).create_task(
+            requester_user_id=user_id,
+            command_text=command_text,
+            task_type="market_refresh",
+            risk_level="data",
+            payload={"symbols": list(symbols), "intervals": list(intervals), "limit": limit},
+        )
+        return {
+            "status": "queued",
+            "message": f"queued local market refresh task {task.external_id}",
             "task": task.to_dict(),
             "requires_confirmation": False,
         }
@@ -1600,6 +1801,25 @@ class BrainCommandHandler:
         self.conn.commit()
         return card_ids
 
+    def _experiment_learning(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/experiment-learning").strip())
+        experiment_id = fields.get("experiment", "").strip()
+        if not experiment_id:
+            return {
+                "status": "invalid",
+                "message": "missing fields: experiment",
+                "requires_confirmation": False,
+            }
+        result = build_failed_experiment_learning(self.conn, experiment_id)
+        if result["status"] == "not_found":
+            return {**result, "requires_confirmation": False}
+        return {
+            **result,
+            "message": f"saved failed-experiment learning for {experiment_id}",
+            "knowledge_card_count": len(result.get("knowledge_cards", [])),
+            "requires_confirmation": False,
+        }
+
     def _daily_report(self, command_text: str) -> dict[str, Any]:
         fields = self._parse_key_value_args(command_text.removeprefix("/daily-report").strip())
         report_date = fields.get("date", self._today())
@@ -1622,6 +1842,7 @@ class BrainCommandHandler:
             "review": context["review"],
             "experiments": context["experiments"],
             "knowledge_cards": context["knowledge_cards"],
+            "experiment_learning_tasks": self._experiment_learning_tasks(context["experiments"]),
             "summary": {
                 "trade_count": context["review"]["trade_count"],
                 "pnl": context["review"]["pnl"],
@@ -1666,10 +1887,13 @@ class BrainCommandHandler:
         review_payloads = [self._review_payload(row) for row in review_rows]
         tag_counts: dict[str, int] = {}
         linked_experiment_count = 0
+        experiment_learning_tasks: list[dict[str, Any]] = []
         for review in review_payloads:
             for tag in review["mistake_tags"]:
                 tag_counts[tag] = tag_counts.get(tag, 0) + 1
             linked_experiment_count += self._linked_experiment_count(review["external_id"])
+            context = self._review_context_payload(review["external_id"], self._review_row(review["external_id"]))
+            experiment_learning_tasks.extend(self._experiment_learning_tasks(context["experiments"]))
         review_count = len(review_payloads)
         trade_count = sum(review["trade_count"] for review in review_payloads)
         pnl = sum(float(review["pnl"]) for review in review_payloads)
@@ -1689,6 +1913,7 @@ class BrainCommandHandler:
                 "linked_experiment_count": linked_experiment_count,
             },
             "focus_tags": focus_tags,
+            "experiment_learning_tasks": experiment_learning_tasks,
             "next_actions": self._weekly_next_actions(review_payloads, focus_tags),
         }
         external_id = self._save_learning_report("weekly", period_start, period_end, report)
@@ -1719,6 +1944,24 @@ class BrainCommandHandler:
             "tasks": self._next_learning_actions(context),
             "requires_confirmation": False,
         }
+
+    def _learning_queue(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/learning-queue").strip())
+        limit = int(fields.get("limit", 10) or 10)
+        today = fields.get("today") or fields.get("date")
+        return {
+            "status": "ok",
+            "queue": build_review_queue(self.conn, today=today, limit=limit),
+            "requires_confirmation": False,
+        }
+
+    def _experiment_learning_tasks(self, experiments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        tasks: list[dict[str, Any]] = []
+        for experiment in experiments:
+            result = build_failed_experiment_learning(self.conn, experiment["external_id"])
+            if result.get("status") in {"saved", "ok"}:
+                tasks.extend(result.get("tasks", []))
+        return tasks
 
     def _coach_next(self, command_text: str) -> dict[str, Any]:
         proposal = build_next_experiment_proposal(self.conn)
@@ -1776,7 +2019,7 @@ class BrainCommandHandler:
 
     def _strategy_profile_set(self, command_text: str) -> dict[str, Any]:
         fields = self._parse_key_value_args(command_text.removeprefix("/strategy-profile-set "))
-        required = {"name", "symbol", "interval", "csv", "short", "long"}
+        required = {"name", "symbol", "interval", "csv"}
         missing = sorted(required - fields.keys())
         if missing:
             return {
@@ -1787,12 +2030,9 @@ class BrainCommandHandler:
         symbol = fields["symbol"].upper()
         if symbol not in self.allowed_market_symbols:
             return self._symbol_not_allowed(symbol)
+        strategy_name = fields.get("strategy", "moving_average_crossover")
         try:
-            parameters = {
-                "short_window": int(fields["short"]),
-                "long_window": int(fields["long"]),
-                "quote_amount": float(fields.get("quote_amount", "100")),
-            }
+            parameters = self._strategy_parameters(strategy_name, fields)
         except ValueError:
             return {
                 "status": "invalid",
@@ -1806,6 +2046,7 @@ class BrainCommandHandler:
             interval=fields["interval"],
             source_csv=fields["csv"],
             parameters=parameters,
+            strategy_name=strategy_name,
             description=self._display_value(fields.get("description", "")),
         )
         return {
@@ -1814,6 +2055,36 @@ class BrainCommandHandler:
             "profile": profile,
             "requires_confirmation": False,
         }
+
+    def _strategy_parameters(self, strategy_name: str, fields: dict[str, str]) -> dict[str, Any]:
+        normalized = strategy_name.strip().lower()
+        if normalized in {"moving_average_crossover", "ma_cross", "ma"}:
+            if "short" not in fields or "long" not in fields:
+                raise ValueError("missing moving average windows")
+            return {
+                "short_window": int(fields["short"]),
+                "long_window": int(fields["long"]),
+                "quote_amount": float(fields.get("quote_amount", "100")),
+            }
+        if normalized == "breakout":
+            return {
+                "lookback": int(fields.get("lookback", "20")),
+                "quote_amount": float(fields.get("quote_amount", "100")),
+            }
+        if normalized == "mean_reversion":
+            return {
+                "window": int(fields.get("window", "20")),
+                "threshold_pct": float(fields.get("threshold_pct", "0.03")),
+                "quote_amount": float(fields.get("quote_amount", "100")),
+            }
+        if normalized == "volatility_filter":
+            return {
+                "short_window": int(fields.get("short", fields.get("short_window", "20"))),
+                "long_window": int(fields.get("long", fields.get("long_window", "60"))),
+                "min_range_pct": float(fields.get("min_range_pct", "0.01")),
+                "quote_amount": float(fields.get("quote_amount", "100")),
+            }
+        raise ValueError("unknown strategy")
 
     def _strategy_profile_list(self, command_text: str) -> dict[str, Any]:
         fields = self._parse_key_value_args(command_text.removeprefix("/strategy-profile-list").strip())
@@ -1876,6 +2147,179 @@ class BrainCommandHandler:
             "sweep": sweep,
             "requires_confirmation": False,
         }
+
+    def _experiment_decision(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/experiment-decision ").strip())
+        required = {"experiment", "decision"}
+        missing = sorted(required - fields.keys())
+        if missing:
+            return {"status": "invalid", "message": f"missing fields: {', '.join(missing)}", "requires_confirmation": False}
+        try:
+            decision = save_experiment_decision(
+                self.conn,
+                experiment=fields["experiment"],
+                decision=fields["decision"],
+                reason=self._display_value(fields.get("reason", "")),
+            )
+        except ValueError as exc:
+            return {"status": "invalid", "message": str(exc), "requires_confirmation": False}
+        return {
+            "status": "saved",
+            "message": f"saved decision {decision['decision']} for {decision['experiment_external_id']}",
+            "decision": decision,
+            "requires_confirmation": False,
+        }
+
+    def _hypothesis_create(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/hypothesis-create ").strip())
+        try:
+            card = HypothesisLog(self.conn).create(
+                title=self._display_value(fields.get("title", "Untitled_hypothesis")),
+                description=self._display_value(fields.get("description", "")),
+                parent_iteration=fields.get("parent_iteration", "baseline"),
+                change_summary=self._display_value(fields.get("change_summary", "")),
+                predicted=self._json_field(fields.get("predicted", "{}"), "predicted"),
+                decision_rule=self._display_value(fields.get("decision_rule", "Keep_only_if_preregistered_rule_passes")),
+            )
+        except ValueError as exc:
+            return {"status": "invalid", "message": str(exc), "requires_confirmation": False}
+        return {
+            "status": "saved",
+            "message": f"saved hypothesis {card.hypothesis_id}",
+            "hypothesis": self._hypothesis_payload(card),
+            "requires_confirmation": False,
+        }
+
+    def _hypothesis_resolve(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/hypothesis-resolve ").strip())
+        hypothesis_id = fields.get("hypothesis", fields.get("id", "")).strip()
+        if not hypothesis_id:
+            return {"status": "invalid", "message": "hypothesis is required", "requires_confirmation": False}
+        try:
+            card = HypothesisLog(self.conn).resolve(
+                hypothesis_id,
+                actual=self._json_field(fields.get("actual", "{}"), "actual"),
+                decision=fields.get("decision", ""),
+                reason=self._display_value(fields.get("reason", "")),
+                hindsight_notes=self._display_value(fields.get("hindsight_notes", "")),
+                code_commit=fields.get("code_commit", ""),
+                backtest_run_id=fields.get("backtest_run_id", ""),
+            )
+        except ValueError as exc:
+            return {"status": "invalid", "message": str(exc), "requires_confirmation": False}
+        return {
+            "status": "saved",
+            "message": f"resolved hypothesis {card.hypothesis_id} as {card.decision}",
+            "hypothesis": self._hypothesis_payload(card),
+            "requires_confirmation": False,
+        }
+
+    def _hypothesis_list(self) -> dict[str, Any]:
+        cards = HypothesisLog(self.conn).list()
+        return {
+            "status": "ok",
+            "hypotheses": [self._hypothesis_payload(card) for card in cards],
+            "requires_confirmation": False,
+        }
+
+    def _research_status(self) -> dict[str, Any]:
+        cards = HypothesisLog(self.conn).list()
+        decisions = {key: 0 for key in ("kept", "rejected", "inconclusive", "risk_reduction_kept", "deferred")}
+        unresolved = 0
+        for card in cards:
+            if card.decision in decisions:
+                decisions[card.decision] += 1
+            else:
+                unresolved += 1
+        return {
+            "status": "ok",
+            "total": len(cards),
+            "unresolved": unresolved,
+            "decisions": decisions,
+            "requires_confirmation": False,
+        }
+
+    def _research_baseline(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/research-baseline").strip())
+        return self._research_run_phase(fields, phase="6.1", hypothesis_id="H-100")
+
+    def _research_test(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/research-test").strip())
+        hypothesis_id = fields.get("hypothesis", "H-101")
+        phase = fields.get("phase", _phase_for_hypothesis(hypothesis_id))
+        return self._research_run_phase(fields, phase=phase, hypothesis_id=hypothesis_id)
+
+    def _research_ablation(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/research-ablation").strip())
+        runs = []
+        for hypothesis_id, phase in (
+            ("H-100", "6.1"),
+            ("H-101", "6.2"),
+            ("H-102", "6.3"),
+            ("H-103", "6.4"),
+            ("H-104", "6.5"),
+            ("H-105", "6.6"),
+        ):
+            result = self._research_run_phase(fields, phase=phase, hypothesis_id=hypothesis_id)
+            if result["status"] != "ok":
+                return result
+            runs.append(result["run"])
+        return {"status": "ok", "runs": runs, "requires_confirmation": False}
+
+    def _research_run_phase(self, fields: dict[str, str], *, phase: str, hypothesis_id: str) -> dict[str, Any]:
+        csv_value = fields.get("csv", "data/local/market_data/BTCUSDT/BTCUSDT-1h.csv")
+        try:
+            csv_path = self._safe_data_local_path(csv_value)
+            frame = pd.read_csv(csv_path)
+            config = WalkForwardConfig(
+                train_window_days=int(fields.get("train_days", "7")),
+                test_window_days=int(fields.get("test_days", "5")),
+                step_days=int(fields.get("step_days", "5")),
+                purge_days=int(fields.get("purge_days", "1")),
+            )
+            result = run_walk_forward(
+                mtf_trend_strategy_factory,
+                frame,
+                config,
+                param_grid={
+                    "phase": [phase],
+                    "ema_short": [int(fields.get("ema_short", "20"))],
+                    "ema_long": [int(fields.get("ema_long", "200"))],
+                },
+            )
+        except (ValueError, FileNotFoundError) as exc:
+            return {"status": "invalid", "message": str(exc), "requires_confirmation": False}
+        metrics = dict(result.aggregate_metrics)
+        metrics["windows"] = len(result.windows)
+        metrics["consistency_score"] = result.consistency_score
+        return {
+            "status": "ok",
+            "run": {
+                "hypothesis_id": hypothesis_id,
+                "phase": phase,
+                "source_csv": csv_value,
+                "metrics": metrics,
+            },
+            "requires_confirmation": False,
+        }
+
+    @staticmethod
+    def _hypothesis_payload(card) -> dict[str, Any]:
+        return {
+            "hypothesis_id": card.hypothesis_id,
+            "title": card.title,
+            "predicted": card.predicted,
+            "actual": card.actual,
+            "decision": card.decision,
+            "reason": card.reason,
+        }
+
+    @staticmethod
+    def _json_field(value: str, label: str) -> dict[str, Any]:
+        parsed = json.loads(value)
+        if not isinstance(parsed, dict) or not parsed:
+            raise ValueError(f"{label} must be a non-empty JSON object")
+        return parsed
 
     def _save_learning_report(
         self,
@@ -2090,22 +2534,26 @@ class BrainCommandHandler:
         }
 
     def _execution_block(self, symbol: str) -> dict[str, Any] | None:
+        context = self._execution_context(symbol)
+        return context.get("block")
+
+    def _execution_context(self, symbol: str) -> dict[str, Any]:
         plan = self._plan_for_date(self._today())
         if plan is None:
-            return {
-                "status": "blocked",
-                "message": "today's trading plan is missing",
-                "requires_confirmation": False,
-            }
+            return {"block": {
+                    "status": "blocked",
+                    "message": "today's trading plan is missing",
+                    "requires_confirmation": False,
+                }}
         if symbol not in plan["symbols"]:
-            return {
-                "status": "blocked",
-                "message": f"{symbol} is not in today's plan",
-                "requires_confirmation": False,
-            }
+            return {"block": {
+                    "status": "blocked",
+                    "message": f"{symbol} is not in today's plan",
+                    "requires_confirmation": False,
+                }}
         row = self.conn.execute(
             """
-            select plan_ok, setup_ok, risk_ok, emotion_ok
+            select external_id, plan_ok, setup_ok, risk_ok, emotion_ok
             from pre_trade_checklists
             where checklist_date = ? and symbol = ?
             order by id desc
@@ -2114,18 +2562,28 @@ class BrainCommandHandler:
             (self._today(), symbol),
         ).fetchone()
         if row is None:
-            return {
-                "status": "blocked",
-                "message": f"pre-trade checklist is missing for {symbol}",
-                "requires_confirmation": False,
-            }
+            return {"block": {
+                    "status": "blocked",
+                    "message": f"pre-trade checklist is missing for {symbol}",
+                    "requires_confirmation": False,
+                }}
         if not all(bool(row[key]) for key in ("plan_ok", "setup_ok", "risk_ok", "emotion_ok")):
-            return {
-                "status": "blocked",
-                "message": f"pre-trade checklist is not fully approved for {symbol}",
-                "requires_confirmation": False,
-            }
-        return None
+            return {"block": {
+                    "status": "blocked",
+                    "message": f"pre-trade checklist is not fully approved for {symbol}",
+                    "requires_confirmation": False,
+                }}
+        return {
+            "plan_external_id": plan["external_id"],
+            "checklist_external_id": row["external_id"],
+        }
+
+    def _experiment_decision_value(self, experiment_id: str) -> str:
+        row = self.conn.execute(
+            "select decision from experiment_decisions where experiment_external_id = ?",
+            (experiment_id,),
+        ).fetchone()
+        return str(row["decision"]) if row is not None else ""
 
     def _plan_for_date(self, plan_date: str) -> dict[str, Any] | None:
         row = self.conn.execute(
@@ -2208,7 +2666,7 @@ class BrainCommandHandler:
     def _experiment_row(self, external_id: str) -> sqlite3.Row | None:
         return self.conn.execute(
             """
-            select external_id
+            select external_id, strategy_name, symbol, interval
             from strategy_experiments
             where external_id = ?
             """,
@@ -2346,3 +2804,14 @@ class BrainCommandHandler:
     @staticmethod
     def _today() -> str:
         return date.today().isoformat()
+
+
+def _phase_for_hypothesis(hypothesis_id: str) -> str:
+    return {
+        "H-100": "6.1",
+        "H-101": "6.2",
+        "H-102": "6.3",
+        "H-103": "6.4",
+        "H-104": "6.5",
+        "H-105": "6.6",
+    }.get(hypothesis_id, "6.1")

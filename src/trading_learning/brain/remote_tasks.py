@@ -7,7 +7,7 @@ from typing import Any
 from uuid import uuid4
 
 
-ALLOWED_TASK_TYPES = {"local_status", "backtest_ma"}
+ALLOWED_TASK_TYPES = {"local_status", "backtest_ma", "market_refresh"}
 FINAL_STATES = {"succeeded", "failed", "rejected", "expired"}
 
 

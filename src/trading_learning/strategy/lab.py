@@ -10,7 +10,7 @@ from uuid import uuid4
 from trading_learning.backtest.engine import run_spot_backtest
 from trading_learning.backtest.report import summarize_backtest
 from trading_learning.market_data.csv_loader import load_candles_csv
-from trading_learning.strategy.moving_average import moving_average_crossover_signals
+from trading_learning.strategy.library import generate_strategy_signals
 
 
 def save_strategy_profile(
@@ -21,6 +21,7 @@ def save_strategy_profile(
     interval: str,
     source_csv: str,
     parameters: dict[str, Any],
+    strategy_name: str = "moving_average_crossover",
     description: str = "",
 ) -> dict[str, Any]:
     external_id = f"profile-{uuid4()}"
@@ -29,7 +30,7 @@ def save_strategy_profile(
             """
             insert into strategy_profiles (
               external_id, name, strategy_name, symbol, interval, source_csv, parameters, description
-            ) values (?, ?, 'moving_average_crossover', ?, ?, ?, ?, ?)
+            ) values (?, ?, ?, ?, ?, ?, ?, ?)
             on conflict(name) do update set
               symbol = excluded.symbol,
               interval = excluded.interval,
@@ -41,6 +42,7 @@ def save_strategy_profile(
             (
                 external_id,
                 name,
+                strategy_name,
                 symbol,
                 interval,
                 source_csv,
@@ -84,7 +86,11 @@ def run_ma_parameter_sweep(
     experiments = []
     with conn:
         for index, (short, long) in enumerate(grid, start=1):
-            signals = moving_average_crossover_signals(candles, short_window=short, long_window=long)
+            signals = generate_strategy_signals(
+                "moving_average_crossover",
+                candles,
+                {"short_window": short, "long_window": long},
+            )
             result = run_spot_backtest(
                 symbol=symbol,
                 signals=signals,

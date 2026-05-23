@@ -103,3 +103,41 @@ def test_chinese_remote_backtest_alias_queues_local_runner_task(tmp_path):
     assert response["status"] == "queued"
     assert response["task"]["task_type"] == "backtest_ma"
     assert response["task"]["payload"]["symbol"] == "BTCUSDT"
+
+
+def test_queue_market_refresh_command_creates_token_protected_runner_task(tmp_path):
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor())
+
+        response = handler.handle(
+            "/queue-market-refresh symbols=BTCUSDT intervals=1h,4h limit=10",
+            user_id="owner",
+        )
+
+    assert response["status"] == "queued"
+    assert response["task"]["task_type"] == "market_refresh"
+    assert response["task"]["risk_level"] == "data"
+    assert response["task"]["payload"] == {"symbols": ["BTCUSDT"], "intervals": ["1h", "4h"], "limit": 10}
+    assert "task-" in response["message"]
+
+
+def test_chinese_feishu_study_aliases_route_to_safe_commands(tmp_path):
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(conn, executor=FakeExecutor())
+
+        queue = handler.handle(_u(r"\u5b66\u4e60\u961f\u5217"), user_id="owner")
+        task_status = handler.handle(_u(r"\u4efb\u52a1\u72b6\u6001"), user_id="owner")
+        coach = handler.handle(_u(r"\u4eca\u65e5\u6559\u7ec3"), user_id="owner")
+        refresh = handler.handle(
+            _u(r"\u8fdc\u7a0b\u5237\u65b0\u6570\u636e \u5e01\u79cd=BTCUSDT \u5468\u671f=1h \u6570\u91cf=10"),
+            user_id="owner",
+        )
+
+    assert queue["status"] == "ok"
+    assert "queue" in queue
+    assert task_status["status"] == "ok"
+    assert coach["status"] == "ok"
+    assert refresh["status"] == "queued"
+    assert refresh["task"]["task_type"] == "market_refresh"

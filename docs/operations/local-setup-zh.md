@@ -64,3 +64,15 @@ trading-learning backup-db --output-dir backups
 ```powershell
 trading-learning restore-db --backup backups\trading_learning-YYYYMMDDTHHMMSSZ.sqlite3 --target data\local\trading_learning.sqlite3
 ```
+
+## Daily startup helper
+
+After Windows reboot and network verification, run:
+
+```powershell
+.\scripts\start-local-workstation.ps1
+```
+
+This starts `start-brain.ps1`, optionally starts `start-quant-runner.ps1` when
+`TRADING_LEARNING_RUNNER_TOKEN` is configured, starts `trading-learning dashboard-serve`,
+runs `trading-learning health-check`, and prints `http://127.0.0.1:8780/`.

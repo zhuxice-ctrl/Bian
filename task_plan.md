@@ -776,7 +776,7 @@ Acceptance criteria:
 
 ## Phase 40: Professional Local Quant Workstation UI
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -787,14 +787,14 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] The app no longer feels like a simple prototype dashboard.
-- [ ] Data, backtest, experiments, review, knowledge, tasks, safety, and settings are reachable as clear work areas.
-- [ ] Controls do not overlap or resize unpredictably on desktop or mobile.
-- [ ] Browser smoke tests verify the main workflows render cleanly.
+- [x] The app no longer feels like a simple prototype dashboard.
+- [x] Data, backtest, experiments, review, knowledge, tasks, safety, and settings are reachable as clear work areas.
+- [x] Controls do not overlap or resize unpredictably on desktop or mobile.
+- [x] Browser smoke tests verify the main workflows render cleanly.
 
 ## Phase 41: Market Data Pipeline Hardening
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -805,14 +805,14 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] BTC/ETH cache refresh can update only new candles without duplicating rows.
-- [ ] The app can report missing ranges and stale datasets.
-- [ ] ETF/stock import path is supported through a configured provider or manual CSV import.
-- [ ] Tests cover incremental refresh, gap detection, and provider boundaries.
+- [x] BTC/ETH cache refresh can update only new candles without duplicating rows.
+- [x] The app can report missing ranges and stale datasets.
+- [x] ETF/stock import path is supported through a configured provider or manual CSV import.
+- [x] Tests cover incremental refresh, gap detection, and provider boundaries.
 
 ## Phase 42: Strategy Engine Expansion
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -823,14 +823,14 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] Strategy profiles can choose from multiple strategy families.
-- [ ] Each strategy records parameters, data range, version, fees, and slippage assumptions.
-- [ ] Backtest reports clearly show which strategy and assumptions produced the result.
-- [ ] Tests cover strategy selection and parameter validation.
+- [x] Strategy profiles can choose from multiple strategy families.
+- [x] Each strategy records parameters, data range, version, fees, and slippage assumptions.
+- [x] Backtest reports clearly show which strategy and assumptions produced the result.
+- [x] Tests cover strategy selection and parameter validation.
 
 ## Phase 43: Robust Backtesting And Validation
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -840,14 +840,14 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] Experiments can run on selected date ranges and validation splits.
-- [ ] Reports distinguish in-sample, out-of-sample, and stress-test results.
-- [ ] Overfitting and unstable-parameter warnings are visible in the dashboard and Brain.
-- [ ] Tests cover split generation, stress windows, and validation summaries.
+- [x] Experiments can run on selected date ranges and validation splits.
+- [x] Reports distinguish in-sample, out-of-sample, and stress-test results.
+- [x] Overfitting and unstable-parameter warnings are visible in the dashboard and Brain.
+- [x] Tests cover split generation, stress windows, and validation summaries.
 
 ## Phase 44: Experiment Portfolio And Comparison Lab
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -857,14 +857,14 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] The dashboard can compare multiple experiments side by side.
-- [ ] AI Coach can explain the next research priority from experiment history.
-- [ ] Each experiment can be marked as rejected, needs more data, testnet candidate, or archived.
-- [ ] Tests cover comparison groups and decision persistence.
+- [x] The dashboard can compare multiple experiments side by side.
+- [x] AI Coach can explain the next research priority from experiment history.
+- [x] Each experiment can be marked as rejected, needs more data, testnet candidate, or archived.
+- [x] Tests cover comparison groups and decision persistence.
 
 ## Phase 45: Learning System Deepening
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -874,14 +874,14 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] Failed experiments generate learning tasks and mistake-pattern cards.
-- [ ] The app shows a review queue ranked by importance and recency.
-- [ ] Daily/weekly reports connect learning progress to actual experiments.
-- [ ] Tests cover generated tasks, review queue ranking, and report links.
+- [x] Failed experiments generate learning tasks and mistake-pattern cards.
+- [x] The app shows a review queue ranked by importance and recency.
+- [x] Daily/weekly reports connect learning progress to actual experiments.
+- [x] Tests cover generated tasks, review queue ranking, and report links.
 
 ## Phase 46: Feishu Remote Study Assistant
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -891,14 +891,14 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] Chinese Feishu commands cover common remote study workflows.
-- [ ] Long tasks return task ids and readable completion summaries.
-- [ ] Remote actions remain queue-based and token-protected.
-- [ ] Tests prove Feishu cannot bypass local execution safety.
+- [x] Chinese Feishu commands cover common remote study workflows.
+- [x] Long tasks return task ids and readable completion summaries.
+- [x] Remote actions remain queue-based and token-protected.
+- [x] Tests prove Feishu cannot bypass local execution safety.
 
 ## Phase 47: Testnet Strategy Execution Loop
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -908,14 +908,14 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] A research experiment can be explicitly promoted to a testnet candidate.
-- [ ] Testnet execution records link back to strategy, signal, plan, checklist, and review records.
-- [ ] Kill-switch and risk guards block execution when unsafe.
-- [ ] Tests cover the full testnet lifecycle without touching real trading.
+- [x] A research experiment can be explicitly promoted to a testnet candidate.
+- [x] Testnet execution records link back to strategy, signal, plan, checklist, and review records.
+- [x] Kill-switch and risk guards block execution when unsafe.
+- [x] Tests cover the full testnet lifecycle without touching real trading.
 
 ## Phase 48: Real Trading Readiness Implementation
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -925,10 +925,10 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] The system can explain every missing real-trading requirement.
-- [ ] Risk checks are implemented and tested independently.
-- [ ] Dry-run mode can simulate the exact order path without sending real orders.
-- [ ] No real order can be sent without local manual activation and passing all gates.
+- [x] The system can explain every missing real-trading requirement.
+- [x] Risk checks are implemented and tested independently.
+- [x] Dry-run mode can simulate the exact order path without sending real orders.
+- [x] No real order can be sent without local manual activation and passing all gates.
 
 ## Phase 49: Semi-Automated Small-Capital Pilot
 
@@ -949,7 +949,7 @@ Acceptance criteria:
 
 ## Phase 50: Operations, Packaging, And Maintenance
 
-Status: planned
+Status: completed
 
 Scope:
 
@@ -959,7 +959,48 @@ Scope:
 
 Acceptance criteria:
 
-- [ ] A normal daily startup flow works after Windows reboot and network verification.
-- [ ] Server bridge deploy/update steps are documented and repeatable.
-- [ ] Backups and restores are verified against the current schema.
-- [ ] Final verification includes tests, dashboard browser QA, JavaScript syntax check, and secret scan.
+- [x] A normal daily startup flow works after Windows reboot and network verification.
+- [x] Server bridge deploy/update steps are documented and repeatable.
+- [x] Backups and restores are verified against the current schema.
+- [x] Final verification includes tests, dashboard browser QA, JavaScript syntax check, and secret scan.
+
+## Phase 51: Scientific Strategy Research Core
+
+Status: completed
+
+Scope:
+
+- Add pure local indicators with fixed golden-fixture tests instead of TA-Lib runtime comparisons.
+- Add a durable hypothesis log with four research decisions: kept, rejected, inconclusive, and risk_reduction_kept.
+- Add significance, walk-forward, ablation, and guardrail utilities for falsifiable strategy research.
+- Add the first staged MTF Trend strategy and document H-100 through H-105 with predicted, actual, decision, and reason fields.
+- Expose hypothesis and research status commands through CLI and Chinese Brain commands.
+
+Acceptance criteria:
+
+- [x] Indicator tests use `tests/fixtures/indicators_golden.json` and do not depend on TA-Lib or pandas-ta.
+- [x] Hypothesis cards require predicted, actual, one of the four decisions, and a reason before resolution.
+- [x] Walk-forward windows enforce train/test separation with purge days.
+- [x] Guardrails enforce minimum OOS evidence and block reusing the same OOS range for repeated decisions.
+- [x] MTF Trend phases are represented as H-100 through H-105 and documented with current local OOS results.
+- [x] Full test suite passes after the research-core integration.
+
+## Phase 52: MTF Trend Research Honesty Pass
+
+Status: completed
+
+Scope:
+
+- Fix the walk-forward trade-count bug so OOS trade count means real strategy entries, not OOS return bars.
+- Add `deferred` as a first-class research decision for phases that cannot yet be truly tested.
+- Run MTF Trend with synchronized 1h/15m/5m windows and mark missing lower-timeframe coverage as deferred.
+- Add a market cost model with fee, slippage, and latency assumptions.
+- Recount H-100 through H-105 and overwrite actual/decision/hindsight notes.
+
+Acceptance criteria:
+
+- [x] Tests prove OOS bar count and OOS trade count are separate.
+- [x] Tests prove multi-timeframe frames are sliced by the same walk-forward window.
+- [x] Tests prove MTF phases can return deferred when required lower-timeframe data is missing.
+- [x] H-100 through H-105 cards are updated with corrected trade_count semantics and cost model.
+- [x] Full test suite and final diff checks pass.

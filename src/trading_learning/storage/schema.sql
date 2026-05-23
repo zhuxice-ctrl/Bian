@@ -49,6 +49,27 @@ create table if not exists strategy_hypotheses (
   updated_at text not null default CURRENT_TIMESTAMP
 );
 
+create table if not exists hypothesis_log (
+  id integer primary key autoincrement,
+  hypothesis_id text not null unique,
+  title text not null,
+  created_at text not null,
+  description text not null,
+  parent_iteration text not null,
+  change_summary text not null,
+  predicted text not null,
+  decision_rule text not null,
+  ran_at text,
+  actual text not null default '{}',
+  decision text not null default '',
+  reason text not null default '',
+  hindsight_notes text not null default '',
+  code_commit text not null default '',
+  backtest_run_id text not null default '',
+  updated_at text not null default CURRENT_TIMESTAMP,
+  check (decision in ('', 'kept', 'rejected', 'inconclusive', 'risk_reduction_kept', 'deferred'))
+);
+
 create table if not exists strategy_experiments (
   id integer primary key autoincrement,
   external_id text not null unique,
@@ -167,6 +188,15 @@ create table if not exists experiment_review_drafts (
   updated_at text not null default CURRENT_TIMESTAMP
 );
 
+create table if not exists experiment_decisions (
+  id integer primary key autoincrement,
+  experiment_external_id text not null unique,
+  decision text not null check (decision in ('rejected', 'needs_more_data', 'continue_research', 'testnet_candidate', 'archived')),
+  reason text not null default '',
+  created_at text not null default CURRENT_TIMESTAMP,
+  updated_at text not null default CURRENT_TIMESTAMP
+);
+
 create table if not exists brain_suggested_commands (
   id integer primary key autoincrement,
   external_id text not null unique,
@@ -248,6 +278,11 @@ create table if not exists testnet_order_records (
   quote_order_qty real,
   order_id text not null default '',
   status text not null default '',
+  experiment_external_id text not null default '',
+  signal_id text not null default '',
+  plan_external_id text not null default '',
+  checklist_external_id text not null default '',
+  review_external_id text not null default '',
   request_payload text not null default '{}',
   response_payload text not null default '{}',
   created_at text not null default CURRENT_TIMESTAMP
