@@ -31,6 +31,9 @@
 - Entry gate: fail.
 - Gate reasons: p-value > 0.05 and half-life > 240 periods.
 
+### ADF Implementation Disclosure
+Current ADF/cointegration p-values in this report use a 4-bucket MacKinnon-style threshold mapping: `0.01 / 0.049 / 0.10 / 0.50`. The value `p=0.5000` means the ADF statistic did not reach any significance threshold in this implementation. It should be read as a classification result, not as a precise continuous p-value. The half-life value is continuous and independently supports the gate failure.
+
 ### BTC/ETH Z-Score Distribution
 - Window: 96.
 - Count: 17425.
