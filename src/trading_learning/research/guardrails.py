@@ -49,6 +49,35 @@ class ResearchGuardrails:
         return {"allowed": True, "size": size, "reasons": []}
 
 
+class PairsGuardrails:
+    MIN_COINTEGRATION_P = 0.05
+    MAX_HALF_LIFE_PERIODS = 480
+    MIN_TRADES_FOR_DECISION = 30
+    MIN_OOS_WINDOWS = 4
+
+    @classmethod
+    def validate_training(cls, stats: dict[str, Any]) -> dict[str, Any]:
+        reasons: list[str] = []
+        coint_p = float(stats.get("coint_p", 1.0))
+        half_life = float(stats.get("half_life", float("inf")))
+        if coint_p > cls.MIN_COINTEGRATION_P:
+            reasons.append("cointegration p-value is above threshold")
+        if half_life > cls.MAX_HALF_LIFE_PERIODS:
+            reasons.append("half-life exceeds maximum tradable periods")
+        if reasons:
+            return {"decision": "deferred", "enabled": False, "reasons": reasons}
+        return {"decision": "enabled", "enabled": True, "reasons": []}
+
+    @classmethod
+    def validate_decision_metrics(cls, *, trade_count: int, oos_windows: int) -> dict[str, Any]:
+        reasons: list[str] = []
+        if trade_count < cls.MIN_TRADES_FOR_DECISION:
+            reasons.append("OOS trade count is below pairs decision threshold")
+        if oos_windows < cls.MIN_OOS_WINDOWS:
+            reasons.append("OOS window count is below pairs decision threshold")
+        return {"allowed": not reasons, "reasons": reasons}
+
+
 def _fingerprint_oos_windows(windows: list[dict[str, Any]]) -> str:
     ranges = [
         {
