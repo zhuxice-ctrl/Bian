@@ -108,3 +108,7 @@
 - The current local BTCUSDT 1h cache is sufficient for a research smoke walk-forward with 7d train / 5d test / 1d purge, but it is too short for production-grade conclusions.
 - H-101 currently looks like a risk-control variant, not an alpha improvement: the EMA200 filter reduced exposure/drawdown in the short local sample but did not prove Sharpe improvement.
 - H-103 to H-105 need a stronger multi-timeframe walk-forward runner before conclusions are meaningful; the current vectorized runner does not yet simulate synchronized 15m/5m entries or intrabar stop/take-profit exits.
+- Corrected MTF recount changed H-100 from 582 apparent trades to 28 real OOS entries; the old number was OOS bar count.
+- Applying fee/slippage/latency turned the H-100 baseline negative: OOS Sharpe `-0.82987`, max drawdown `-0.10001`, total return `-0.06717`.
+- H-101 over-filtered to zero OOS trades after corrected semantics, so it should be rejected rather than kept as a risk-control variant.
+- Current local lower-timeframe coverage is uneven: 1h has 1000 rows from 2026-04-11 to 2026-05-22, 15m starts 2026-05-12, and 5m starts 2026-05-19. This makes H-103 through H-105 deferred until more synchronized data exists.

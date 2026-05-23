@@ -984,3 +984,23 @@ Acceptance criteria:
 - [x] Guardrails enforce minimum OOS evidence and block reusing the same OOS range for repeated decisions.
 - [x] MTF Trend phases are represented as H-100 through H-105 and documented with current local OOS results.
 - [x] Full test suite passes after the research-core integration.
+
+## Phase 52: MTF Trend Research Honesty Pass
+
+Status: completed
+
+Scope:
+
+- Fix the walk-forward trade-count bug so OOS trade count means real strategy entries, not OOS return bars.
+- Add `deferred` as a first-class research decision for phases that cannot yet be truly tested.
+- Run MTF Trend with synchronized 1h/15m/5m windows and mark missing lower-timeframe coverage as deferred.
+- Add a market cost model with fee, slippage, and latency assumptions.
+- Recount H-100 through H-105 and overwrite actual/decision/hindsight notes.
+
+Acceptance criteria:
+
+- [x] Tests prove OOS bar count and OOS trade count are separate.
+- [x] Tests prove multi-timeframe frames are sliced by the same walk-forward window.
+- [x] Tests prove MTF phases can return deferred when required lower-timeframe data is missing.
+- [x] H-100 through H-105 cards are updated with corrected trade_count semantics and cost model.
+- [x] Full test suite and final diff checks pass.

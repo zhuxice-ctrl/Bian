@@ -67,7 +67,7 @@ create table if not exists hypothesis_log (
   code_commit text not null default '',
   backtest_run_id text not null default '',
   updated_at text not null default CURRENT_TIMESTAMP,
-  check (decision in ('', 'kept', 'rejected', 'inconclusive', 'risk_reduction_kept'))
+  check (decision in ('', 'kept', 'rejected', 'inconclusive', 'risk_reduction_kept', 'deferred'))
 );
 
 create table if not exists strategy_experiments (

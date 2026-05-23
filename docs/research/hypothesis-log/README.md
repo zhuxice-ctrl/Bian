@@ -6,7 +6,7 @@ Each card must include:
 
 - `Predicted`: the before-run forecast.
 - `Actual`: numeric results from the run.
-- `Decision`: one of `kept`, `rejected`, `inconclusive`, `risk_reduction_kept`.
+- `Decision`: one of `kept`, `rejected`, `inconclusive`, `risk_reduction_kept`, `deferred`.
 - `Reason`: one sentence explaining the decision.
 
 CLI:

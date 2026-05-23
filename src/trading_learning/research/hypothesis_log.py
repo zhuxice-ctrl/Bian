@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 
-ALLOWED_RESEARCH_DECISIONS = {"kept", "rejected", "inconclusive", "risk_reduction_kept"}
+ALLOWED_RESEARCH_DECISIONS = {"kept", "rejected", "inconclusive", "risk_reduction_kept", "deferred"}
 
 
 @dataclass(frozen=True)

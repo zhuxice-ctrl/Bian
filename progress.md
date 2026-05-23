@@ -178,3 +178,12 @@
 - Wrote documented H-100 to H-105 hypothesis cards with predicted, actual, decision, and reason fields.
 - Added `docs/strategies/mtf_trend.md` and `exports/ablation-2026-05-23.md`.
 - Verified research-core targeted tests (`12 passed`) and full suite (`252 passed`).
+- Started Phase 52 MTF Trend research honesty pass.
+- Added tests proving `oos_trade_count` is real strategy entries and no longer OOS bar count.
+- Added tests for synchronized multi-timeframe walk-forward slicing and deferred lower-timeframe coverage.
+- Added `deferred` as a fifth research decision level.
+- Added a market cost model to MTF Trend returns: fee `0.0008`, slippage `0.0005`, latency `0.0002`.
+- Recounted H-100 through H-105 with corrected trade-count semantics and cost-aware returns.
+- Updated H-103 through H-105 to `deferred` where 15m/5m coverage is not sufficient for a real MTF conclusion.
+- Added a lightweight SQLite migration so existing `hypothesis_log` tables can accept the new `deferred` decision.
+- Verified Phase 52 full suite with `pytest -q` (`257 passed`).

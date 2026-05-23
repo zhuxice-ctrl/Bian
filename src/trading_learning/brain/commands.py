@@ -2224,7 +2224,7 @@ class BrainCommandHandler:
 
     def _research_status(self) -> dict[str, Any]:
         cards = HypothesisLog(self.conn).list()
-        decisions = {key: 0 for key in ("kept", "rejected", "inconclusive", "risk_reduction_kept")}
+        decisions = {key: 0 for key in ("kept", "rejected", "inconclusive", "risk_reduction_kept", "deferred")}
         unresolved = 0
         for card in cards:
             if card.decision in decisions:

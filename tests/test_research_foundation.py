@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from trading_learning.backtest.walk_forward import WalkForwardConfig, run_walk_forward
+from trading_learning.backtest.walk_forward import StrategyRunResult, WalkForwardConfig, run_walk_forward
 from trading_learning.research.guardrails import ResearchGuardrails
 from trading_learning.research.hypothesis_log import (
     ALLOWED_RESEARCH_DECISIONS,
@@ -50,7 +50,7 @@ def test_hypothesis_cards_require_predicted_actual_decision_and_reason(tmp_path,
         code_commit="abc1234",
     )
 
-    assert ALLOWED_RESEARCH_DECISIONS == {"kept", "rejected", "inconclusive", "risk_reduction_kept"}
+    assert ALLOWED_RESEARCH_DECISIONS == {"kept", "rejected", "inconclusive", "risk_reduction_kept", "deferred"}
     assert resolved.predicted["sharpe"] == 0.85
     assert resolved.actual["max_drawdown"] == -0.11
     assert resolved.decision == "risk_reduction_kept"
@@ -116,6 +116,51 @@ def test_walk_forward_uses_non_overlapping_purged_windows():
     assert "oos_sharpe" in result.aggregate_metrics
 
 
+def test_walk_forward_trade_count_uses_strategy_trade_count_not_bar_count():
+    df = _daily_dataframe(260)
+    config = WalkForwardConfig(train_window_days=120, test_window_days=60, step_days=60, purge_days=5)
+
+    result = run_walk_forward(_two_trade_strategy, df, config)
+
+    assert result.aggregate_metrics["oos_bar_count"] > result.aggregate_metrics["oos_trade_count"]
+    assert result.aggregate_metrics["oos_trade_count"] == 4
+    assert all(window["test_metrics"]["trade_count"] == 2 for window in result.windows)
+
+
+def test_walk_forward_slices_all_timeframes_with_same_window():
+    frames = {
+        "1h": _hourly_dataframe(24 * 40, minutes=60),
+        "15m": _hourly_dataframe(24 * 4 * 40, minutes=15),
+        "5m": _hourly_dataframe(24 * 12 * 40, minutes=5),
+    }
+    config = WalkForwardConfig(train_window_days=14, test_window_days=7, step_days=7, purge_days=1)
+    seen = []
+
+    def strategy_factory(params):
+        def run(window_frames):
+            assert set(window_frames) == {"1h", "15m", "5m"}
+            starts = {key: value["opened_at"].min() for key, value in window_frames.items()}
+            ends = {key: value["opened_at"].max() for key, value in window_frames.items()}
+            seen.append((starts, ends))
+            return StrategyRunResult(
+                returns=np.zeros(len(window_frames["1h"])),
+                trade_count=1,
+                metadata={"signal_count": 1},
+            )
+
+        return run
+
+    result = run_walk_forward(strategy_factory, frames, config, primary_timeframe="1h")
+
+    assert result.windows
+    assert seen
+    for starts, ends in seen:
+        assert starts["15m"] >= starts["1h"]
+        assert starts["5m"] >= starts["1h"]
+        assert ends["15m"] <= ends["1h"]
+        assert ends["5m"] <= ends["1h"]
+
+
 def test_guardrails_block_weak_decisions_and_track_oos_reuse(tmp_path):
     df = _daily_dataframe(900)
     config = WalkForwardConfig(train_window_days=120, test_window_days=60, step_days=60, purge_days=5)
@@ -148,10 +193,39 @@ def _daily_dataframe(count):
     return pd.DataFrame(rows)
 
 
+def _hourly_dataframe(count, *, minutes):
+    start = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    rows = []
+    for index in range(count):
+        close = 100 + index * 0.01
+        rows.append(
+            {
+                "opened_at": start + timedelta(minutes=minutes * index),
+                "open": close - 0.1,
+                "high": close + 1,
+                "low": close - 1,
+                "close": close,
+                "volume": 10,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def _constant_return_strategy(params):
     daily_return = float(params.get("daily_return", 0.001))
 
     def run(frame):
         return pd.Series([daily_return] * len(frame), index=frame.index)
+
+    return run
+
+
+def _two_trade_strategy(params):
+    def run(frame):
+        returns = np.zeros(len(frame))
+        if len(frame) >= 20:
+            returns[10] = 0.02
+            returns[-1] = -0.01
+        return StrategyRunResult(returns=returns, trade_count=2, metadata={"signal_count": 4})
 
     return run
