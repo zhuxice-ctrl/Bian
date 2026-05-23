@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from trading_learning.market_data.backfill import backfill_symbol
+from trading_learning.market_data.backfill import backfill_symbol, write_backfilled_dataset
 from trading_learning.models import Candle
 
 
@@ -121,6 +121,77 @@ def test_backfill_symbol_propagates_fetcher_error():
         )
 
     assert calls == 2
+
+
+def test_write_backfilled_dataset_creates_backup(tmp_path):
+    root = tmp_path / "data" / "local"
+    target = root / "market_data" / "BTCUSDT" / "BTCUSDT-1h.csv"
+    target.parent.mkdir(parents=True)
+    old_content = (
+        "opened_at,open,high,low,close,volume\n"
+        "2024-01-01T00:00:00+00:00,10,11,9,10.5,100\n"
+    )
+    target.write_text(old_content, encoding="utf-8")
+    now = datetime(2026, 5, 23, 16, 6, 22, tzinfo=timezone.utc)
+
+    result = write_backfilled_dataset(
+        candles=[_candle("BTCUSDT", datetime(2024, 1, 1, 1, tzinfo=timezone.utc))],
+        symbol="BTCUSDT",
+        interval="1h",
+        root=root,
+        backup_existing=True,
+        now_fn=lambda: now,
+    )
+
+    backup = root / "market_data" / "BTCUSDT" / "BTCUSDT-1h.bak-20260523-160622.csv"
+    assert result["status"] == "saved"
+    assert result["path"] == str(target)
+    assert result["backup_path"] == str(backup)
+    assert result["row_count"] == 1
+    assert backup.read_text(encoding="utf-8") == old_content
+    assert "2024-01-01T01:00:00+00:00,1.0,2.0,0.5,1.5,10.0" in target.read_text(encoding="utf-8")
+
+
+def test_write_backfilled_dataset_skips_backup_when_disabled(tmp_path):
+    root = tmp_path / "data" / "local"
+    target = root / "market_data" / "ETHUSDT" / "ETHUSDT-1h.csv"
+    target.parent.mkdir(parents=True)
+    target.write_text("opened_at,open,high,low,close,volume\nold,1,1,1,1,1\n", encoding="utf-8")
+
+    result = write_backfilled_dataset(
+        candles=[_candle("ETHUSDT", datetime(2024, 1, 1, tzinfo=timezone.utc))],
+        symbol="ETHUSDT",
+        interval="1h",
+        root=root,
+        backup_existing=False,
+    )
+
+    assert result["backup_path"] is None
+    assert not list(target.parent.glob("*.bak-*.csv"))
+    assert "old" not in target.read_text(encoding="utf-8")
+
+
+def test_write_backfilled_dataset_no_backup_when_target_missing(tmp_path):
+    root = tmp_path / "data" / "local"
+    target_parent = root / "market_data" / "SOLUSDT"
+
+    result = write_backfilled_dataset(
+        candles=[],
+        symbol="SOLUSDT",
+        interval="1h",
+        root=root,
+        backup_existing=True,
+    )
+
+    assert result == {
+        "status": "saved",
+        "path": str(target_parent / "SOLUSDT-1h.csv"),
+        "backup_path": None,
+        "row_count": 0,
+        "first_opened_at": None,
+        "last_opened_at": None,
+    }
+    assert not list(target_parent.glob("*.bak-*.csv"))
 
 
 def _candle(symbol: str, opened_at: datetime) -> Candle:
