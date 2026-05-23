@@ -36,3 +36,8 @@ deferred
 - 哪里出乎意料：Available data is only about 42 days, so the required walk-forward research cannot start honestly.
 - 学到了什么：Data sufficiency must be checked before any pair result is interpreted.
 - 下一个假设的灵感：After collecting at least 2 years, rerun this unchanged baseline before any ablation.
+
+## 2026-05-23 重跑结果
+- 数据：见 ablation-pairs-2026-05-23-rerun.md
+- 状态：fail
+- 关键指标：17520 synchronized 1h bars; cointegration p=0.5000; half-life=3431.18 periods; Sharpe/Max DD/Trade Count not run because entry gate failed.
