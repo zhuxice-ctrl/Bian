@@ -34,3 +34,8 @@ deferred
 - 哪里出乎意料：The gate failed even before the data-length rule was satisfied.
 - 学到了什么：Cointegration recheck is a hard guardrail, not a tunable result-improvement knob.
 - 下一个假设的灵感：Do not loosen p-value to force trades; collect enough data first.
+
+## 2026-05-23 重跑结果
+- 数据：见 ablation-pairs-2026-05-23-rerun.md
+- 状态：not_applicable
+- 关键指标：BTC/ETH H-200 entry gate failed first (cointegration p=0.5000; half-life=3431.18 periods), so cointegration-recheck ablation was not run.
