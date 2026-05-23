@@ -42,6 +42,29 @@ def test_adf_identifies_stationary_and_unit_root_series():
     assert adf_test(unit_root)["p_value"] > 0.05
 
 
+def test_adf_reports_continuous_p_value_and_bucket_comparison():
+    rng = np.random.default_rng(1207)
+    unit_root = pd.Series(np.cumsum(rng.normal(0, 1, 800)))
+
+    result = adf_test(unit_root)
+
+    assert result["p_value_bucket"] == 0.50
+    assert 0.10 < result["p_value"] < 0.99
+    assert result["p_value"] != result["p_value_bucket"]
+    assert result["p_value_method"] == "mackinnon_style_interpolation"
+
+
+def test_engle_granger_exposes_adf_stat_and_bucket_for_methodology_audit():
+    asset_a, asset_b, _, _, _ = _cointegrated_pair()
+
+    result = engle_granger_test(asset_a, asset_b)
+
+    assert "adf_stat" in result
+    assert "adf_p_value_bucket" in result
+    assert result["adf_p_value_bucket"] in {0.01, 0.049, 0.10, 0.50}
+    assert result["adf_p_value_method"] == "mackinnon_style_interpolation"
+
+
 def test_half_life_estimate_matches_known_ou_process():
     _, _, _, _, spread = _cointegrated_pair(theta=0.08, count=1600)
 
