@@ -30,3 +30,8 @@ deferred
 - 哪里出乎意料：No SOLUSDT local 1h data exists.
 - 学到了什么：Missing data is a valid research outcome when the preregistered rule says defer.
 - 下一个假设的灵感：Collect SOLUSDT first, then rerun without changing thresholds.
+
+## 2026-05-23 重跑结果
+- 数据：见 ablation-pairs-2026-05-23-rerun.md
+- 状态：fail
+- 关键指标：17520 synchronized 1h bars; cointegration p=0.5000; half-life=3482.02 periods; Sharpe/Max DD/Trade Count not run because pair gate failed.
