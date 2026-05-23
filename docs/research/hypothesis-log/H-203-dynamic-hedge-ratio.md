@@ -33,3 +33,8 @@ deferred
 - 哪里出乎意料：No valid OOS windows exist to evaluate whether dynamic beta helps.
 - 学到了什么：Dynamic hedge ratio should not be evaluated on one short continuous sample.
 - 下一个假设的灵感：After H-202 is valid, test rolling beta without changing z-score or filters.
+
+## 2026-05-23 重跑结果
+- 数据：见 ablation-pairs-2026-05-23-rerun.md
+- 状态：not_applicable
+- 关键指标：BTC/ETH H-200 entry gate failed first (cointegration p=0.5000; half-life=3431.18 periods), so dynamic-beta ablation was not run.
