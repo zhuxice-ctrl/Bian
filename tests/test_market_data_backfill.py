@@ -115,7 +115,7 @@ def test_backfill_symbols_to_csv_writes_requested_symbols_to_catalog_paths(tmp_p
     )
 
     assert result["status"] == "saved"
-    assert [dataset["row_count"] for dataset in result["datasets"]] == [2, 2]
+    assert [dataset["row_count"] for dataset in result["datasets"]] == [3, 3]
     assert (tmp_path / "data" / "local" / "market_data" / "BNBUSDT" / "BNBUSDT-1h.csv").exists()
     assert (tmp_path / "data" / "local" / "market_data" / "SOLUSDT" / "SOLUSDT-1h.csv").exists()
 
