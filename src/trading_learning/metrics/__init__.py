@@ -1,4 +1,4 @@
-from trading_learning.metrics import (
+from trading_learning.metrics.performance import (
     cagr,
     calmar_ratio,
     equity_curve,
