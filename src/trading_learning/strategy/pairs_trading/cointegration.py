@@ -10,13 +10,14 @@ def adf_test(series: pd.Series) -> dict[str, Any]:
     """Run a compact ADF stationarity test with a constant term.
 
     The project deliberately keeps dependencies small, so this uses a local OLS
-    implementation and MacKinnon-style critical-value buckets for the p-value.
-    It is intended for research gating, not publication-grade econometrics.
+    implementation and a MacKinnon-style continuous interpolation calibrated to
+    common ADF critical-value thresholds. It remains a research gate, not a
+    publication-grade econometrics package.
     """
 
     values = _finite_series(series)
     if len(values) < 20:
-        return {"p_value": 1.0, "stat": 0.0, "lags": 0}
+        return {"p_value": 1.0, "p_value_bucket": 1.0, "p_value_method": "mackinnon_style_interpolation", "stat": 0.0, "lags": 0}
 
     lags = _adf_lag_count(len(values))
     dy = values.diff().dropna()
@@ -26,7 +27,7 @@ def adf_test(series: pd.Series) -> dict[str, Any]:
         aligned[f"d_lag_{lag}"] = dy.shift(lag)
     aligned = aligned.dropna()
     if len(aligned) < max(10, lags + 3):
-        return {"p_value": 1.0, "stat": 0.0, "lags": lags}
+        return {"p_value": 1.0, "p_value_bucket": 1.0, "p_value_method": "mackinnon_style_interpolation", "stat": 0.0, "lags": lags}
 
     y = aligned["dy"].to_numpy(dtype="float64")
     columns = [np.ones(len(aligned)), aligned["lagged"].to_numpy(dtype="float64")]
@@ -35,7 +36,13 @@ def adf_test(series: pd.Series) -> dict[str, Any]:
     x = np.column_stack(columns)
     beta, standard_errors = _ols_with_se(y, x)
     stat = float(beta[1] / standard_errors[1]) if standard_errors[1] > 0 else 0.0
-    return {"p_value": _adf_p_value_bucket(stat), "stat": stat, "lags": lags}
+    return {
+        "p_value": _adf_p_value_continuous(stat),
+        "p_value_bucket": _adf_p_value_bucket(stat),
+        "p_value_method": "mackinnon_style_interpolation",
+        "stat": stat,
+        "lags": lags,
+    }
 
 
 def engle_granger_test(asset_a: pd.Series, asset_b: pd.Series) -> dict[str, Any]:
@@ -61,7 +68,10 @@ def engle_granger_test(asset_a: pd.Series, asset_b: pd.Series) -> dict[str, Any]
         "alpha": alpha,
         "beta": beta,
         "residuals": residuals,
+        "adf_stat": float(adf["stat"]),
         "adf_p_value": p_value,
+        "adf_p_value_bucket": float(adf["p_value_bucket"]),
+        "adf_p_value_method": adf["p_value_method"],
         "is_cointegrated": p_value < 0.05,
     }
 
@@ -93,3 +103,13 @@ def _adf_p_value_bucket(stat: float) -> float:
     if stat <= -2.57:
         return 0.10
     return 0.50
+
+
+def _adf_p_value_continuous(stat: float) -> float:
+    stats = np.asarray([-5.00, -3.43, -2.86, -2.57, -1.95, -1.62, 0.00, 2.00], dtype="float64")
+    p_values = np.asarray([0.001, 0.010, 0.049, 0.100, 0.500, 0.750, 0.990, 0.999], dtype="float64")
+    if stat <= stats[0]:
+        return float(p_values[0])
+    if stat >= stats[-1]:
+        return float(p_values[-1])
+    return float(np.interp(stat, stats, p_values))
