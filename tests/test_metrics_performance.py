@@ -53,22 +53,40 @@ def test_sortino_ratio_handles_extreme_values_without_overflow():
     assert math.isfinite(result)
 
 
-def test_calmar_ratio_matches_cagr_over_absolute_drawdown():
-    result = calmar_ratio([100.0, 120.0, 90.0, 130.0], periods_per_year=3)
+def test_calmar_ratio_matches_cagr_over_absolute_drawdown_for_returns():
+    result = calmar_ratio([0.2, -0.25, 4.0 / 9.0], periods_per_year=3)
 
     assert result == pytest.approx(1.2)
 
 
 def test_calmar_ratio_returns_nan_for_empty_single_or_no_drawdown():
     assert math.isnan(calmar_ratio([]))
-    assert math.isnan(calmar_ratio([100.0]))
-    assert math.isnan(calmar_ratio([100.0, 110.0, 120.0]))
+    assert math.isnan(calmar_ratio([0.01]))
+    assert math.isnan(calmar_ratio([0.01, 0.02, 0.03]))
 
 
-def test_calmar_ratio_handles_large_equity_values():
-    result = calmar_ratio([1.0e12, 1.1e12, 1.0e12, 1.2e12], periods_per_year=3)
+def test_calmar_ratio_handles_large_returns():
+    result = calmar_ratio([0.1, -1.0 / 11.0, 0.2], periods_per_year=3)
 
     assert result == pytest.approx(2.2)
+
+
+def test_calmar_ratio_matches_explicit_equity_curve_pipeline():
+    returns = [0.01, -0.02, 0.03, -0.01, 0.02]
+    curve = equity_curve(returns)
+    drawdown, _ = max_drawdown(curve)
+
+    result = calmar_ratio(returns, periods_per_year=5)
+
+    assert math.isfinite(result)
+    assert result == pytest.approx(cagr(curve, periods_per_year=5) / abs(drawdown))
+
+
+def test_calmar_ratio_returns_negative_finite_value_for_all_negative_returns():
+    result = calmar_ratio([-0.01, -0.02, -0.03], periods_per_year=3)
+
+    assert math.isfinite(result)
+    assert result < 0.0
 
 
 def test_max_drawdown_returns_worst_fraction_and_duration():

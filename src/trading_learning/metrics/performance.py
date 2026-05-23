@@ -37,11 +37,11 @@ def sortino_ratio(returns: ArrayLike, risk_free_rate: float = 0.0, periods_per_y
 
 
 def calmar_ratio(returns: ArrayLike, periods_per_year: int = 252) -> float:
-    """Return Calmar ratio from an equity curve: Calmar = CAGR / abs(max drawdown)."""
+    """Return Calmar ratio from a returns series: Calmar = CAGR(equity(R)) / abs(max drawdown)."""
 
-    values = _clean_array(returns)
-    annual_growth = cagr(values, periods_per_year=periods_per_year)
-    drawdown, _ = max_drawdown(values)
+    curve = equity_curve(returns)
+    annual_growth = cagr(curve, periods_per_year=periods_per_year)
+    drawdown, _ = max_drawdown(curve)
     if not np.isfinite(annual_growth) or drawdown == 0.0 or not np.isfinite(drawdown):
         return float("nan")
     return float(annual_growth / abs(drawdown))
