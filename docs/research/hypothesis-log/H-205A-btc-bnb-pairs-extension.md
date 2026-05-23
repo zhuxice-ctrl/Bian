@@ -30,3 +30,8 @@ deferred
 - 哪里出乎意料：No BNBUSDT local 1h data exists.
 - 学到了什么：H-205 cannot borrow BTC/ETH results or be collapsed into a portfolio.
 - 下一个假设的灵感：Ingest BNBUSDT 1h data before registering a runnable extension.
+
+## 2026-05-23 重跑结果
+- 数据：见 ablation-pairs-2026-05-23-rerun.md
+- 状态：fail
+- 关键指标：17520 synchronized 1h bars; cointegration p=0.5000; half-life=2590.33 periods; Sharpe/Max DD/Trade Count not run because pair gate failed.
