@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from trading_learning.market_data.backfill import backfill_symbol, backfill_symbols_to_csv, dry_run_plan
+from trading_learning.market_data.catalog import dataset_path
 from trading_learning.models import Candle
 
 
@@ -92,6 +93,108 @@ def test_dry_run_plan_uses_catalog_paths_without_fetching():
     ].endswith("data/local/market_data/BTCUSDT/BTCUSDT-1h.csv")
     assert plan["datasets"][0]["estimated_request_count"] == 18
     assert plan["dry_run"] is True
+
+
+def test_dataset_path_keeps_1h_legacy_path_and_nests_new_intervals(tmp_path):
+    root = tmp_path / "data" / "local"
+
+    assert dataset_path("btcusdt", "1h", root=root) == root / "market_data" / "BTCUSDT" / "BTCUSDT-1h.csv"
+    assert dataset_path("btcusdt", "4h", root=root) == root / "market_data" / "BTCUSDT" / "4h" / "BTCUSDT-4h.csv"
+    assert dataset_path("btcusdt", "1d", root=root) == root / "market_data" / "BTCUSDT" / "1d" / "BTCUSDT-1d.csv"
+    assert dataset_path("btcusdt", "1m", root=root) == root / "market_data" / "BTCUSDT" / "1m" / "BTCUSDT-1m.csv"
+
+
+def test_dry_run_plan_builds_interval_page_plan_without_fetching(tmp_path):
+    start = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    end = start + timedelta(hours=12)
+
+    plan = dry_run_plan(
+        symbols=("btcusdt",),
+        interval="4h",
+        start=start,
+        end=end,
+        root=tmp_path / "data" / "local",
+        page_limit=2,
+    )
+
+    dataset = plan["datasets"][0]
+    assert plan["expected_bars_per_symbol"] == 3
+    assert dataset["estimated_request_count"] == 2
+    assert dataset["path"].endswith("market_data/BTCUSDT/4h/BTCUSDT-4h.csv") or dataset["path"].endswith(
+        "market_data\\BTCUSDT\\4h\\BTCUSDT-4h.csv"
+    )
+    assert dataset["pages"] == [
+        {
+            "page": 1,
+            "start": "2024-01-01T00:00:00+00:00",
+            "end": "2024-01-01T08:00:00+00:00",
+            "expected_bars": 2,
+        },
+        {
+            "page": 2,
+            "start": "2024-01-01T08:00:00+00:00",
+            "end": "2024-01-01T12:00:00+00:00",
+            "expected_bars": 1,
+        },
+    ]
+
+
+def test_dry_run_plan_rejects_unsupported_intervals():
+    start = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    end = start + timedelta(days=1)
+
+    with pytest.raises(ValueError, match="unsupported interval"):
+        dry_run_plan(symbols=("BTCUSDT",), interval="2h", start=start, end=end)
+
+
+def test_backfill_symbol_stops_after_max_pages():
+    calls = []
+    start = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    end = start + timedelta(minutes=10)
+
+    def fake_fetcher(**kwargs):
+        calls.append(kwargs)
+        page_start = datetime.fromtimestamp(kwargs["start_time_ms"] / 1000, tz=timezone.utc)
+        return [_candle("BTCUSDT", page_start), _candle("BTCUSDT", page_start + timedelta(minutes=1))]
+
+    candles = backfill_symbol(
+        symbol="BTCUSDT",
+        interval="1m",
+        start=start,
+        end=end,
+        fetcher=fake_fetcher,
+        sleep_fn=lambda seconds: None,
+        page_limit=2,
+        max_pages=2,
+    )
+
+    assert len(calls) == 2
+    assert [candle.opened_at for candle in candles] == [start + timedelta(minutes=offset) for offset in range(4)]
+
+
+def test_backfill_symbol_reports_progress_after_each_page():
+    progress = []
+    start = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    end = start + timedelta(minutes=3)
+
+    def fake_fetcher(**kwargs):
+        page_start = datetime.fromtimestamp(kwargs["start_time_ms"] / 1000, tz=timezone.utc)
+        return [_candle("BTCUSDT", page_start)]
+
+    backfill_symbol(
+        symbol="BTCUSDT",
+        interval="1m",
+        start=start,
+        end=end,
+        fetcher=fake_fetcher,
+        sleep_fn=lambda seconds: None,
+        page_limit=1,
+        progress_callback=progress.append,
+    )
+
+    assert [item["page"] for item in progress] == [1, 2, 3]
+    assert progress[-1]["rows_collected"] == 3
+    assert progress[-1]["next_start"] == "2024-01-01T00:03:00+00:00"
 
 
 def test_backfill_symbols_to_csv_writes_requested_symbols_to_catalog_paths(tmp_path):

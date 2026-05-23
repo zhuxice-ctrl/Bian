@@ -194,7 +194,7 @@ def test_import_market_csv_cli_imports_manual_dataset(tmp_path, monkeypatch):
     exit_code = main(["import-market-csv", "--symbol", "SPY", "--interval", "1d", "--input", str(source)])
 
     assert exit_code == 0
-    assert (tmp_path / "data" / "local" / "market_data" / "SPY" / "SPY-1d.csv").exists()
+    assert (tmp_path / "data" / "local" / "market_data" / "SPY" / "1d" / "SPY-1d.csv").exists()
 
 
 def test_backtest_ma_rejects_symbols_outside_learning_scope(tmp_path, monkeypatch):

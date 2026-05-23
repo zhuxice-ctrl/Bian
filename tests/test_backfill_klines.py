@@ -1,9 +1,19 @@
+import importlib.util
+import sys
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
 from trading_learning.market_data.backfill import backfill_symbol, write_backfilled_dataset
 from trading_learning.models import Candle
+
+
+SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "backfill_klines.py"
+SCRIPT_SPEC = importlib.util.spec_from_file_location("backfill_klines_script", SCRIPT_PATH)
+assert SCRIPT_SPEC is not None and SCRIPT_SPEC.loader is not None
+backfill_klines_script = importlib.util.module_from_spec(SCRIPT_SPEC)
+SCRIPT_SPEC.loader.exec_module(backfill_klines_script)
 
 
 def test_backfill_symbol_paginates_until_end():
@@ -192,6 +202,61 @@ def test_write_backfilled_dataset_no_backup_when_target_missing(tmp_path):
         "last_opened_at": None,
     }
     assert not list(target_parent.glob("*.bak-*.csv"))
+
+
+def test_script_default_range_uses_six_months_for_1m_and_two_years_for_other_intervals():
+    end = datetime(2026, 5, 23, 12, tzinfo=timezone.utc)
+
+    assert backfill_klines_script._default_start(end, "1m", years=None, months=None) == datetime(
+        2025, 11, 23, 12, tzinfo=timezone.utc
+    )
+    assert backfill_klines_script._default_start(end, "4h", years=None, months=None) == datetime(
+        2024, 5, 23, 12, tzinfo=timezone.utc
+    )
+    assert backfill_klines_script._default_start(end, "1d", years=None, months=None) == datetime(
+        2024, 5, 23, 12, tzinfo=timezone.utc
+    )
+
+
+@pytest.mark.parametrize("interval", ["1m", "4h", "1d"])
+def test_script_dry_run_accepts_new_intervals_without_backfill(monkeypatch, capsys, interval):
+    calls = []
+
+    def fake_dry_run_plan(**kwargs):
+        calls.append(kwargs)
+        return {
+            "dry_run": True,
+            "interval": kwargs["interval"],
+            "start": kwargs["start"].isoformat(),
+            "end": kwargs["end"].isoformat(),
+            "expected_bars_per_symbol": 1,
+            "datasets": [
+                {
+                    "symbol": "BTCUSDT",
+                    "path": "data/local/market_data/BTCUSDT/example.csv",
+                    "estimated_request_count": 1,
+                    "pages": [],
+                }
+            ],
+        }
+
+    def unexpected_backfill(**kwargs):
+        raise AssertionError(f"dry-run must not backfill: {kwargs}")
+
+    monkeypatch.setattr(backfill_klines_script, "dry_run_plan", fake_dry_run_plan)
+    monkeypatch.setattr(backfill_klines_script, "backfill_symbol", unexpected_backfill)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["backfill_klines.py", "--symbols", "BTCUSDT", "--interval", interval, "--dry-run", "--max-pages", "3"],
+    )
+
+    assert backfill_klines_script.main() == 0
+    output = capsys.readouterr().out
+
+    assert calls[0]["interval"] == interval
+    assert calls[0]["max_pages"] == 3
+    assert '"total_estimated_request_count": 1' in output
 
 
 def _candle(symbol: str, opened_at: datetime) -> Candle:

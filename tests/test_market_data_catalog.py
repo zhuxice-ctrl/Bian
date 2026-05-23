@@ -79,7 +79,7 @@ def test_refresh_market_data_writes_each_symbol_interval_and_returns_inventory(t
             {
                 "symbol": "BTCUSDT",
                 "interval": "15m",
-                "path": str(tmp_path / "data" / "local" / "market_data" / "BTCUSDT" / "BTCUSDT-15m.csv"),
+                "path": str(tmp_path / "data" / "local" / "market_data" / "BTCUSDT" / "15m" / "BTCUSDT-15m.csv"),
                 "row_count": 1,
                 "first_opened_at": "2026-05-21T00:00:00+00:00",
                 "last_opened_at": "2026-05-21T00:00:00+00:00",
@@ -107,7 +107,7 @@ def test_refresh_market_data_writes_each_symbol_interval_and_returns_inventory(t
             {
                 "symbol": "ETHUSDT",
                 "interval": "15m",
-                "path": str(tmp_path / "data" / "local" / "market_data" / "ETHUSDT" / "ETHUSDT-15m.csv"),
+                "path": str(tmp_path / "data" / "local" / "market_data" / "ETHUSDT" / "15m" / "ETHUSDT-15m.csv"),
                 "row_count": 1,
                 "first_opened_at": "2026-05-21T00:00:00+00:00",
                 "last_opened_at": "2026-05-21T00:00:00+00:00",
@@ -142,7 +142,7 @@ def test_inventory_datasets_reads_existing_csv_files(tmp_path):
             "exists": False,
             "source": "missing_local_cache",
             "interval": "1m",
-            "path": str(root / "market_data" / "BTCUSDT" / "BTCUSDT-1m.csv"),
+            "path": str(root / "market_data" / "BTCUSDT" / "1m" / "BTCUSDT-1m.csv"),
             "row_count": 0,
             "first_opened_at": None,
             "last_opened_at": None,
@@ -256,7 +256,7 @@ def test_import_market_csv_copies_manual_dataset_into_market_cache(tmp_path):
         root=tmp_path / "data" / "local",
     )
 
-    target = tmp_path / "data" / "local" / "market_data" / "SPY" / "SPY-1d.csv"
+    target = tmp_path / "data" / "local" / "market_data" / "SPY" / "1d" / "SPY-1d.csv"
     assert target.exists()
     assert result["status"] == "saved"
     assert result["dataset"]["symbol"] == "SPY"
