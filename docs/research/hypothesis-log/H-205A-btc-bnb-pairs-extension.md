@@ -35,3 +35,8 @@ deferred
 - 数据：见 ablation-pairs-2026-05-23-rerun.md
 - 状态：fail
 - 关键指标：17520 synchronized 1h bars; cointegration p=0.5000; half-life=2590.33 periods; Sharpe/Max DD/Trade Count not run because pair gate failed.
+
+## 2026-05-23 H-207 方法论修正后重跑
+- 数据：见 ablation-pairs-2026-05-23-rerun2-h207-methodology.md
+- 状态：fail
+- 关键指标：continuous p-value=0.7617; prior bucket p-value=0.5000; ADF stat=-1.5412; half-life=2590.33 periods; pair gate failed and no walk-forward was run.
