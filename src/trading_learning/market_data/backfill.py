@@ -12,6 +12,8 @@ from trading_learning.market_data.binance_klines import fetch_klines, save_kline
 from trading_learning.market_data.catalog import DEFAULT_MARKET_DATA_ROOT, dataset_path
 from trading_learning.models import Candle
 
+SUPPORTED_BACKFILL_INTERVALS = ("1m", "5m", "15m", "1h", "4h", "1d")
+
 
 def backfill_symbol(
     *,
@@ -147,6 +149,7 @@ def dry_run_plan(
     interval_delta = _interval_delta(interval)
     expected_bars = max(0, math.ceil((normalized_end - normalized_start) / interval_delta))
     estimated_requests = math.ceil(expected_bars / page_limit) if expected_bars else 0
+    pages = _page_plan(start=normalized_start, end=normalized_end, interval_delta=interval_delta, page_limit=page_limit)
     return {
         "dry_run": True,
         "interval": interval,
@@ -158,6 +161,7 @@ def dry_run_plan(
                 "symbol": symbol.upper(),
                 "path": str(dataset_path(symbol, interval, root=root)),
                 "estimated_request_count": estimated_requests,
+                "pages": pages,
             }
             for symbol in symbols
         ],
@@ -199,6 +203,8 @@ def _to_ms(value: datetime) -> int:
 
 
 def _interval_delta(interval: str) -> timedelta:
+    if interval not in SUPPORTED_BACKFILL_INTERVALS:
+        raise ValueError(f"unsupported interval: {interval}")
     unit = interval[-1:]
     try:
         amount = int(interval[:-1])
@@ -213,3 +219,23 @@ def _interval_delta(interval: str) -> timedelta:
     if unit == "d":
         return timedelta(days=amount)
     raise ValueError(f"unsupported interval: {interval}")
+
+
+def _page_plan(*, start: datetime, end: datetime, interval_delta: timedelta, page_limit: int) -> list[dict[str, Any]]:
+    pages: list[dict[str, Any]] = []
+    current_start = start
+    page_number = 1
+    while current_start < end:
+        page_end = min(end, current_start + interval_delta * page_limit)
+        expected_bars = max(0, math.ceil((page_end - current_start) / interval_delta))
+        pages.append(
+            {
+                "page": page_number,
+                "start": current_start.isoformat(),
+                "end": page_end.isoformat(),
+                "expected_bars": expected_bars,
+            }
+        )
+        current_start = page_end
+        page_number += 1
+    return pages
