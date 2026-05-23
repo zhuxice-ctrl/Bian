@@ -25,17 +25,20 @@ def backfill_symbol(
     sleep_fn: Callable[[float], None] = time.sleep,
     request_delay_seconds: float = 0.3,
     page_limit: int = 1000,
+    max_pages: int | None = None,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> list[Candle]:
     """Fetch all candles for a symbol and time range by paging Binance klines."""
 
     normalized_symbol = symbol.upper()
     normalized_start = _to_utc(start)
     normalized_end = _to_utc(end)
-    _validate_request(normalized_start, normalized_end, page_limit)
+    _validate_request(normalized_start, normalized_end, page_limit, max_pages=max_pages)
     interval_delta = _interval_delta(interval)
 
     current_start = normalized_start
     candles_by_open: dict[datetime, Candle] = {}
+    pages_fetched = 0
     while current_start < normalized_end:
         page = fetcher(
             symbol=normalized_symbol,
@@ -44,6 +47,7 @@ def backfill_symbol(
             start_time_ms=_to_ms(current_start),
             end_time_ms=_to_ms(normalized_end),
         )
+        pages_fetched += 1
         if not page:
             break
         filtered = [
@@ -54,11 +58,24 @@ def backfill_symbol(
         for candle in filtered:
             candles_by_open[candle.opened_at] = candle
         page_last_opened_at = max(_to_utc(candle.opened_at) for candle in page)
+        next_start = max(candle.opened_at for candle in filtered) + interval_delta if filtered else current_start
+        if progress_callback is not None:
+            progress_callback(
+                {
+                    "symbol": normalized_symbol,
+                    "interval": interval,
+                    "page": pages_fetched,
+                    "rows_collected": len(candles_by_open),
+                    "next_start": next_start.isoformat(),
+                    "last_opened_at": page_last_opened_at.isoformat(),
+                }
+            )
+        if max_pages is not None and pages_fetched >= max_pages:
+            break
         if page_last_opened_at >= normalized_end:
             break
         if not filtered:
             break
-        next_start = max(candle.opened_at for candle in filtered) + interval_delta
         if next_start <= current_start:
             break
         current_start = next_start
@@ -107,7 +124,9 @@ def backfill_symbols_to_csv(
     sleep_fn: Callable[[float], None] = time.sleep,
     request_delay_seconds: float = 0.3,
     page_limit: int = 1000,
+    max_pages: int | None = None,
     backup_existing: bool = True,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     datasets: list[dict[str, Any]] = []
     for symbol in symbols:
@@ -120,6 +139,8 @@ def backfill_symbols_to_csv(
             sleep_fn=sleep_fn,
             request_delay_seconds=request_delay_seconds,
             page_limit=page_limit,
+            max_pages=max_pages,
+            progress_callback=progress_callback,
         )
         dataset = write_backfilled_dataset(
             candles=candles,
@@ -142,25 +163,36 @@ def dry_run_plan(
     end: datetime,
     root: Path = DEFAULT_MARKET_DATA_ROOT,
     page_limit: int = 1000,
+    max_pages: int | None = None,
 ) -> dict[str, Any]:
     normalized_start = _to_utc(start)
     normalized_end = _to_utc(end)
-    _validate_request(normalized_start, normalized_end, page_limit)
+    _validate_request(normalized_start, normalized_end, page_limit, max_pages=max_pages)
     interval_delta = _interval_delta(interval)
     expected_bars = max(0, math.ceil((normalized_end - normalized_start) / interval_delta))
     estimated_requests = math.ceil(expected_bars / page_limit) if expected_bars else 0
-    pages = _page_plan(start=normalized_start, end=normalized_end, interval_delta=interval_delta, page_limit=page_limit)
+    planned_requests = min(estimated_requests, max_pages) if max_pages is not None else estimated_requests
+    pages = _page_plan(
+        start=normalized_start,
+        end=normalized_end,
+        interval_delta=interval_delta,
+        page_limit=page_limit,
+        max_pages=max_pages,
+    )
     return {
         "dry_run": True,
         "interval": interval,
         "start": normalized_start.isoformat(),
         "end": normalized_end.isoformat(),
         "expected_bars_per_symbol": expected_bars,
+        "max_pages": max_pages,
         "datasets": [
             {
                 "symbol": symbol.upper(),
                 "path": str(dataset_path(symbol, interval, root=root)),
-                "estimated_request_count": estimated_requests,
+                "estimated_request_count": planned_requests,
+                "estimated_request_count_without_max_pages": estimated_requests,
+                "truncated_by_max_pages": planned_requests < estimated_requests,
                 "pages": pages,
             }
             for symbol in symbols
@@ -168,11 +200,13 @@ def dry_run_plan(
     }
 
 
-def _validate_request(start: datetime, end: datetime, page_limit: int) -> None:
+def _validate_request(start: datetime, end: datetime, page_limit: int, *, max_pages: int | None = None) -> None:
     if start >= end:
         raise ValueError("start must be before end")
     if page_limit < 1 or page_limit > 1000:
         raise ValueError("page_limit must be between 1 and 1000")
+    if max_pages is not None and max_pages < 1:
+        raise ValueError("max_pages must be >= 1")
 
 
 def _normalize_candle(candle: Candle, symbol: str) -> Candle:
@@ -221,11 +255,20 @@ def _interval_delta(interval: str) -> timedelta:
     raise ValueError(f"unsupported interval: {interval}")
 
 
-def _page_plan(*, start: datetime, end: datetime, interval_delta: timedelta, page_limit: int) -> list[dict[str, Any]]:
+def _page_plan(
+    *,
+    start: datetime,
+    end: datetime,
+    interval_delta: timedelta,
+    page_limit: int,
+    max_pages: int | None = None,
+) -> list[dict[str, Any]]:
     pages: list[dict[str, Any]] = []
     current_start = start
     page_number = 1
     while current_start < end:
+        if max_pages is not None and page_number > max_pages:
+            break
         page_end = min(end, current_start + interval_delta * page_limit)
         expected_bars = max(0, math.ceil((page_end - current_start) / interval_delta))
         pages.append(

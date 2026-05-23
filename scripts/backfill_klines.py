@@ -27,6 +27,7 @@ def main() -> int:
     parser.add_argument("--interval", default="1h", choices=SUPPORTED_BACKFILL_INTERVALS)
     parser.add_argument("--years", type=int, default=None)
     parser.add_argument("--months", type=int, default=None)
+    parser.add_argument("--max-pages", type=int, default=None, help="Stop after this many API pages per symbol.")
     parser.add_argument("--dry-run", action="store_true", help="Print the download plan without sending requests.")
     parser.add_argument("--no-backup", action="store_true", help="Overwrite existing CSV files without creating .bak files.")
     args = parser.parse_args()
@@ -43,6 +44,7 @@ def main() -> int:
             start=start,
             end=end,
             root=DEFAULT_MARKET_DATA_ROOT,
+            max_pages=args.max_pages,
         )
         result["total_estimated_request_count"] = sum(item["estimated_request_count"] for item in result["datasets"])
         for dataset in result["datasets"]:
@@ -58,7 +60,14 @@ def main() -> int:
         path = dataset_path(symbol, args.interval, root=DEFAULT_MARKET_DATA_ROOT)
         print(f"[{symbol}] backfill {args.interval} {start.isoformat()} -> {end.isoformat()} into {path}", flush=True)
         try:
-            candles = backfill_symbol(symbol=symbol, interval=args.interval, start=start, end=end)
+            candles = backfill_symbol(
+                symbol=symbol,
+                interval=args.interval,
+                start=start,
+                end=end,
+                max_pages=args.max_pages,
+                progress_callback=_progress_logger if args.interval == "1m" else None,
+            )
             result = write_backfilled_dataset(
                 candles=candles,
                 symbol=symbol,
@@ -128,6 +137,17 @@ def _floor_to_interval(value: datetime, interval: str) -> datetime:
         amount = int(interval[:-1])
         return utc_value.replace(minute=utc_value.minute - (utc_value.minute % amount))
     return utc_value
+
+
+def _progress_logger(update: dict[str, object]) -> None:
+    page = int(update["page"])
+    if page % 50 != 0:
+        return
+    print(
+        f"[{update['symbol']}] progress interval={update['interval']} "
+        f"pages={page} rows={update['rows_collected']} next_start={update['next_start']}",
+        flush=True,
+    )
 
 
 if __name__ == "__main__":
