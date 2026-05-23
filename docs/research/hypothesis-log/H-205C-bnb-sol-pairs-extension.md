@@ -30,3 +30,8 @@ deferred
 - 哪里出乎意料：Both legs are missing locally.
 - 学到了什么：H-205 remains deferred until every independent pair has sufficient data.
 - 下一个假设的灵感：Only add this pair after both datasets exist at the required length.
+
+## 2026-05-23 重跑结果
+- 数据：见 ablation-pairs-2026-05-23-rerun.md
+- 状态：fail
+- 关键指标：17520 synchronized 1h bars; cointegration p=0.5000; half-life=2178.08 periods; Sharpe/Max DD/Trade Count not run because pair gate failed.
