@@ -34,3 +34,8 @@ deferred
 - 哪里出乎意料：The available-sample half-life would pass, but cointegration and data length fail.
 - 学到了什么：A half-life pass alone is not a research decision.
 - 下一个假设的灵感：Keep this filter unchanged after data collection and only compare against H-201.
+
+## 2026-05-23 重跑结果
+- 数据：见 ablation-pairs-2026-05-23-rerun.md
+- 状态：not_applicable
+- 关键指标：BTC/ETH H-200 entry gate failed first (cointegration p=0.5000; half-life=3431.18 periods), so half-life-filter ablation was not run.
