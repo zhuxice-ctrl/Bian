@@ -35,3 +35,8 @@ deferred
 - 哪里出乎意料：No valid OOS windows exist, so risk-reduction claims would be cherry-picking.
 - 学到了什么：Risk-control ablations still require the same data threshold as alpha variants.
 - 下一个假设的灵感：Once H-200 can run, compare drawdown and Sharpe without changing thresholds.
+
+## 2026-05-23 重跑结果
+- 数据：见 ablation-pairs-2026-05-23-rerun.md
+- 状态：not_applicable
+- 关键指标：BTC/ETH H-200 entry gate failed first (cointegration p=0.5000; half-life=3431.18 periods), so stop-loss ablation was not run.
