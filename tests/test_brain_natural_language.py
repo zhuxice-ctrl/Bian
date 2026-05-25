@@ -73,8 +73,10 @@ def test_local_codex_brain_assistant_returns_chat_response():
         "requires_confirmation": False,
     }
     system_prompt = ChatHandler.captured["messages"][0]["content"].lower()
-    assert "never execute trades" in system_prompt
-    assert "complete command" in system_prompt
+    assert "carver" in system_prompt
+    assert "4 信号系统" in system_prompt
+    assert "绝不执行交易" in system_prompt
+    assert "完整命令" in system_prompt
     assert ChatHandler.captured["messages"][1]["content"]
 
 

@@ -87,12 +87,15 @@ class FeishuEventAdapter:
         encrypt_key: str | None = None,
         user_id_map: dict[str, str] | None = None,
         messenger: Any | None = None,
+        dedup_max_size: int = 500,
     ) -> None:
         self.command_handler = command_handler
         self.verification_token = verification_token
         self.encrypt_key = encrypt_key
         self.user_id_map = user_id_map or {}
         self.messenger = messenger
+        self._seen_message_ids: set[str] = set()
+        self._dedup_max_size = dedup_max_size
 
     def handle(
         self,
@@ -132,6 +135,13 @@ class FeishuEventAdapter:
 
         event = payload.get("event", {})
         message = event.get("message", {})
+        message_id = message.get("message_id", "")
+        if message_id:
+            if message_id in self._seen_message_ids:
+                return {"status": "dedup", "message": "duplicate Feishu event ignored"}
+            self._seen_message_ids.add(message_id)
+            if len(self._seen_message_ids) > self._dedup_max_size:
+                self._seen_message_ids = set(list(self._seen_message_ids)[-self._dedup_max_size // 2 :])
         if message.get("message_type") != "text":
             return {"status": "ignored", "message": "unsupported Feishu message type"}
 

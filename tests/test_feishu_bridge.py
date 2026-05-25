@@ -211,6 +211,38 @@ def test_feishu_text_message_sends_concise_reply_to_chat():
     assert messenger.messages == [("oc_chat", "Brain：brain response")]
 
 
+def test_feishu_duplicate_message_id_is_acknowledged_without_second_reply():
+    command_handler = FakeCommandHandler()
+    messenger = FakeFeishuMessenger()
+    adapter = FeishuEventAdapter(
+        command_handler,
+        verification_token="verify-token",
+        user_id_map={"ou_owner": "owner"},
+        messenger=messenger,
+    )
+    payload = {
+        "schema": "2.0",
+        "header": {"event_type": "im.message.receive_v1", "token": "verify-token"},
+        "event": {
+            "sender": {"sender_id": {"open_id": "ou_owner"}},
+            "message": {
+                "message_id": "om_message_1",
+                "chat_id": "oc_chat",
+                "message_type": "text",
+                "content": json.dumps({"text": "你好"}),
+            },
+        },
+    }
+
+    first = adapter.handle(payload)
+    second = adapter.handle(payload)
+
+    assert first["status"] == "ok"
+    assert second == {"status": "dedup", "message": "duplicate Feishu event ignored"}
+    assert command_handler.calls == [("你好", "owner")]
+    assert messenger.messages == [("oc_chat", "Brain：brain response")]
+
+
 def test_feishu_text_message_keeps_event_ack_when_reply_fails():
     command_handler = FakeCommandHandler()
     adapter = FeishuEventAdapter(
