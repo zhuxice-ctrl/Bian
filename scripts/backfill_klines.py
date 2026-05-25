@@ -16,6 +16,7 @@ from trading_learning.market_data.backfill import (  # noqa: E402
     dry_run_plan,
     write_backfilled_dataset,
 )
+from trading_learning.market_data.binance_klines import fetch_funding_rate_history, save_funding_rate_csv  # noqa: E402
 from trading_learning.market_data.catalog import DEFAULT_MARKET_DATA_ROOT, dataset_path  # noqa: E402
 
 DEFAULT_BACKFILL_SYMBOLS = "BTCUSDT,ETHUSDT,BNBUSDT,SOLUSDT"
@@ -24,6 +25,7 @@ DEFAULT_BACKFILL_SYMBOLS = "BTCUSDT,ETHUSDT,BNBUSDT,SOLUSDT"
 def main() -> int:
     parser = argparse.ArgumentParser(description="Backfill Binance klines into the local market-data catalog.")
     parser.add_argument("--symbols", default=DEFAULT_BACKFILL_SYMBOLS, help="Comma-separated symbols.")
+    parser.add_argument("--data-type", default="klines", choices=("klines", "funding"))
     parser.add_argument("--interval", default="1h", choices=SUPPORTED_BACKFILL_INTERVALS)
     parser.add_argument("--years", type=int, default=None)
     parser.add_argument("--months", type=int, default=None)
@@ -36,6 +38,16 @@ def main() -> int:
     end = _floor_to_interval(datetime.now(timezone.utc), args.interval)
     start = _default_start(end, args.interval, years=args.years, months=args.months)
     backup_existing = not args.no_backup
+
+    if args.data_type == "funding":
+        return _backfill_funding(
+            symbols=symbols,
+            start=start,
+            end=end,
+            max_pages=args.max_pages,
+            dry_run=args.dry_run,
+            backup_existing=backup_existing,
+        )
 
     if args.dry_run:
         result = dry_run_plan(
@@ -84,6 +96,58 @@ def main() -> int:
             f"last={result['last_opened_at']} backup={result['backup_path']}",
             flush=True,
         )
+    return failures
+
+
+def _backfill_funding(
+    *,
+    symbols: tuple[str, ...],
+    start: datetime,
+    end: datetime,
+    max_pages: int | None,
+    dry_run: bool,
+    backup_existing: bool,
+) -> int:
+    start_ms = int(start.timestamp() * 1000)
+    end_ms = int(end.timestamp() * 1000)
+    if dry_run:
+        result = {
+            "dry_run": True,
+            "data_type": "funding",
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "max_pages": max_pages,
+            "datasets": [
+                {
+                    "symbol": symbol,
+                    "path": str(dataset_path(symbol, "funding_rate", root=DEFAULT_MARKET_DATA_ROOT)),
+                    "will_backup_existing": bool(
+                        dataset_path(symbol, "funding_rate", root=DEFAULT_MARKET_DATA_ROOT).exists() and backup_existing
+                    ),
+                }
+                for symbol in symbols
+            ],
+        }
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0
+
+    failures = 0
+    for symbol in symbols:
+        path = dataset_path(symbol, "funding_rate", root=DEFAULT_MARKET_DATA_ROOT)
+        print(f"[{symbol}] backfill funding {start.isoformat()} -> {end.isoformat()} into {path}", flush=True)
+        try:
+            rows = fetch_funding_rate_history(symbol=symbol, start_ms=start_ms, end_ms=end_ms)
+            if path.exists() and backup_existing:
+                timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+                backup_path = path.with_name(f"{symbol}-funding.bak-{timestamp}.csv")
+                backup_path.parent.mkdir(parents=True, exist_ok=True)
+                backup_path.write_bytes(path.read_bytes())
+            save_funding_rate_csv(rows, path)
+        except Exception as exc:
+            failures += 1
+            print(f"[{symbol}] ERROR: {exc}", file=sys.stderr, flush=True)
+            continue
+        print(f"[{symbol}] saved funding rows={len(rows)} path={path}", flush=True)
     return failures
 
 
