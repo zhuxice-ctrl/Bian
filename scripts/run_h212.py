@@ -33,12 +33,12 @@ EWMAC_SPEEDS = (
 )
 CARVER_CLASSIC_SPEEDS = ("EWMAC_8_32", "EWMAC_16_64", "EWMAC_64_256")
 H210_SIGNAL_BUILDERS = {
-    "SIG_TREND_FAST": sig_trend_fast,
-    "SIG_TREND_SLOW": sig_trend_slow,
-    "SIG_BREAKOUT": sig_breakout,
-    "SIG_MEAN_REV": sig_mean_rev,
-    "SIG_MOMENTUM": sig_momentum,
-    "SIG_VOL_REGIME": sig_vol_regime,
+    "SIG_TREND_FAST": lambda price: sig_trend_fast(price, normalization="rolling"),
+    "SIG_TREND_SLOW": lambda price: sig_trend_slow(price, normalization="rolling"),
+    "SIG_BREAKOUT": lambda price: sig_breakout(price, normalization="rolling"),
+    "SIG_MEAN_REV": lambda price: sig_mean_rev(price, normalization="rolling"),
+    "SIG_MOMENTUM": lambda price: sig_momentum(price, normalization="rolling"),
+    "SIG_VOL_REGIME": lambda price: sig_vol_regime(price, normalization="rolling"),
 }
 DEFAULT_PRICE_CSV = REPO_ROOT / "data" / "local" / "market_data" / "BTCUSDT" / "1d" / "BTCUSDT-1d.csv"
 
@@ -108,9 +108,9 @@ def load_close_price(path: Path) -> pd.Series:
 def build_ewmac_forecasts(price: pd.Series) -> pd.DataFrame:
     forecasts = pd.DataFrame(
         {
-            f"EWMAC_{fast}_{slow}": ewmac_forecast(price, fast_span=fast, slow_span=slow).rename(
-                f"EWMAC_{fast}_{slow}"
-            )
+            f"EWMAC_{fast}_{slow}": ewmac_forecast(
+                price, fast_span=fast, slow_span=slow, normalization="rolling"
+            ).rename(f"EWMAC_{fast}_{slow}")
             for fast, slow in EWMAC_SPEEDS
         }
     )

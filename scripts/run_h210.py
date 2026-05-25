@@ -24,12 +24,12 @@ from trading_learning.signals.forecast_library import (  # noqa: E402
 )
 
 SIGNAL_BUILDERS = {
-    "SIG_TREND_FAST": sig_trend_fast,
-    "SIG_TREND_SLOW": sig_trend_slow,
-    "SIG_BREAKOUT": sig_breakout,
-    "SIG_MEAN_REV": sig_mean_rev,
-    "SIG_MOMENTUM": sig_momentum,
-    "SIG_VOL_REGIME": sig_vol_regime,
+    "SIG_TREND_FAST": lambda price: sig_trend_fast(price, normalization="rolling"),
+    "SIG_TREND_SLOW": lambda price: sig_trend_slow(price, normalization="rolling"),
+    "SIG_BREAKOUT": lambda price: sig_breakout(price, normalization="rolling"),
+    "SIG_MEAN_REV": lambda price: sig_mean_rev(price, normalization="rolling"),
+    "SIG_MOMENTUM": lambda price: sig_momentum(price, normalization="rolling"),
+    "SIG_VOL_REGIME": lambda price: sig_vol_regime(price, normalization="rolling"),
 }
 
 DEFAULT_PRICE_CSV = REPO_ROOT / "data" / "local" / "market_data" / "BTCUSDT" / "1d" / "BTCUSDT-1d.csv"

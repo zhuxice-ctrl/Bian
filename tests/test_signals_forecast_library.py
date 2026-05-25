@@ -7,6 +7,7 @@ from trading_learning.signals.forecast_library import (
     ewmac_forecast,
     mean_reversion_forecast,
     momentum_forecast,
+    normalize_forecast,
     sig_breakout,
     sig_mean_rev,
     sig_momentum,
@@ -15,6 +16,38 @@ from trading_learning.signals.forecast_library import (
     sig_vol_regime,
     vol_regime_forecast,
 )
+
+
+def test_normalize_forecast_defaults_to_expanding_and_starts_on_sixtieth_day():
+    raw = pd.Series(
+        np.ones(80),
+        index=pd.date_range("2026-01-01", periods=80, freq="D", tz="UTC"),
+        name="raw",
+    )
+
+    forecast = normalize_forecast(raw)
+
+    assert forecast.first_valid_index() == raw.index[59]
+    assert forecast.dropna().iloc[0] == pytest.approx(0.5)
+    assert _finite_values_are_capped(forecast)
+
+
+def test_normalize_forecast_rolling_mode_preserves_252_day_burn_in():
+    raw = pd.Series(
+        np.ones(300),
+        index=pd.date_range("2026-01-01", periods=300, freq="D", tz="UTC"),
+        name="raw",
+    )
+
+    forecast = normalize_forecast(raw, normalization="rolling")
+
+    assert forecast.first_valid_index() == raw.index[251]
+    assert forecast.dropna().iloc[0] == pytest.approx(0.5)
+
+
+def test_normalize_forecast_rejects_unknown_normalization_mode():
+    with pytest.raises(ValueError, match="normalization"):
+        normalize_forecast(pd.Series([1.0, 2.0, 3.0]), normalization="forever")
 
 
 def test_ewmac_trend_forecasts_are_positive_on_monotonic_uptrend():
@@ -29,6 +62,16 @@ def test_ewmac_trend_forecasts_are_positive_on_monotonic_uptrend():
     assert slow.dropna().iloc[-1] > 0
     assert _finite_values_are_capped(fast)
     assert _finite_values_are_capped(slow)
+
+
+def test_ewmac_rolling_mode_preserves_long_slow_span_burn_in():
+    price = _linear_price()
+
+    expanding = ewmac_forecast(price, fast_span=64, slow_span=256)
+    rolling = ewmac_forecast(price, fast_span=64, slow_span=256, normalization="rolling")
+
+    assert expanding.first_valid_index() == price.index[59]
+    assert rolling.first_valid_index() == price.index[506]
 
 
 def test_parameterized_ewmac_forecast_validates_span_order():
