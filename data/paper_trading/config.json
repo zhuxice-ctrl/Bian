@@ -1,0 +1,11 @@
+{
+  "fdm": 2.753598,
+  "capital": 100000,
+  "cost_per_round_trip": 0.002,
+  "target_vol": 0.2,
+  "vol_lookback": 60,
+  "periods_per_year": 365,
+  "max_leverage": 2.0,
+  "forecast_cap": 2.0,
+  "data_update_mode": "manual"
+}
