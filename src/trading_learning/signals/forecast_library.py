@@ -70,6 +70,22 @@ def mean_reversion_forecast(
     return normalize_forecast(raw, window=normalization_window, normalization=normalization).rename("SIG_MEAN_REV")
 
 
+def mean_reversion_slow_forecast(
+    price: pd.Series,
+    *,
+    window: int = 120,
+    normalization_window: int = DEFAULT_NORMALIZATION_WINDOW,
+    normalization: str = "expanding",
+) -> pd.Series:
+    """Return a slower mean-reversion forecast for lower-turnover subset tests."""
+    return mean_reversion_forecast(
+        price,
+        window=window,
+        normalization_window=normalization_window,
+        normalization=normalization,
+    ).rename("SIG_MEAN_REV_SLOW")
+
+
 def momentum_forecast(
     price: pd.Series,
     *,

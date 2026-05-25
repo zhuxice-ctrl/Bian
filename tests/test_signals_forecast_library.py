@@ -6,6 +6,7 @@ from trading_learning.signals.forecast_library import (
     breakout_forecast,
     ewmac_forecast,
     mean_reversion_forecast,
+    mean_reversion_slow_forecast,
     momentum_forecast,
     normalize_forecast,
     sig_breakout,
@@ -97,6 +98,17 @@ def test_mean_reversion_forecast_is_negative_after_extended_rise():
 
     assert forecast.dropna().iloc[-1] < 0
     assert _finite_values_are_capped(forecast)
+
+
+def test_mean_reversion_slow_forecast_matches_120_day_mean_reversion():
+    price = _linear_price()
+
+    slow = mean_reversion_slow_forecast(price)
+    expected = mean_reversion_forecast(price, window=120).rename("SIG_MEAN_REV_SLOW")
+
+    pd.testing.assert_series_equal(slow, expected)
+    assert slow.first_valid_index() == price.index[119]
+    assert slow.dropna().iloc[-1] < 0
 
 
 def test_momentum_forecast_is_positive_after_sixty_day_gain():
