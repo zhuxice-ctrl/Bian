@@ -5,6 +5,9 @@ const state = {
   reviews: [],
   knowledge: [],
   controlConsole: null,
+  paperStatus: null,
+  paperHistory: [],
+  paperEquityCurve: [],
   replay: null,
   report: null,
   reviewDraft: null,
@@ -25,6 +28,9 @@ const state = {
     ma60Series: null,
     equityChart: null,
     equitySeries: null,
+    paperEquityChart: null,
+    paperEquitySeries: null,
+    paperBenchmarkSeries: null,
     markerApi: null,
     data: [],
     volumeData: [],
@@ -64,6 +70,7 @@ const text = {
   noRiskFlags: "\u6682\u65e0\u98ce\u9669\u6807\u8bb0",
   noFocusTrades: "\u6682\u65e0\u91cd\u70b9\u4e8f\u635f\u4ea4\u6613",
   empty: "\u6682\u65e0\u8bb0\u5f55",
+  noPaper: "\u6682\u65e0 paper trading \u6570\u636e\uff0c\u5148\u8fd0\u884c backfill \u6216 /paper-update",
 };
 
 const routes = {
@@ -71,6 +78,7 @@ const routes = {
   chart: { title: "\u56fe\u8868\u6559\u7ec3", coach: "\u5728\u771f\u5b9e K \u7ebf\u4e0a\u5207\u6362\u5468\u671f\u3001\u8f85\u52a9\u7ebf\u548c\u4ea4\u6613\u70b9\uff0c\u5148\u5206\u6790\u7ed3\u6784\u518d\u770b\u56de\u6d4b\u6536\u76ca\u3002" },
   data: { title: "\u6570\u636e\u6559\u7ec3", coach: "\u4f18\u5148\u4fdd\u8bc1\u6570\u636e\u65b0\u9c9c\u3001\u5b8c\u6574\u3001\u6765\u6e90\u6e05\u695a\uff0c\u7f3a\u53e3\u6570\u636e\u5148\u4fee\u590d\u518d\u56de\u6d4b\u3002" },
   strategy: { title: "\u7b56\u7565\u6559\u7ec3", coach: "\u6bcf\u4e2a\u7b56\u7565\u90fd\u8981\u5199\u6e05\u5047\u8bbe\u3001\u53c2\u6570\u548c\u5931\u6548\u6761\u4ef6\u3002" },
+  paper: { title: "Paper Trading", coach: "\u68c0\u67e5\u7b56\u7565\u6743\u76ca\u3001\u4eca\u65e5 PnL\u3001\u76ee\u6807\u4ed3\u4f4d\u548c\u4fe1\u53f7\u662f\u5426\u4e00\u81f4\u3002" },
   backtests: { title: "\u56de\u6d4b\u6559\u7ec3", coach: "\u5173\u6ce8\u56de\u64a4\u3001\u4ea4\u6613\u8d28\u91cf\u3001\u8d39\u7528\u6ed1\u70b9\u548c\u662f\u5426\u8fc7\u62df\u5408\u3002" },
   experiments: { title: "\u5b9e\u9a8c\u6559\u7ec3", coach: "\u6bd4\u8f83\u5b9e\u9a8c\u65f6\u5148\u770b\u7a33\u5b9a\u6027\uff0c\u518d\u51b3\u5b9a\u7ee7\u7eed\u3001\u6dd8\u6c70\u6216\u8fdb\u5165\u6d4b\u8bd5\u7f51\u5019\u9009\u3002" },
   review: { title: "\u590d\u76d8\u6559\u7ec3", coach: "\u91cd\u70b9\u590d\u76d8\u4e8f\u635f\u4ea4\u6613\u3001\u8fdd\u53cd\u89c4\u5219\u548c\u7b56\u7565\u5931\u6548\u6761\u4ef6\u3002" },
@@ -290,13 +298,14 @@ function renderControlConsole() {
   const data = state.controlConsole;
   if (!data) return;
   const counts = data.health?.counts || {};
+  const paper = data.paper_trading || {};
   document.querySelector("#consoleMetrics").innerHTML = [
     metric("\u26412\u5730\u5065\u5eb7", data.health?.status || "-"),
     metric("\u961f\u5217\u4efb\u52a1", data.tasks?.length ?? 0),
     metric("AI Coach", data.coach?.proposals?.length ?? 0),
     metric("\u7b56\u7565 Profile", data.strategy_lab?.profiles?.length ?? 0),
     metric("\u53c2\u6570\u626b\u63cf", data.strategy_lab?.sweeps?.length ?? 0),
-    metric("\u5b9e\u76d8", data.production_gate?.real_trading_enabled ? "\u5df2\u542f\u7528" : "\u7981\u7528"),
+    metric("Paper", paper.status === "ok" ? `${fmt.format(paper.cumulative_return_pct || 0)}%` : "-"),
   ].join("");
   renderWorkspaceStatus(data.workspace_state || {});
   renderDailyCoachPlan(data.coach?.daily_plan || null);
@@ -305,10 +314,125 @@ function renderControlConsole() {
   renderCoachProposals(data.coach?.proposals || []);
   renderStrategyLab(data.strategy_lab || {});
   renderTestnetOrders(data.testnet?.orders || []);
+  renderPaperConsoleSummary(data.paper_trading || null);
   renderProductionGate(data.production_gate || {});
   renderReferenceList(data.references || []);
   renderTopStatus();
   renderCoachPanel(currentRoute());
+}
+
+function signedClass(value) {
+  const number = Number(value || 0);
+  if (number > 0) return "positive";
+  if (number < 0) return "negative";
+  return "";
+}
+
+function renderPaperTrading() {
+  renderPaperStatus(state.paperStatus);
+  renderPaperSignals(state.paperStatus);
+  renderPaperEquityCurve(state.paperEquityCurve);
+  renderPaperHistoryTable(state.paperHistory);
+}
+
+function renderPaperStatus(status) {
+  const target = document.querySelector("#paperStatusMetrics");
+  if (!target) return;
+  if (!status || status.status !== "ok") {
+    target.innerHTML = metric("Paper Trading", status?.message || text.noPaper);
+    return;
+  }
+  target.innerHTML = [
+    metric("\u5f53\u524d\u6743\u76ca", fmt.format(status.equity || 0)),
+    metric("\u7d2f\u8ba1\u6536\u76ca\u7387", `<span class="${signedClass(status.cumulative_return_pct)}">${fmt.format(status.cumulative_return_pct || 0)}%</span>`),
+    metric("\u4eca\u65e5 PnL", `<span class="${signedClass(status.daily_pnl)}">${fmt.format(status.daily_pnl || 0)}%</span>`),
+    metric("\u5f53\u524d\u4ed3\u4f4d", fmt.format(status.target_position || 0)),
+  ].join("");
+}
+
+function renderPaperSignals(status) {
+  const target = document.querySelector("#paperSignals");
+  if (!target) return;
+  if (!status || status.status !== "ok") {
+    target.innerHTML = `<p class="empty-note">${text.noPaper}</p>`;
+    return;
+  }
+  const signals = status.signals || {};
+  const rows = [
+    ["FAST", signals.trend_fast],
+    ["MOM", signals.momentum],
+    ["MR", signals.mean_rev],
+    ["VOL", signals.vol_regime],
+    ["Combined", signals.combined],
+  ];
+  target.innerHTML = rows
+    .map(([label, value]) => {
+      const number = Math.max(-2, Math.min(2, Number(value || 0)));
+      const width = Math.abs(number) / 2 * 50;
+      const side = number >= 0 ? "right" : "left";
+      return `
+        <div class="signal-row">
+          <span>${escapeHtml(label)}</span>
+          <div class="signal-track"><i class="${side}" style="width:${width}%"></i></div>
+          <strong class="${signedClass(number)}">${fmt.format(number)}</strong>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderPaperEquityCurve(curve) {
+  if (!state.chart.paperEquitySeries || !state.chart.paperBenchmarkSeries) return;
+  const data = curve || [];
+  state.chart.paperEquitySeries.setData(
+    data.filter((point) => point.date).map((point) => ({ time: point.date, value: point.equity })),
+  );
+  state.chart.paperBenchmarkSeries.setData(
+    data
+      .filter((point) => point.date && point.benchmark_equity)
+      .map((point) => ({ time: point.date, value: point.benchmark_equity })),
+  );
+}
+
+function renderPaperHistoryTable(history) {
+  const table = document.querySelector("#paperHistoryTable");
+  if (!table) return;
+  const rows = history || [];
+  table.innerHTML = `
+    <thead><tr><th>\u65e5\u671f</th><th>PnL</th><th>\u4ed3\u4f4d</th><th>\u4fe1\u53f7</th></tr></thead>
+    <tbody>
+      ${
+        rows.length
+          ? rows
+              .map(
+                (row) => `
+                  <tr>
+                    <td>${escapeHtml(row.date)}</td>
+                    <td class="${signedClass(row.daily_pnl)}">${fmt.format(row.daily_pnl || 0)}%</td>
+                    <td>${fmt.format(row.target_position || 0)}</td>
+                    <td>F ${fmt.format(row.signals?.trend_fast || 0)} / M ${fmt.format(row.signals?.momentum || 0)} / MR ${fmt.format(row.signals?.mean_rev || 0)} / V ${fmt.format(row.signals?.vol_regime || 0)}</td>
+                  </tr>
+                `,
+              )
+              .join("")
+          : `<tr><td colspan="4">${text.noPaper}</td></tr>`
+      }
+    </tbody>
+  `;
+}
+
+function renderPaperConsoleSummary(status) {
+  const box = document.querySelector("#paperConsoleSummary");
+  if (!box) return;
+  if (!status || status.status !== "ok") {
+    box.textContent = status?.message || text.noPaper;
+    return;
+  }
+  box.innerHTML = `
+    <strong>${escapeHtml(status.date)} &middot; ${fmt.format(status.equity || 0)}</strong>
+    <span>\u7d2f\u8ba1 ${fmt.format(status.cumulative_return_pct || 0)}% / \u4eca\u65e5 ${fmt.format(status.daily_pnl || 0)}%</span>
+    <span>\u4ed3\u4f4d ${fmt.format(status.target_position || 0)} / Combined ${fmt.format(status.signals?.combined || 0)}</span>
+  `;
 }
 
 function renderWorkspaceStatus(workspace) {
@@ -526,6 +650,25 @@ function createCharts() {
     lineWidth: 2,
     priceLineVisible: false,
   });
+  const paperChartTarget = document.querySelector("#paperEquityChart");
+  if (paperChartTarget) {
+    state.chart.paperEquityChart = LightweightCharts.createChart(paperChartTarget, {
+      layout: { background: { color: "#05080d" }, textColor: "#94a3b8", fontSize: 12 },
+      grid: { vertLines: { color: "#111827" }, horzLines: { color: "#111827" } },
+      timeScale: { timeVisible: false, secondsVisible: false, borderColor: "#243244" },
+      rightPriceScale: { borderColor: "#243244" },
+    });
+    state.chart.paperEquitySeries = state.chart.paperEquityChart.addSeries(LightweightCharts.LineSeries, {
+      color: "#2dd4bf",
+      lineWidth: 2,
+      priceLineVisible: false,
+    });
+    state.chart.paperBenchmarkSeries = state.chart.paperEquityChart.addSeries(LightweightCharts.LineSeries, {
+      color: "#f59e0b",
+      lineWidth: 2,
+      priceLineVisible: false,
+    });
+  }
   state.chart.markerApi = LightweightCharts.createSeriesMarkers(state.chart.candleSeries, []);
   state.chart.klineChart.subscribeCrosshairMove(updateCrosshairPanel);
   state.chart.klineChart.subscribeClick(selectNearestTradeByClick);
@@ -550,6 +693,10 @@ function resizeCharts() {
   state.chart.klineChart.applyOptions({ width: kline.clientWidth, height: kline.clientHeight });
   state.chart.volumeChart.applyOptions({ width: volume.clientWidth, height: volume.clientHeight });
   state.chart.equityChart.applyOptions({ width: equity.clientWidth, height: equity.clientHeight });
+  const paperEquity = document.querySelector("#paperEquityChart");
+  if (state.chart.paperEquityChart && paperEquity) {
+    state.chart.paperEquityChart.applyOptions({ width: paperEquity.clientWidth, height: paperEquity.clientHeight });
+  }
 }
 
 function movingAverage(candles, windowSize) {
@@ -1107,13 +1254,16 @@ async function loadDataset() {
 async function boot() {
   try {
     createCharts();
-    const [overview, reviews, experiments, knowledge, datasets, controlConsole] = await Promise.all([
+    const [overview, reviews, experiments, knowledge, datasets, controlConsole, paperStatus, paperHistory, paperCurve] = await Promise.all([
       getJson("/api/overview"),
       getJson("/api/reviews?limit=8"),
       getJson("/api/experiments?limit=12"),
       getJson("/api/knowledge?limit=12"),
       getJson("/api/datasets"),
       getJson("/api/control-console"),
+      getJson("/api/paper-trading/status"),
+      getJson("/api/paper-trading/history?days=30"),
+      getJson("/api/paper-trading/equity-curve"),
     ]);
     state.overview = overview;
     state.reviews = reviews.reviews;
@@ -1121,12 +1271,16 @@ async function boot() {
     state.knowledge = knowledge.cards;
     state.datasets = datasets.datasets;
     state.controlConsole = controlConsole;
+    state.paperStatus = paperStatus;
+    state.paperHistory = paperHistory.history || [];
+    state.paperEquityCurve = paperCurve.equity_curve || [];
     renderOverview();
     renderReviews();
     renderExperiments();
     renderDatasets();
     renderKnowledge();
     renderControlConsole();
+    renderPaperTrading();
     navigateTo();
     if (state.experiments.length) {
       await loadReplay();

@@ -13,6 +13,7 @@
           <strong>Bian</strong>
           <span>Local Quant</span>
         </div>
+        <a href="#paper" data-route="paper">Paper</a>
         <a href="#today" data-route="today">今日</a>
         <a href="#chart" data-route="chart">图表</a>
         <a href="#data" data-route="data">数据</a>
@@ -66,6 +67,10 @@
               <section class="panel">
                 <h3>系统摘要</h3>
                 <div class="metrics console-metrics" id="consoleMetrics"></div>
+              </section>
+              <section class="panel">
+                <h3>Paper Trading</h3>
+                <div id="paperConsoleSummary" class="info-box"></div>
               </section>
             </div>
           </section>
@@ -151,6 +156,31 @@
               <section class="panel">
                 <h3>参数扫描</h3>
                 <div class="list compact-list" id="sweepList"></div>
+              </section>
+            </div>
+          </section>
+
+          <section class="workspace-page paper-page" id="pagePaper" data-page="paper">
+            <div class="page-heading">
+              <div>
+                <span class="eyebrow">Paper Trading</span>
+                <h2>Bian v1 Paper Trading</h2>
+                <p>Current portfolio state, four-signal forecast, equity curve, and recent daily history.</p>
+              </div>
+            </div>
+            <div class="metrics" id="paperStatusMetrics"></div>
+            <div class="paper-layout">
+              <section class="panel">
+                <h3>Signals</h3>
+                <div id="paperSignals" class="signal-board"></div>
+              </section>
+              <section class="panel paper-chart-panel">
+                <h3>Equity Curve</h3>
+                <div id="paperEquityChart" class="paper-equity-panel"></div>
+              </section>
+              <section class="panel paper-history-panel">
+                <h3>Recent History</h3>
+                <table id="paperHistoryTable" class="paper-history-table"></table>
               </section>
             </div>
           </section>
