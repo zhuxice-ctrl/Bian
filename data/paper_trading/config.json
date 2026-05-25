@@ -7,5 +7,7 @@
   "periods_per_year": 365,
   "max_leverage": 2.0,
   "forecast_cap": 2.0,
-  "data_update_mode": "manual"
+  "data_update_mode": "manual",
+  "feishu_push_enabled": false,
+  "feishu_push_chat_id": ""
 }

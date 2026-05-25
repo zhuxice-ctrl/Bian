@@ -13,6 +13,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from trading_learning.market_data.binance_klines import update_csv  # noqa: E402
+from trading_learning.paper_push import send_paper_summary_if_enabled  # noqa: E402
 from trading_learning.paper_trading import daily_runner  # noqa: E402
 
 
@@ -21,6 +22,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--price-csv", type=Path, default=daily_runner.DEFAULT_PRICE_CSV)
     parser.add_argument("--trade", action="store_true", help="Run the daily paper-trading cycle after data update.")
     parser.add_argument("--status", action="store_true", help="Print the latest paper-trading status after update.")
+    parser.add_argument("--push", action="store_true", help="Send paper-trading summary to Feishu when enabled.")
     args = parser.parse_args(argv)
 
     try:
@@ -37,6 +39,10 @@ def main(argv: list[str] | None = None) -> int:
         daily_runner.run_daily(price_csv=args.price_csv, verbose=True)
     if args.status:
         print(daily_runner.load_status())
+    if args.push:
+        push_result = send_paper_summary_if_enabled(state_dir=daily_runner.DEFAULT_STATE_DIR)
+        suffix = f" message={push_result['message']}" if push_result.get("message") else ""
+        print(f"feishu_push={push_result['status']}{suffix}")
     return 0
 
 

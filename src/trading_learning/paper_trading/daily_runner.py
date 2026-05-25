@@ -150,6 +150,8 @@ def _write_config(path: Path, *, fdm: float, capital: float) -> None:
         "max_leverage": DEFAULT_MAX_LEVERAGE,
         "forecast_cap": DEFAULT_FORECAST_CAP,
         "data_update_mode": "manual",
+        "feishu_push_enabled": False,
+        "feishu_push_chat_id": "",
     }
     path.write_text(json.dumps(config, indent=2), encoding="utf-8")
 

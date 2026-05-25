@@ -46,6 +46,32 @@ def test_main_updates_csv_runs_trade_and_prints_status(tmp_path, monkeypatch, ca
     assert "date=2026-05-02 equity=101000.00" in output
 
 
+def test_main_push_flag_sends_optional_feishu_summary(tmp_path, monkeypatch, capsys):
+    price_csv = tmp_path / "BTCUSDT-1d.csv"
+    price_csv.write_text(
+        "opened_at,open,high,low,close,volume\n"
+        "2026-05-02T00:00:00+00:00,110,115,109,114,13.5\n",
+        encoding="utf-8",
+    )
+    push_calls = []
+
+    monkeypatch.setattr(daily_update, "update_csv", lambda csv_path: 0)
+    monkeypatch.setattr(daily_update.daily_runner, "run_daily", lambda **kwargs: object())
+    monkeypatch.setattr(daily_update.daily_runner, "load_status", lambda: "date=2026-05-02 equity=101000.00")
+
+    def fake_push(*, state_dir):
+        push_calls.append(Path(state_dir))
+        return {"status": "sent", "message_id": "msg-1"}
+
+    monkeypatch.setattr(daily_update, "send_paper_summary_if_enabled", fake_push)
+
+    exit_code = daily_update.main(["--price-csv", str(price_csv), "--trade", "--status", "--push"])
+
+    assert exit_code == 0
+    assert push_calls == [daily_update.daily_runner.DEFAULT_STATE_DIR]
+    assert "feishu_push=sent" in capsys.readouterr().out
+
+
 @pytest.mark.parametrize(
     "error",
     [

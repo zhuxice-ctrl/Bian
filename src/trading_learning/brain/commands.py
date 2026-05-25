@@ -41,6 +41,7 @@ from trading_learning.paper_access import format_history_message
 from trading_learning.paper_access import format_status_message
 from trading_learning.paper_access import load_history_payload
 from trading_learning.paper_access import load_status_payload
+from trading_learning.paper_push import send_paper_summary_if_enabled
 from trading_learning.paper_trading import daily_runner
 from trading_learning.production_gate import RealOrderIntent
 from trading_learning.production_gate import build_real_order_dry_run
@@ -500,10 +501,15 @@ class BrainCommandHandler:
             }
         payload = load_status_payload(state_dir=self.paper_state_dir)
         status_message = format_status_message(payload)
+        push_result = send_paper_summary_if_enabled(state_dir=self.paper_state_dir)
+        push_suffix = ""
+        if push_result.get("status") == "warning":
+            push_suffix = f"\nFeishu push warning: {push_result.get('message', '')}"
         return {
             **payload,
             "added_rows": int(added_rows),
-            "message": f"\u65b0\u589e\u884c\u6570: {int(added_rows)}\n{status_message}",
+            "feishu_push": push_result,
+            "message": f"\u65b0\u589e\u884c\u6570: {int(added_rows)}\n{status_message}{push_suffix}",
             "requires_confirmation": False,
         }
 
