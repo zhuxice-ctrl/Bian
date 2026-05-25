@@ -17,6 +17,8 @@ DEFAULT_MARKET_DATA_ROOT = Path("data/local")
 def dataset_path(symbol: str, interval: str, *, root: Path = DEFAULT_MARKET_DATA_ROOT) -> Path:
     normalized_symbol = symbol.upper()
     normalized_interval = interval.strip()
+    if normalized_interval in {"funding", "funding_rate"}:
+        return root / "market_data" / normalized_symbol / "funding" / f"{normalized_symbol}-funding.csv"
     if normalized_interval == "1h":
         return root / "market_data" / normalized_symbol / f"{normalized_symbol}-{normalized_interval}.csv"
     return root / "market_data" / normalized_symbol / normalized_interval / f"{normalized_symbol}-{normalized_interval}.csv"
