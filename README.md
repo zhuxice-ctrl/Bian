@@ -149,6 +149,20 @@ powershell -ExecutionPolicy Bypass -File scripts/brain-chat.ps1 -Command "/run s
 
 `/run suggested` only executes safe record/planning commands such as `/review-add`, `/lesson`, `/knowledge-add`, `/experiment-link`, `/experiment-review-commit`, `/plan-set`, and `/checklist`. Trading and confirmation commands must be typed manually.
 
+### Paper Trading Brain Commands
+
+Brain can read and run the Bian v1 paper trading system from terminal chat, HTTP, or Feishu:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/brain-chat.ps1 -Command "/paper-status"
+powershell -ExecutionPolicy Bypass -File scripts/brain-chat.ps1 -Command "/paper-update"
+powershell -ExecutionPolicy Bypass -File scripts/brain-chat.ps1 -Command "/paper-history days=7"
+```
+
+Chinese aliases are also supported: `策略状态`, `纸盘状态`, `每日更新`, `更新策略`, and `策略历史`.
+
+`/paper-update` refreshes Binance daily klines and then runs the paper-trading daily cycle. If Binance is blocked on the local network, set `HTTPS_PROXY` before running it.
+
 ## Local Read-Only Dashboard
 
 The dashboard serves local SQLite summaries and a browser K-line replay from CSV. It binds to loopback by default, opens the existing SQLite database read-only, and does not expose API keys or provide trading actions. Run `trading-learning init-db` before starting it on a fresh machine.
