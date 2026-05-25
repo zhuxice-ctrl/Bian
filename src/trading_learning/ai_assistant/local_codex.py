@@ -17,7 +17,7 @@ class LocalCodexClient:
     model: str
 
     def chat(self, system_prompt: str, user_prompt: str) -> str:
-        self._validate_loopback_base_url()
+        self._validate_base_url()
         payload = {
             "model": self.model,
             "messages": [
@@ -41,7 +41,7 @@ class LocalCodexClient:
 
     def health(self) -> dict[str, Any]:
         try:
-            self._validate_loopback_base_url()
+            self._validate_base_url()
             self.chat("Return JSON only.", '{"ping":"ok"}')
         except Exception as exc:
             return {
@@ -61,7 +61,15 @@ class LocalCodexClient:
             "message": "local Codex-compatible API is reachable",
         }
 
+    def _validate_base_url(self) -> None:
+        parsed = urlparse(self.base_url)
+        hostname = parsed.hostname
+        if parsed.scheme not in {"http", "https"} or not hostname:
+            raise ValueError("Local Codex base_url must use HTTP or HTTPS")
+        if hostname in _LOOPBACK_HOSTS:
+            return
+        if parsed.scheme != "https":
+            raise ValueError("Local Codex base_url must use loopback or HTTPS")
+
     def _validate_loopback_base_url(self) -> None:
-        hostname = urlparse(self.base_url).hostname
-        if hostname not in _LOOPBACK_HOSTS:
-            raise ValueError("Local Codex base_url must use a loopback host")
+        self._validate_base_url()

@@ -128,7 +128,7 @@ def test_build_natural_language_assistant_requires_local_key(tmp_path):
     assert build_natural_language_assistant(config) is None
 
 
-def test_build_natural_language_assistant_rejects_non_loopback_base_url(tmp_path):
+def test_build_natural_language_assistant_allows_https_remote_base_url(tmp_path):
     config = AppConfig(
         db_path=tmp_path / "test.sqlite3",
         local_codex_base_url="https://api.example.com/v1",
@@ -144,7 +144,39 @@ def test_build_natural_language_assistant_rejects_non_loopback_base_url(tmp_path
         feishu_app_secret=None,
     )
 
-    assert build_natural_language_assistant(config) is None
+    assert build_natural_language_assistant(config) is not None
+
+
+def test_llm_status_reports_invalid_plain_http_remote_url(tmp_path):
+    config = AppConfig(
+        db_path=tmp_path / "test.sqlite3",
+        local_codex_base_url="http://api.example.com/v1",
+        local_codex_model="test-model",
+        local_codex_api_key="local-key",
+        binance_testnet_base_url="https://testnet.binance.vision",
+        binance_testnet_api_key=None,
+        binance_testnet_api_secret=None,
+        feishu_verification_token=None,
+        feishu_encrypt_key=None,
+        feishu_user_map="",
+        feishu_app_id=None,
+        feishu_app_secret=None,
+    )
+    with connect(tmp_path / "brain.sqlite3") as conn:
+        initialize_schema(conn)
+        handler = BrainCommandHandler(
+            conn,
+            executor=FakeExecutor(),
+            llm_status_provider=build_llm_status_provider(config),
+        )
+
+        response = handler.handle("/llm-status", user_id="owner")
+
+    assert response["status"] == "ok"
+    assert response["llm"]["mode"] == "invalid"
+    assert response["llm"]["configured"] is True
+    assert response["llm"]["reachable"] is False
+    assert "loopback or HTTPS" in response["llm"]["message"]
 
 
 def test_llm_status_reports_mock_mode_without_local_key(tmp_path):

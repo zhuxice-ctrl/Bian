@@ -66,7 +66,7 @@ def build_natural_language_assistant(config: AppConfig):
         model=config.local_codex_model,
     )
     try:
-        client._validate_loopback_base_url()
+        client._validate_base_url()
     except ValueError:
         return None
     return LocalCodexBrainAssistant(client)
@@ -88,15 +88,16 @@ def build_llm_status_provider(config: AppConfig):
         model=config.local_codex_model,
     )
     try:
-        client._validate_loopback_base_url()
+        client._validate_base_url()
     except ValueError as exc:
+        message = str(exc)
         return lambda: {
             "mode": "invalid",
             "configured": True,
             "reachable": False,
             "base_url": config.local_codex_base_url,
             "model": config.local_codex_model,
-            "message": str(exc),
+            "message": message,
         }
     return client.health
 
