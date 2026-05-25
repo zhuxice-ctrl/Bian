@@ -7,4 +7,6 @@ __pycache__/
 .env
 exports/
 data/local/
+data/paper_trading/portfolio_state.csv
+data/paper_trading/latest_signals.json
 logs/
