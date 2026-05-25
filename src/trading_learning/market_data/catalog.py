@@ -14,10 +14,13 @@ DEFAULT_MARKET_INTERVALS = ("1m", "5m", "15m", "1h", "4h", "1d")
 DEFAULT_MARKET_DATA_ROOT = Path("data/local")
 
 
-def dataset_path(symbol: str, interval: str, *, root: Path = DEFAULT_MARKET_DATA_ROOT) -> Path:
+def dataset_path(symbol: str, interval: str, *, root: Path = DEFAULT_MARKET_DATA_ROOT, exchange: str = "binance") -> Path:
     normalized_symbol = symbol.upper()
     normalized_interval = interval.strip()
     if normalized_interval in {"funding", "funding_rate"}:
+        normalized_exchange = exchange.strip().lower()
+        if normalized_exchange == "okx":
+            return root / "market_data" / normalized_symbol / "funding" / f"{normalized_symbol}-funding-okx.csv"
         return root / "market_data" / normalized_symbol / "funding" / f"{normalized_symbol}-funding.csv"
     if normalized_interval == "1h":
         return root / "market_data" / normalized_symbol / f"{normalized_symbol}-{normalized_interval}.csv"

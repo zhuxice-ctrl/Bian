@@ -18,12 +18,17 @@ from trading_learning.market_data.backfill import (  # noqa: E402
 )
 from trading_learning.market_data.binance_klines import fetch_funding_rate_history, save_funding_rate_csv  # noqa: E402
 from trading_learning.market_data.catalog import DEFAULT_MARKET_DATA_ROOT, dataset_path  # noqa: E402
+from trading_learning.market_data.okx_data import (  # noqa: E402
+    fetch_funding_rate_history as fetch_okx_funding_rate_history,
+)
+from trading_learning.market_data.okx_data import save_funding_rate_csv as save_okx_funding_rate_csv  # noqa: E402
 
 DEFAULT_BACKFILL_SYMBOLS = "BTCUSDT,ETHUSDT,BNBUSDT,SOLUSDT"
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Backfill Binance klines into the local market-data catalog.")
+    parser.add_argument("--exchange", default="binance", choices=("binance", "okx"))
     parser.add_argument("--symbols", default=DEFAULT_BACKFILL_SYMBOLS, help="Comma-separated symbols.")
     parser.add_argument("--data-type", default="klines", choices=("klines", "funding"))
     parser.add_argument("--interval", default="1h", choices=SUPPORTED_BACKFILL_INTERVALS)
@@ -41,6 +46,7 @@ def main() -> int:
 
     if args.data_type == "funding":
         return _backfill_funding(
+            exchange=args.exchange,
             symbols=symbols,
             start=start,
             end=end,
@@ -48,6 +54,9 @@ def main() -> int:
             dry_run=args.dry_run,
             backup_existing=backup_existing,
         )
+
+    if args.exchange != "binance":
+        parser.error("--exchange=okx is only supported with --data-type=funding")
 
     if args.dry_run:
         result = dry_run_plan(
@@ -101,6 +110,7 @@ def main() -> int:
 
 def _backfill_funding(
     *,
+    exchange: str,
     symbols: tuple[str, ...],
     start: datetime,
     end: datetime,
@@ -108,21 +118,36 @@ def _backfill_funding(
     dry_run: bool,
     backup_existing: bool,
 ) -> int:
+    normalized_exchange = exchange.lower()
     start_ms = int(start.timestamp() * 1000)
     end_ms = int(end.timestamp() * 1000)
     if dry_run:
         result = {
             "dry_run": True,
             "data_type": "funding",
+            "exchange": normalized_exchange,
             "start": start.isoformat(),
             "end": end.isoformat(),
             "max_pages": max_pages,
             "datasets": [
                 {
                     "symbol": symbol,
-                    "path": str(dataset_path(symbol, "funding_rate", root=DEFAULT_MARKET_DATA_ROOT)),
+                    "path": str(
+                        dataset_path(
+                            symbol,
+                            "funding_rate",
+                            root=DEFAULT_MARKET_DATA_ROOT,
+                            exchange=normalized_exchange,
+                        )
+                    ),
                     "will_backup_existing": bool(
-                        dataset_path(symbol, "funding_rate", root=DEFAULT_MARKET_DATA_ROOT).exists() and backup_existing
+                        dataset_path(
+                            symbol,
+                            "funding_rate",
+                            root=DEFAULT_MARKET_DATA_ROOT,
+                            exchange=normalized_exchange,
+                        ).exists()
+                        and backup_existing
                     ),
                 }
                 for symbol in symbols
@@ -133,21 +158,32 @@ def _backfill_funding(
 
     failures = 0
     for symbol in symbols:
-        path = dataset_path(symbol, "funding_rate", root=DEFAULT_MARKET_DATA_ROOT)
-        print(f"[{symbol}] backfill funding {start.isoformat()} -> {end.isoformat()} into {path}", flush=True)
+        path = dataset_path(symbol, "funding_rate", root=DEFAULT_MARKET_DATA_ROOT, exchange=normalized_exchange)
+        label = "funding" if normalized_exchange == "binance" else f"{normalized_exchange} funding"
+        print(f"[{symbol}] backfill {label} {start.isoformat()} -> {end.isoformat()} into {path}", flush=True)
         try:
-            rows = fetch_funding_rate_history(symbol=symbol, start_ms=start_ms, end_ms=end_ms)
+            if normalized_exchange == "okx":
+                rows = fetch_okx_funding_rate_history(
+                    symbol=symbol,
+                    start_ms=start_ms,
+                    end_ms=end_ms,
+                    max_pages=max_pages,
+                )
+                save_rows = save_okx_funding_rate_csv
+            else:
+                rows = fetch_funding_rate_history(symbol=symbol, start_ms=start_ms, end_ms=end_ms)
+                save_rows = save_funding_rate_csv
             if path.exists() and backup_existing:
                 timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-                backup_path = path.with_name(f"{symbol}-funding.bak-{timestamp}.csv")
+                backup_path = path.with_name(f"{path.stem}.bak-{timestamp}.csv")
                 backup_path.parent.mkdir(parents=True, exist_ok=True)
                 backup_path.write_bytes(path.read_bytes())
-            save_funding_rate_csv(rows, path)
+            save_rows(rows, path)
         except Exception as exc:
             failures += 1
             print(f"[{symbol}] ERROR: {exc}", file=sys.stderr, flush=True)
             continue
-        print(f"[{symbol}] saved funding rows={len(rows)} path={path}", flush=True)
+        print(f"[{symbol}] saved {label} rows={len(rows)} path={path}", flush=True)
     return failures
 
 
