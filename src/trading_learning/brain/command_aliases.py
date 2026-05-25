@@ -64,6 +64,9 @@ _LEARNING_QUEUE_ALIASES = {_u(r"\u5b66\u4e60\u961f\u5217"), _u(r"\u590d\u4e60\u9
 _TASK_STATUS_ALIASES = {_u(r"\u4efb\u52a1\u72b6\u6001"), _u(r"\u8fdc\u7a0b\u4efb\u52a1"), _u(r"\u67e5\u770b\u4efb\u52a1")}
 _COACH_DAILY_ALIASES = {_u(r"\u4eca\u65e5\u6559\u7ec3"), _u(r"\u6559\u7ec3\u8ba1\u5212"), _u(r"\u4eca\u5929\u505a\u4ec0\u4e48")}
 _RUN_SUGGESTED_ALIASES = {_u(r"\u6267\u884c\u5efa\u8bae"), _u(r"\u8fd0\u884c\u5efa\u8bae"), _u(r"\u6267\u884c\u63a8\u8350")}
+_PAPER_STATUS_ALIASES = {_u(r"\u7b56\u7565\u72b6\u6001"), _u(r"\u7eb8\u76d8\u72b6\u6001")}
+_PAPER_UPDATE_ALIASES = {_u(r"\u6bcf\u65e5\u66f4\u65b0"), _u(r"\u66f4\u65b0\u7b56\u7565")}
+_PAPER_HISTORY_ALIASES = {_u(r"\u7b56\u7565\u5386\u53f2")}
 
 _SET_PLAN = _u(r"\u8bbe\u7f6e\u8ba1\u5212")
 _PLAN_STATUS = _u(r"\u8ba1\u5212\u72b6\u6001")
@@ -110,6 +113,12 @@ def normalize_brain_command(text: str) -> str:
         return "/coach-daily"
     if compact in _RUN_SUGGESTED_ALIASES:
         return "/run suggested"
+    if compact in _PAPER_STATUS_ALIASES:
+        return "/paper-status"
+    if compact in _PAPER_UPDATE_ALIASES:
+        return "/paper-update"
+    if compact in _PAPER_HISTORY_ALIASES:
+        return "/paper-history days=7"
     if compact == _RESEARCH_STATUS:
         return "/research-status"
     if compact == _RESEARCH_BASELINE:
