@@ -14,8 +14,17 @@ from trading_learning.paper_trading.signal_generator import (
     generate_signals,
 )
 
-DEFAULT_PRICE_CSV = Path("F:/Bian/data/local/market_data/BTCUSDT/1d/BTCUSDT-1d.csv")
-DEFAULT_STATE_DIR = Path("F:/Bian/data/paper_trading")
+import os as _os
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_PRICE_CSV = Path(
+    _os.environ.get("BIAN_PAPER_PRICE_CSV", "")
+    or str(_PROJECT_ROOT / "data" / "local" / "market_data" / "BTCUSDT" / "1d" / "BTCUSDT-1d.csv")
+)
+DEFAULT_STATE_DIR = Path(
+    _os.environ.get("BIAN_PAPER_STATE_DIR", "")
+    or str(_PROJECT_ROOT / "data" / "paper_trading")
+)
 DEFAULT_CAPITAL = 100_000
 DEFAULT_COST_PER_RT = 0.002
 DEFAULT_TARGET_VOL = 0.20
