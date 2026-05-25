@@ -13,15 +13,7 @@ class LocalCodexBrainAssistant:
     def reply(self, text: str, *, user_id: str, context: dict[str, Any]) -> dict[str, Any]:
         content = self.client.chat(
             system_prompt=self._system_prompt(),
-            user_prompt=json.dumps(
-                {
-                    "user_id": user_id,
-                    "message": text,
-                    "context": context,
-                },
-                ensure_ascii=False,
-                sort_keys=True,
-            ),
+            user_prompt=self._build_user_prompt(text, context),
         )
         parsed = self._parse_response(content)
         return {
@@ -65,6 +57,32 @@ class LocalCodexBrainAssistant:
                 result["suggested_command"] = data["suggested_command"]
             return result
         return {"message": content}
+
+    @staticmethod
+    def _build_user_prompt(text: str, context: dict[str, Any]) -> str:
+        parts = [f"用户说：{text}"]
+        paper = context.get("paper_trading")
+        if paper:
+            parts.append(
+                f"\n当前策略状态：权益{paper.get('equity', '?')} "
+                f"收益率{paper.get('cumulative_return_pct', '?')}% "
+                f"今日PnL {paper.get('daily_pnl', '?')}% "
+                f"仓位{paper.get('target_position', '?')}"
+            )
+            signals = paper.get("signals") or {}
+            if signals:
+                parts.append(
+                    f"信号：FAST={signals.get('trend_fast','?')} "
+                    f"MOM={signals.get('momentum','?')} "
+                    f"MR={signals.get('mean_rev','?')} "
+                    f"VOL={signals.get('vol_regime','?')} "
+                    f"Combined={signals.get('combined','?')}"
+                )
+        plan = context.get("plan")
+        if plan:
+            parts.append(f"今日计划：{plan.get('strategy_goal', '无')}")
+        parts.append("\n请用 JSON 回答，格式：{\"message\": \"...\", \"suggested_command\": \"...或空\"}")
+        return "\n".join(parts)
 
 
 def mock_mode_guidance() -> dict[str, Any]:

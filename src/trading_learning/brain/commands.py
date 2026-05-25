@@ -2597,6 +2597,7 @@ class BrainCommandHandler:
         return {
             "today": self._today(),
             "plan": self._plan_for_date(self._today()),
+            "paper_trading": self._paper_context_summary(),
             "available_commands": [
                 "/status",
                 "/plan-set",
@@ -2619,8 +2620,28 @@ class BrainCommandHandler:
                 "/daily-report",
                 "/weekly-report",
                 "/learning-next",
+                "/paper-status",
+                "/paper-history",
+                "/paper-update",
             ],
         }
+
+    def _paper_context_summary(self) -> dict[str, Any] | None:
+        try:
+            from trading_learning.paper_access import load_status_payload
+            payload = load_status_payload(state_dir=self.paper_state_dir)
+            if payload.get("status") != "ok":
+                return None
+            return {
+                "date": payload.get("date"),
+                "equity": payload.get("equity"),
+                "cumulative_return_pct": payload.get("cumulative_return_pct"),
+                "daily_pnl": payload.get("daily_pnl"),
+                "target_position": payload.get("target_position"),
+                "signals": payload.get("signals"),
+            }
+        except Exception:
+            return None
 
     def _execution_block(self, symbol: str) -> dict[str, Any] | None:
         context = self._execution_context(symbol)
