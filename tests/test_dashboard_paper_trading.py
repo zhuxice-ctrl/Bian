@@ -1,4 +1,5 @@
 import json
+from importlib.resources import files
 from http.server import HTTPServer
 from pathlib import Path
 from threading import Thread
@@ -136,3 +137,50 @@ def test_paper_trading_http_endpoints(tmp_path):
     assert status["status"] == "ok"
     assert len(history["history"]) == 2
     assert len(curve["equity_curve"]) == 3
+
+
+def test_control_console_includes_paper_trading_summary(tmp_path):
+    state_dir = tmp_path / "paper"
+    price_csv = tmp_path / "market" / "BTCUSDT-1d.csv"
+    _write_paper_files(state_dir, price_csv)
+    with connect(tmp_path / "dashboard.sqlite3") as conn:
+        initialize_schema(conn)
+
+        console = DashboardData(conn, paper_state_dir=state_dir, paper_price_csv=price_csv).control_console()
+
+    assert console["status"] == "ok"
+    assert console["paper_trading"]["status"] == "ok"
+    assert console["paper_trading"]["date"] == "2026-05-25"
+
+
+def test_dashboard_static_page_exposes_paper_trading_panel():
+    html = files("trading_learning.dashboard.static").joinpath("index.html").read_text(encoding="utf-8")
+
+    for marker in [
+        'data-route="paper"',
+        'id="paperConsoleSummary"',
+        'id="pagePaper"',
+        'id="paperStatusMetrics"',
+        'id="paperSignals"',
+        'id="paperEquityChart"',
+        'id="paperHistoryTable"',
+    ]:
+        assert marker in html
+
+
+def test_dashboard_static_script_loads_paper_trading_apis():
+    script = files("trading_learning.dashboard.static").joinpath("app.js").read_text(encoding="utf-8")
+
+    for marker in [
+        "paperStatus",
+        "function renderPaperTrading",
+        "function renderPaperStatus",
+        "function renderPaperSignals",
+        "function renderPaperEquityCurve",
+        "function renderPaperHistoryTable",
+        "function renderPaperConsoleSummary",
+        "/api/paper-trading/status",
+        "/api/paper-trading/history?days=30",
+        "/api/paper-trading/equity-curve",
+    ]:
+        assert marker in script
