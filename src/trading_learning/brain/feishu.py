@@ -3,8 +3,10 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import time
 import urllib.request
 from base64 import b64decode
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
@@ -88,14 +90,19 @@ class FeishuEventAdapter:
         user_id_map: dict[str, str] | None = None,
         messenger: Any | None = None,
         dedup_max_size: int = 500,
+        dedup_store_path: str | Path | None = None,
+        max_event_age_seconds: int = 300,
     ) -> None:
         self.command_handler = command_handler
         self.verification_token = verification_token
         self.encrypt_key = encrypt_key
         self.user_id_map = user_id_map or {}
         self.messenger = messenger
-        self._seen_message_ids: set[str] = set()
         self._dedup_max_size = dedup_max_size
+        self._dedup_store_path = Path(dedup_store_path) if dedup_store_path is not None else None
+        self._max_event_age_seconds = max_event_age_seconds
+        self._seen_event_keys: list[str] = self._load_dedup_keys()
+        self._seen_event_key_set: set[str] = set(self._seen_event_keys)
 
     def handle(
         self,
@@ -135,13 +142,13 @@ class FeishuEventAdapter:
 
         event = payload.get("event", {})
         message = event.get("message", {})
-        message_id = message.get("message_id", "")
-        if message_id:
-            if message_id in self._seen_message_ids:
-                return {"status": "dedup", "message": "duplicate Feishu event ignored"}
-            self._seen_message_ids.add(message_id)
-            if len(self._seen_message_ids) > self._dedup_max_size:
-                self._seen_message_ids = set(list(self._seen_message_ids)[-self._dedup_max_size // 2 :])
+        dedup_keys = self._dedup_keys(header, message)
+        if self._is_stale_event(header):
+            self._remember_event_keys(dedup_keys)
+            return {"status": "ignored", "message": "stale Feishu event ignored"}
+        if dedup_keys and any(key in self._seen_event_key_set for key in dedup_keys):
+            return {"status": "dedup", "message": "duplicate Feishu event ignored"}
+        self._remember_event_keys(dedup_keys)
         if message.get("message_type") != "text":
             return {"status": "ignored", "message": "unsupported Feishu message type"}
 
@@ -216,3 +223,61 @@ class FeishuEventAdapter:
             if key.lower() == name.lower():
                 return value
         return ""
+
+    @staticmethod
+    def _dedup_keys(header: dict[str, Any], message: dict[str, Any]) -> list[str]:
+        keys = []
+        event_id = str(header.get("event_id", "") or "").strip()
+        message_id = str(message.get("message_id", "") or "").strip()
+        if event_id:
+            keys.append(f"event:{event_id}")
+        if message_id:
+            keys.append(f"message:{message_id}")
+        return keys
+
+    def _is_stale_event(self, header: dict[str, Any]) -> bool:
+        raw_created_at = str(header.get("create_time", "") or "").strip()
+        if not raw_created_at:
+            return False
+        try:
+            created_at = int(raw_created_at)
+        except ValueError:
+            return False
+        if created_at > 10_000_000_000:
+            created_at = created_at // 1000
+        return time.time() - created_at > self._max_event_age_seconds
+
+    def _remember_event_keys(self, keys: list[str]) -> None:
+        changed = False
+        for key in keys:
+            if key in self._seen_event_key_set:
+                continue
+            self._seen_event_keys.append(key)
+            self._seen_event_key_set.add(key)
+            changed = True
+        if len(self._seen_event_keys) > self._dedup_max_size:
+            self._seen_event_keys = self._seen_event_keys[-self._dedup_max_size // 2 :]
+            self._seen_event_key_set = set(self._seen_event_keys)
+            changed = True
+        if changed:
+            self._save_dedup_keys()
+
+    def _load_dedup_keys(self) -> list[str]:
+        if self._dedup_store_path is None or not self._dedup_store_path.exists():
+            return []
+        try:
+            data = json.loads(self._dedup_store_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return []
+        if not isinstance(data, list):
+            return []
+        return [str(item) for item in data if str(item).strip()][-self._dedup_max_size :]
+
+    def _save_dedup_keys(self) -> None:
+        if self._dedup_store_path is None:
+            return
+        self._dedup_store_path.parent.mkdir(parents=True, exist_ok=True)
+        self._dedup_store_path.write_text(
+            json.dumps(self._seen_event_keys[-self._dedup_max_size :], ensure_ascii=False),
+            encoding="utf-8",
+        )

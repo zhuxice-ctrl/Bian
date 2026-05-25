@@ -504,6 +504,7 @@ def main(argv: list[str] | None = None) -> int:
                 encrypt_key=config.feishu_encrypt_key,
                 user_id_map=parse_key_value_map(config.feishu_user_map),
                 messenger=feishu_messenger,
+                dedup_store_path=config.db_path.parent / "feishu_event_dedup.json",
             )
             server = HTTPServer(
                 (args.host, args.port),
