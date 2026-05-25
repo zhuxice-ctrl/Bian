@@ -54,6 +54,19 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             if parsed.path == "/api/control-console":
                 self._write_json(self.data.control_console(), HTTPStatus.OK)
                 return
+            if parsed.path == "/api/paper-trading/status":
+                self._write_json(self.data.paper_trading_status(), HTTPStatus.OK)
+                return
+            if parsed.path == "/api/paper-trading/history":
+                query = parse_qs(parsed.query)
+                self._write_json(
+                    self.data.paper_trading_history(days=self._days(query)),
+                    HTTPStatus.OK,
+                )
+                return
+            if parsed.path == "/api/paper-trading/equity-curve":
+                self._write_json(self.data.paper_trading_equity_curve(), HTTPStatus.OK)
+                return
             if parsed.path == "/api/backtest-report":
                 query = parse_qs(parsed.query)
                 self._write_json(
@@ -157,6 +170,13 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             return max(1, min(1000, int(query.get("limit", ["300"])[0])))
         except ValueError:
             return 300
+
+    @staticmethod
+    def _days(query: dict[str, list[str]]) -> int:
+        try:
+            return max(1, min(1000, int(query.get("days", ["30"])[0])))
+        except ValueError:
+            return 30
 
 
 def build_dashboard_handler(data: Any) -> type[DashboardRequestHandler]:

@@ -15,6 +15,10 @@ from trading_learning.market_data.catalog import inventory_datasets
 from trading_learning.market_data.csv_loader import load_candles_csv
 from trading_learning.models import BacktestResult, Side, Trade
 from trading_learning.ops import build_local_health
+from trading_learning.paper_access import load_equity_curve_payload
+from trading_learning.paper_access import load_history_payload
+from trading_learning.paper_access import load_status_payload
+from trading_learning.paper_trading import daily_runner
 from trading_learning.production_gate import production_readiness_status
 from trading_learning.workspace import build_workspace_state
 
@@ -25,9 +29,13 @@ class DashboardData:
         conn: sqlite3.Connection,
         *,
         allowed_symbols: tuple[str, ...] = DEFAULT_ALLOWED_SYMBOLS,
+        paper_state_dir: Path | None = None,
+        paper_price_csv: Path | None = None,
     ) -> None:
         self.conn = conn
         self.allowed_symbols = allowed_symbols
+        self.paper_state_dir = paper_state_dir or daily_runner.DEFAULT_STATE_DIR
+        self.paper_price_csv = paper_price_csv or daily_runner.DEFAULT_PRICE_CSV
 
     def overview(self) -> dict[str, Any]:
         review = self.conn.execute(
@@ -183,6 +191,7 @@ class DashboardData:
             "testnet": {
                 "orders": self._testnet_orders(limit=5),
             },
+            "paper_trading": self.paper_trading_status(),
             "production_gate": production_readiness_status(),
             "references": [
                 {
@@ -199,6 +208,15 @@ class DashboardData:
                 },
             ],
         }
+
+    def paper_trading_status(self) -> dict[str, Any]:
+        return load_status_payload(state_dir=self.paper_state_dir)
+
+    def paper_trading_history(self, *, days: int = 30) -> dict[str, Any]:
+        return load_history_payload(state_dir=self.paper_state_dir, days=days)
+
+    def paper_trading_equity_curve(self) -> dict[str, Any]:
+        return load_equity_curve_payload(state_dir=self.paper_state_dir, price_csv=self.paper_price_csv)
 
     def datasets(self) -> dict[str, Any]:
         return {
