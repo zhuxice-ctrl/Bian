@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from dataclasses import replace
 from dataclasses import dataclass
@@ -10,6 +11,7 @@ from typing import Any, Callable
 from uuid import uuid4
 
 import pandas as pd
+import requests
 
 from trading_learning.backtest.engine import run_spot_backtest
 from trading_learning.backtest.report import summarize_backtest
@@ -30,11 +32,16 @@ from trading_learning.learning.curriculum import build_failed_experiment_learnin
 from trading_learning.learning.curriculum import build_review_queue
 from trading_learning.learning.daily_coach import build_daily_coach_plan
 from trading_learning.learning.repository import save_knowledge_card
-from trading_learning.market_data.binance_klines import fetch_klines, save_klines_csv
+from trading_learning.market_data.binance_klines import fetch_klines, save_klines_csv, update_csv
 from trading_learning.market_data.catalog import DEFAULT_MARKET_INTERVALS
 from trading_learning.market_data.catalog import inventory_datasets
 from trading_learning.market_data.catalog import refresh_market_data
 from trading_learning.market_data.csv_loader import load_candles_csv
+from trading_learning.paper_access import format_history_message
+from trading_learning.paper_access import format_status_message
+from trading_learning.paper_access import load_history_payload
+from trading_learning.paper_access import load_status_payload
+from trading_learning.paper_trading import daily_runner
 from trading_learning.production_gate import RealOrderIntent
 from trading_learning.production_gate import build_real_order_dry_run
 from trading_learning.production_gate import production_readiness_status
@@ -71,6 +78,10 @@ class BrainCommandHandler:
         kline_fetcher: Callable[..., Any] | None = None,
         db_path: Path | None = None,
         backup_dir: Path | None = None,
+        paper_state_dir: Path | None = None,
+        paper_price_csv: Path | None = None,
+        paper_update_csv: Callable[[Path], int] | None = None,
+        paper_run_daily: Callable[..., Any] | None = None,
     ) -> None:
         self.conn = conn
         self.executor = executor
@@ -82,6 +93,10 @@ class BrainCommandHandler:
         self.kline_fetcher = kline_fetcher or fetch_klines
         self.db_path = db_path
         self.backup_dir = backup_dir or Path("data/backups")
+        self.paper_state_dir = paper_state_dir or daily_runner.DEFAULT_STATE_DIR
+        self.paper_price_csv = paper_price_csv or daily_runner.DEFAULT_PRICE_CSV
+        self.paper_update_csv = paper_update_csv or update_csv
+        self.paper_run_daily = paper_run_daily or daily_runner.run_daily
 
     def handle(self, text: str, *, user_id: str) -> dict[str, Any]:
         command_text = normalize_brain_command(text.strip())
@@ -105,6 +120,21 @@ class BrainCommandHandler:
 
         if command_text == "/llm-status":
             response = self._llm_status()
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/paper-status"):
+            response = self._paper_status()
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/paper-update"):
+            response = self._paper_update()
+            self._audit(user_id, command_text, response)
+            return response
+
+        if command_text.startswith("/paper-history"):
+            response = self._paper_history(command_text)
             self._audit(user_id, command_text, response)
             return response
 
@@ -434,6 +464,59 @@ class BrainCommandHandler:
                 f"reachable={bool(llm.get('reachable'))} | "
                 f"base_url={llm.get('base_url', '')}"
             ),
+            "requires_confirmation": False,
+        }
+
+    def _paper_status(self) -> dict[str, Any]:
+        payload = load_status_payload(state_dir=self.paper_state_dir)
+        return {
+            **payload,
+            "message": format_status_message(payload),
+            "requires_confirmation": False,
+        }
+
+    def _paper_update(self) -> dict[str, Any]:
+        try:
+            added_rows = self.paper_update_csv(Path(self.paper_price_csv))
+            self.paper_run_daily(
+                price_csv=Path(self.paper_price_csv),
+                state_dir=Path(self.paper_state_dir),
+                verbose=False,
+            )
+        except requests.RequestException as exc:
+            proxy_hint = ""
+            if not (os.getenv("HTTPS_PROXY") or os.getenv("https_proxy")):
+                proxy_hint = " Set HTTPS_PROXY first if Binance is blocked from this network."
+            return {
+                "status": "failed",
+                "message": f"Paper update failed while reaching Binance: {exc}.{proxy_hint}",
+                "requires_confirmation": False,
+            }
+        except Exception as exc:
+            return {
+                "status": "failed",
+                "message": f"Paper update failed: {exc}",
+                "requires_confirmation": False,
+            }
+        payload = load_status_payload(state_dir=self.paper_state_dir)
+        status_message = format_status_message(payload)
+        return {
+            **payload,
+            "added_rows": int(added_rows),
+            "message": f"\u65b0\u589e\u884c\u6570: {int(added_rows)}\n{status_message}",
+            "requires_confirmation": False,
+        }
+
+    def _paper_history(self, command_text: str) -> dict[str, Any]:
+        fields = self._parse_key_value_args(command_text.removeprefix("/paper-history").strip())
+        try:
+            days = int(fields.get("days", "7"))
+        except ValueError:
+            days = 7
+        payload = load_history_payload(state_dir=self.paper_state_dir, days=days)
+        return {
+            **payload,
+            "message": format_history_message(payload),
             "requires_confirmation": False,
         }
 
