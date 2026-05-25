@@ -31,6 +31,58 @@ class BacktestResult:
     metrics: dict
 
 
+def compute_fdm(
+    forecasts: pd.DataFrame,
+    weights: np.ndarray | None = None,
+) -> float:
+    """Compute the Forecast Diversification Multiplier from forecast correlations."""
+    clean_forecasts = forecasts.astype(float).dropna(how="any")
+    if clean_forecasts.empty:
+        raise ValueError("forecasts must contain at least one complete row")
+
+    corr = clean_forecasts.corr()
+    n = len(corr)
+    if n == 0:
+        raise ValueError("forecasts must contain at least one column")
+    if weights is None:
+        weights = np.ones(n) / n
+    weights = np.asarray(weights, dtype=float)
+    if weights.shape != (n,):
+        raise ValueError("weights must match the number of forecast columns")
+
+    portfolio_var = float(weights @ corr.values @ weights)
+    if portfolio_var <= 0.0 or not np.isfinite(portfolio_var):
+        return 1.0
+    return float(1.0 / np.sqrt(portfolio_var))
+
+
+def combine_forecasts(
+    forecasts: pd.DataFrame,
+    weights: np.ndarray | None = None,
+    apply_fdm: bool = True,
+    forecast_cap: float = 2.0,
+) -> pd.Series:
+    """Combine forecast columns and optionally apply FDM before clipping."""
+    if forecast_cap <= 0.0:
+        raise ValueError("forecast_cap must be positive")
+
+    clean_forecasts = forecasts.astype(float).dropna(how="any")
+    if clean_forecasts.empty:
+        raise ValueError("forecasts must contain at least one complete row")
+
+    n = clean_forecasts.shape[1]
+    if weights is None:
+        weights = np.ones(n) / n
+    weights = np.asarray(weights, dtype=float)
+    if weights.shape != (n,):
+        raise ValueError("weights must match the number of forecast columns")
+
+    combined = clean_forecasts @ weights
+    if apply_fdm:
+        combined = combined * compute_fdm(clean_forecasts, weights)
+    return combined.clip(-forecast_cap, forecast_cap).rename("combined_forecast")
+
+
 def backtest_forecast(
     forecast: pd.Series,
     price: pd.Series,
