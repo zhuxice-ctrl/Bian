@@ -1,3 +1,4 @@
+#项目结束，感谢陪伴刚开始接触开发和量化的你。虽然是个失败品，但随着我这三个月的接触开发，让我逐渐完善了自己的一套思维，我将要新开项目来完成这个未完成的任务
 # Trading Learning
 
 Local low-frequency crypto trading learning system.
